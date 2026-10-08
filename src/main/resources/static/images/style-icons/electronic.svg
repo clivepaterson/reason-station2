@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">Electronic music sawtooth synthesizer</title>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="5" x2="88" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#082f3a"/>
+      <stop offset=".55" stop-color="#0e5361"/>
+      <stop offset="1" stop-color="#217786"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="18" y1="19" x2="77" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#062832"/>
+      <stop offset="1" stop-color="#0b3d47"/>
+    </linearGradient>
+    <linearGradient id="wave" x1="21" y1="39" x2="75" y2="39" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#72c7c7"/>
+      <stop offset=".52" stop-color="#e8faf5"/>
+      <stop offset="1" stop-color="#9ee0d9"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-60%" width="160%" height="220%">
+      <feGaussianBlur stdDeviation="1.8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="96" height="96" rx="16" fill="url(#bg)"/>
+  <path d="M0 74 74 0h22v25L25 96H0Z" fill="#65b4b8" opacity=".06"/>
+
+  <rect x="14" y="14" width="68" height="51" rx="9" fill="#052a33" opacity=".45"/>
+  <rect x="16" y="12" width="64" height="51" rx="8" fill="url(#screen)" stroke="#5da4aa" stroke-opacity=".38" stroke-width="2"/>
+  <g stroke="#8bc9c8" stroke-width="1" opacity=".1">
+    <path d="M20 27h56M20 39h56M20 51h56"/>
+    <path d="M30 17v41M43 17v41M56 17v41M69 17v41"/>
+  </g>
+  <path d="M21 51 34 25v26l14-26v26l14-26v26l13-26" fill="none" stroke="#89d7d2" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".13" filter="url(#glow)"/>
+  <path d="M21 51 34 25v26l14-26v26l14-26v26l13-26" fill="none" stroke="url(#wave)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+
+  <g stroke="#aedbd8" stroke-linecap="round">
+    <path d="M19 77h58" stroke="#062f39" stroke-width="7" opacity=".65"/>
+    <path d="M19 75h58" stroke-width="2" opacity=".48"/>
+    <path d="M19 75h35" stroke="#bcece6" stroke-width="3"/>
+  </g>
+  <g fill="#92cecc" opacity=".55">
+    <rect x="18" y="82" width="2" height="4" rx="1"/>
+    <rect x="29" y="82" width="2" height="4" rx="1"/>
+    <rect x="41" y="82" width="2" height="4" rx="1"/>
+    <rect x="53" y="82" width="2" height="4" rx="1"/>
+    <rect x="65" y="82" width="2" height="4" rx="1"/>
+    <rect x="76" y="82" width="2" height="4" rx="1"/>
+  </g>
+  <circle cx="54" cy="77" r="9" fill="#062d37" opacity=".5"/>
+  <circle cx="54" cy="75" r="7" fill="#dff5f0" stroke="#76bfc0" stroke-width="2"/>
+  <path d="M51 75h6" stroke="#0d5965" stroke-width="2" stroke-linecap="round"/>
+</svg>

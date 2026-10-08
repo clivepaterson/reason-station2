@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reason Station - Explore Ideas Through Reasoning</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="site-page">
+<div id="site-header">
+    <nav class="navbar">
+        <div class="container">
+            <a class="logo-title" href="/index.html" aria-label="Reason Station home">
+                <img src="/images/logo_by_chatgpt.jpg" alt="Reason Station">
+                <span>Reason <b>Station</b></span>
+                <span id="header-rs-2">2</span>
+            </a>
+            <form id="track-search-form" class="track-search" role="search" action="/index.html" method="get">
+                <label class="visually-hidden" for="track-search-input">Search tracks</label>
+                <input id="track-search-input" name="search" type="search"
+                       placeholder="Search artist or track" maxlength="100"
+                       autocomplete="off">
+                <button type="submit">Search</button>
+            </form>
+            <ul class="nav-menu">
+                <li><a id="links-link" href="/index.html?view=links">Links</a></li>
+                <li><a id="auth-link" href="#register-dialog" data-auth-dialog="register-dialog">Create account</a></li>
+                <li><a id="login-link" href="#login-dialog" data-auth-dialog="login-dialog">Log in</a></li>
+                <li><a id="my-tracks-link" href="/index.html?view=my-tracks" hidden>My tracks</a></li>
+            </ul>
+        </div>
+    </nav>
+</div>
+
+<main id="site-content">
+    <div id="home-page">
+        <section class="hero" id="home">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Welcome to <span class="hero-brand">Reason <b>Station</b><span class="hero-rs-2">2</span></span></h1>
+                    <p>A platform for sharing your love of sound synthesis</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="home-discovery">
+            <div class="container home-discovery-layout">
+                <div class="home-discovery-main">
+                    <section class="about" id="artist">
+                        <h2>3 random artists to explore</h2>
+                        <div id="random-artist-loading" class="loading-indicator" role="status">
+                            <span class="loading-spinner" aria-hidden="true"></span>
+                            <span>Loading artists...</span>
+                        </div>
+                        <ul id="random-artist" class="discovery-list" hidden></ul>
+                    </section>
+
+                    <section class="features" id="tracks">
+                        <h2>Random tracks</h2>
+                        <div id="random-tracks-loading" class="loading-indicator" role="status">
+                            <span class="loading-spinner" aria-hidden="true"></span>
+                            <span>Loading tracks...</span>
+                        </div>
+                        <ul id="random-tracks" class="discovery-list" hidden></ul>
+                    </section>
+                </div>
+
+                <aside class="discovery-sidebar" aria-label="Track and artist charts">
+                    <section class="sidebar-panel sidebar-panel-featured">
+                        <header class="sidebar-panel-header">
+                            <span class="sidebar-eyebrow">Weekly chart</span>
+                            <h2>Most popular track this week</h2>
+                        </header>
+                        <div id="popular-tracks-loading" class="sidebar-loading loading-indicator" role="status">
+                            <span class="loading-spinner" aria-hidden="true"></span>
+                            <span>Loading chart...</span>
+                        </div>
+                        <ol id="popular-tracks" class="sidebar-list track-ranking" hidden></ol>
+                    </section>
+
+                    <section class="sidebar-panel">
+                        <header class="sidebar-panel-header">
+                            <span class="sidebar-eyebrow">Weekly ratings</span>
+                            <h2>Highest rated tracks this week</h2>
+                        </header>
+                        <div id="highest-rated-tracks-loading" class="sidebar-loading loading-indicator" role="status">
+                            <span class="loading-spinner" aria-hidden="true"></span>
+                            <span>Loading ratings...</span>
+                        </div>
+                        <ol id="highest-rated-tracks" class="sidebar-list track-ranking" hidden></ol>
+                    </section>
+
+                    <section class="sidebar-panel">
+                        <header class="sidebar-panel-header">
+                            <span class="sidebar-eyebrow">Monthly chart</span>
+                            <h2>Most popular artists this month</h2>
+                        </header>
+                        <div id="popular-artists-loading" class="sidebar-loading loading-indicator" role="status">
+                            <span class="loading-spinner" aria-hidden="true"></span>
+                            <span>Loading artists...</span>
+                        </div>
+                        <ol id="popular-artists" class="sidebar-list artist-ranking" hidden></ol>
+                    </section>
+
+                    <section class="sidebar-panel">
+                        <header class="sidebar-panel-header">
+                            <span class="sidebar-eyebrow">Just uploaded</span>
+                            <h2>The 10 newest tracks</h2>
+                        </header>
+                        <div id="newest-tracks-loading" class="sidebar-loading loading-indicator" role="status">
+                            <span class="loading-spinner" aria-hidden="true"></span>
+                            <span>Loading tracks...</span>
+                        </div>
+                        <ol id="newest-tracks" class="sidebar-list newest-ranking" hidden></ol>
+                    </section>
+                </aside>
+            </div>
+        </div>
+    </div>
+
+    <section id="my-tracks-page" class="tracks-page" hidden>
+        <div class="container">
+            <div class="tracks-header">
+                <div>
+                    <h1>My tracks</h1>
+                    <p id="tracks-status" aria-live="polite">Checking your sign-in status...</p>
+                </div>
+                <button class="cta-button" id="upload-track-button" type="button" hidden>Upload Track</button>
+            </div>
+
+            <div id="upload-dialog-backdrop" class="upload-dialog-backdrop" hidden></div>
+            <form id="upload-track-form" class="track-form" hidden>
+                <h2>Upload a track</h2>
+                <label for="artist-alias">Artist alias</label>
+                <input id="artist-alias" name="artistAlias" type="text" required maxlength="100"
+                       pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
+                       title="Use only letters, numbers, and ()[]_.'+-">
+                <label for="track-name">Track name</label>
+                <input id="track-name" name="trackName" type="text" required maxlength="200"
+                       pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
+                       title="Use only letters, numbers, and ()[]_.'+-">
+                <label for="music-style">Music style</label>
+                <input id="music-style" name="musicStyle" type="text" required maxlength="100"
+                       list="music-style-options" autocomplete="off">
+                <datalist id="music-style-options">
+                    <option value="Rock"><option value="Alternative Rock"><option value="Classic Rock">
+                    <option value="Hard Rock"><option value="Soft Rock"><option value="Indie Rock">
+                    <option value="Progressive Rock"><option value="Psychedelic Rock"><option value="Punk Rock">
+                    <option value="Post-Punk"><option value="Garage Rock"><option value="Grunge"><option value="Emo">
+                    <option value="Pop Rock"><option value="Southern Rock"><option value="Blues Rock">
+                    <option value="Folk Rock"><option value="Industrial Rock"><option value="Gothic Rock">
+                    <option value="Post-Rock"><option value="Math Rock"><option value="Metal"><option value="Heavy Metal">
+                    <option value="Thrash Metal"><option value="Death Metal"><option value="Black Metal">
+                    <option value="Doom Metal"><option value="Power Metal"><option value="Progressive Metal">
+                    <option value="Symphonic Metal"><option value="Folk Metal"><option value="Nu Metal">
+                    <option value="Metalcore"><option value="Deathcore"><option value="Industrial Metal">
+                    <option value="Gothic Metal"><option value="Sludge Metal"><option value="Stoner Metal">
+                    <option value="Pop"><option value="Synthpop"><option value="Electropop"><option value="Dance Pop">
+                    <option value="Indie Pop"><option value="Dream Pop"><option value="Art Pop"><option value="Hyperpop">
+                    <option value="K-Pop"><option value="J-Pop"><option value="Teen Pop"><option value="Power Pop">
+                    <option value="Bedroom Pop"><option value="Pop Punk"><option value="Electronic"><option value="House">
+                    <option value="Deep House"><option value="Tech House"><option value="Progressive House">
+                    <option value="Electro House"><option value="Techno"><option value="Detroit Techno">
+                    <option value="Trance"><option value="Psytrance"><option value="Drum &amp; Bass"><option value="Jungle">
+                    <option value="Dubstep"><option value="Garage"><option value="Breakbeat"><option value="Hardcore">
+                    <option value="IDM"><option value="Ambient"><option value="Downtempo"><option value="Chillout">
+                    <option value="Synthwave"><option value="Vaporwave"><option value="Future Bass"><option value="Glitch">
+                    <option value="Electro"><option value="Jazz"><option value="Bebop"><option value="Cool Jazz">
+                    <option value="Swing"><option value="Big Band"><option value="Fusion"><option value="Jazz Funk">
+                    <option value="Smooth Jazz"><option value="Free Jazz"><option value="Avant-Garde Jazz">
+                    <option value="Latin Jazz"><option value="Acid Jazz"><option value="Vocal Jazz"><option value="Nu Jazz">
+                    <option value="Blues"><option value="Delta Blues"><option value="Chicago Blues">
+                    <option value="Electric Blues"><option value="Country Blues"><option value="Texas Blues">
+                    <option value="Soul Blues"><option value="Funk &amp; Soul"><option value="Funk"><option value="P-Funk">
+                    <option value="Soul"><option value="Motown"><option value="Neo-Soul"><option value="Funk Rock">
+                    <option value="Gospel Soul"><option value="Southern Soul"><option value="Disco"><option value="Boogie">
+                    <option value="Classical"><option value="Baroque"><option value="Romantic">
+                    <option value="Modern Classical"><option value="Contemporary Classical"><option value="Minimalism">
+                    <option value="Neoclassical"><option value="Orchestral"><option value="Chamber Music"><option value="Opera">
+                    <option value="Choral"><option value="Film Score"><option value="Video Game Music"><option value="Folk">
+                    <option value="Indie Folk"><option value="Country"><option value="Bluegrass"><option value="Americana">
+                    <option value="Celtic"><option value="Irish Folk"><option value="Flamenco"><option value="Reggae">
+                    <option value="Ska"><option value="Dub"><option value="Afrobeat"><option value="Highlife"><option value="Latin">
+                    <option value="Salsa"><option value="Samba"><option value="Bossa Nova"><option value="Cumbia">
+                    <option value="Reggaeton"><option value="Tango"><option value="Klezmer"><option value="Indian Classical">
+                    <option value="Middle Eastern"><option value="African Traditional"><option value="Asian Traditional">
+                    <option value="Hip-Hop"><option value="Boom Bap"><option value="East Coast Hip-Hop">
+                    <option value="West Coast Hip-Hop"><option value="Gangsta Rap"><option value="Trap"><option value="Drill">
+                    <option value="Cloud Rap"><option value="Lo-Fi Hip-Hop"><option value="Conscious Hip-Hop">
+                    <option value="Alternative Hip-Hop"><option value="Jazz Rap"><option value="Experimental Hip-Hop">
+                    <option value="Old School Hip-Hop"><option value="R&amp;B"><option value="Contemporary R&amp;B">
+                    <option value="Alternative R&amp;B"><option value="New Jack Swing"><option value="Quiet Storm">
+                    <option value="Gospel"><option value="Dark Ambient"><option value="Drone"><option value="Ethereal">
+                    <option value="Atmospheric"><option value="Experimental"><option value="Noise"><option value="Industrial">
+                    <option value="Minimalist"><option value="Avant-Garde"><option value="Soundscape"><option value="Cinematic">
+                    <option value="Darkwave"><option value="Witch House"><option value="Eurodance"><option value="Dancehall">
+                    <option value="EDM"><option value="Future House"><option value="Bass House"><option value="UK Garage">
+                    <option value="Epic"><option value="Emotional"><option value="Melancholic"><option value="Uplifting">
+                    <option value="Dark"><option value="Aggressive"><option value="Dreamy"><option value="Relaxing">
+                    <option value="Energetic"><option value="Romantic"><option value="Mysterious"><option value="Haunting">
+                    <option value="Futuristic"><option value="Retro"><option value="Vintage"><option value="Minimal">
+                    <option value="Acoustic"><option value="Live"><option value="Instrumental"><option value="Vocal">
+                    <option value="Female Vocal"><option value="Male Vocal"><option value="Other">
+                </datalist>
+                <label for="track-file">Audio file</label>
+                <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason" multiple required>
+                <button class="cta-button" type="submit">Upload</button>
+                <p id="upload-status" class="form-message" aria-live="polite"></p>
+            </form>
+
+            <section>
+                <h2>Uploaded tracks</h2>
+                <div id="tracks-list" class="tracks-list"></div>
+            </section>
+        </div>
+    </section>
+
+    <section id="artist-page" class="tracks-page" hidden>
+        <div class="container">
+            <div class="tracks-header">
+                <div>
+                    <h1 id="artist-alias-heading">Artist</h1>
+                    <p>Tracks by this artist</p>
+                </div>
+            </div>
+            <div id="artist-tracks-loading" class="loading-indicator" role="status">
+                <span class="loading-spinner" aria-hidden="true"></span>
+                <span>Loading tracks...</span>
+            </div>
+            <div id="artist-tracks" class="tracks-list" hidden>
+            </div>
+        </div>
+    </section>
+
+    <section id="search-page" class="tracks-page" hidden>
+        <div class="container">
+            <div class="tracks-header">
+                <div>
+                    <h1>Search results</h1>
+                    <p id="search-status" aria-live="polite"></p>
+                </div>
+            </div>
+            <div id="search-results" class="tracks-list"></div>
+        </div>
+    </section>
+
+    <section id="links-page" class="links-page" hidden>
+        <div class="container">
+            <header class="links-header">
+                <span class="links-eyebrow">Reason resources</span>
+                <h1>Links</h1>
+            </header>
+
+            <div class="links-list">
+                <a class="featured-link" href="https://www.reasonstudios.com/"
+                   target="_blank" rel="noopener noreferrer">
+                    <img src="/images/reason-studios-link.svg"
+                         alt="Visit Reason Studios">
+                    <span class="featured-link-copy">
+                        <span>Propellerhead Reason since 2000, founded with ReCyclce in 1994 by Ernst Nathorst-Böös, Marcus Zetterquist, and Peter (Pelle) Jubel</span>
+                        <span class="featured-link-arrow" aria-hidden="true">&rarr;</span>
+                    </span>
+                </a>
+
+                <a class="featured-link featured-link--tutorial" href="https://www.youtube.com/watch?v=kN5MRphw4c4"
+                   target="_blank" rel="noopener noreferrer">
+                    <span class="featured-link-image">
+                        <img src="/images/highlighted-reason-tutorial.jpg"
+                             alt="Subtractor synthesizer tutorial by dj Quasar">
+                        <span class="featured-link-platform">YouTube</span>
+                    </span>
+                    <span class="featured-link-copy">
+                        <span class="featured-link-text">
+                            <strong>Highlighted reason tutorial</strong>
+                            <span>A clear, hands-on appreciation of Reason Studios' classic Subtractor synthesizer, presented by dj Quasar.</span>
+                        </span>
+                        <span class="featured-link-arrow" aria-hidden="true">&rarr;</span>
+                    </span>
+                </a>
+
+                <a class="featured-link featured-link--tutorial"
+                   href="https://www.youtube.com/watch?v=Tjzqsm4r3s8&amp;list=PLUI6f9Qk5LN1Cb0x1iguux3GFSwy4NhWf"
+                   target="_blank" rel="noopener noreferrer">
+                    <span class="featured-link-image">
+                        <img src="/images/reason-beginner-tutorial.jpg"
+                             alt="Reason Studios beginner tutorial">
+                        <span class="featured-link-platform">YouTube</span>
+                    </span>
+                    <span class="featured-link-copy">
+                        <span class="featured-link-text">
+                            <strong>In depth beginner tutorial for Reason</strong>
+                            <span>A Reason 12 introduction covering the Browser, Mixer, Rack, Sequencer, tempo, looping, metronome, and creating a first Redrum beat with Thomas Foster musicproduction.</span>
+                        </span>
+                        <span class="featured-link-arrow" aria-hidden="true">&rarr;</span>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<dialog id="login-dialog" class="auth-dialog" aria-labelledby="login-dialog-title">
+    <div class="account-card">
+        <button class="dialog-close" type="button" data-dialog-close aria-label="Close sign-in dialog">&times;</button>
+        <h1 id="login-dialog-title">Welcome back</h1>
+        <p class="account-intro">Sign in to manage and upload your tracks.</p>
+
+        <div class="social-signup" aria-label="Sign in with a social account">
+            <a class="social-signup-button" href="/oauth2/authorization/google">Continue with Google</a>
+            <a class="social-signup-button" href="/oauth2/authorization/apple">Continue with Apple</a>
+        </div>
+        <p class="social-signup-divider"><span>or use email</span></p>
+
+        <form action="/login" method="post">
+            <label for="username">User ID <span class="privacy-note">(public)</span></label>
+            <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+
+            <label for="login-password">Password <span class="privacy-note">(private)</span></label>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+
+            <button class="cta-button account-submit" type="submit">Sign in</button>
+        </form>
+
+        <p class="account-footer">New to Reason Station?
+            <a href="#register-dialog" data-auth-dialog="register-dialog">Create an account</a>
+        </p>
+    </div>
+</dialog>
+
+<dialog id="register-dialog" class="auth-dialog" aria-labelledby="register-dialog-title">
+    <div class="account-card">
+        <button class="dialog-close" type="button" data-dialog-close aria-label="Close registration dialog">&times;</button>
+        <h1 id="register-dialog-title">Create your account</h1>
+        <p class="account-intro">Choose a user ID, enter your email, and set a password to get started.</p>
+
+        <div class="social-signup" aria-label="Sign up with a social account">
+            <a class="social-signup-button" href="/oauth2/authorization/google">Continue with Google</a>
+            <a class="social-signup-button" href="/oauth2/authorization/apple">Continue with Apple</a>
+        </div>
+        <p class="social-signup-divider"><span>or use email</span></p>
+
+        <form id="registration-form">
+            <label for="userid">User ID <span class="privacy-note">(public)</span></label>
+            <input id="userid" name="userid" type="text" minlength="3" maxlength="30"
+                   pattern="[A-Za-z0-9_]+" autocomplete="username" required>
+            <small>3-30 characters: letters, numbers, and underscores only.</small>
+
+            <label for="register-email">Email address <span class="privacy-note">(private)</span></label>
+            <input id="register-email" name="email" type="email" maxlength="254"
+                   autocomplete="email" required>
+            <small>Enter a valid email address.</small>
+
+            <label for="register-password">Password <span class="privacy-note">(private)</span></label>
+            <input id="register-password" name="password" type="password" minlength="8"
+                   autocomplete="new-password" required>
+            <small>Use at least 8 characters.</small>
+
+            <button class="cta-button account-submit" type="submit">Create account</button>
+            <p id="registration-message" class="form-message" aria-live="polite"></p>
+        </form>
+
+        <p class="account-footer">Already have an account?
+            <a href="#login-dialog" data-auth-dialog="login-dialog">Sign in</a>
+        </p>
+    </div>
+</dialog>
+
+<div id="site-footer">
+    <footer class="footer" id="contact">
+        <div class="container">
+            <p>&copy; 2026 Reason Station. All rights reserved.</p>
+            <p class="footer-contact">Contact: info@reasonstation.com</p>
+        </div>
+    </footer>
+
+    <div id="uploading-list" class="uploading-list" hidden aria-live="polite">
+        <h2>Uploading List</h2>
+        <div id="uploading-items"></div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="/js/track_rating.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/style_icons.js"></script>
+<script src="/js/artist_alias.js"></script>
+<script src="/js/my_tracks.js"></script>
+<script src="/js/discovery.js"></script>
+<script src="/js/register.js"></script>
+</body>
+</html>

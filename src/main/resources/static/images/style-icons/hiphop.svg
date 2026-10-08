@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">Hip-hop music</title>
+  <defs>
+    <linearGradient id="bg" x1="9" y1="4" x2="88" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0b3c49"/>
+      <stop offset=".55" stop-color="#0f5663"/>
+      <stop offset="1" stop-color="#237786"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="19" y1="28" x2="78" y2="71" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e4f2f1"/>
+      <stop offset=".52" stop-color="#b9ddde"/>
+      <stop offset="1" stop-color="#71b2b9"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="16" fill="url(#bg)"/>
+  <path d="M18 70h60" stroke="#71b2b9" stroke-width="3" stroke-linecap="round" opacity=".45"/>
+  <path d="M21 54V40c0-13 12-22 27-22s27 9 27 22v14" fill="none" stroke="url(#gold)" stroke-width="7" stroke-linecap="round"/>
+  <rect x="16" y="47" width="14" height="25" rx="6" fill="#b9ddde"/>
+  <rect x="66" y="47" width="14" height="25" rx="6" fill="#71b2b9"/>
+  <path d="m34 52 8 7 9-13 11 10" fill="none" stroke="#e4f2f1" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="48" cy="59" r="18" fill="none" stroke="#0b3c49" stroke-width="2" opacity=".35"/>
+</svg>

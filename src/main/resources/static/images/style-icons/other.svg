@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">Music</title>
+  <defs>
+    <linearGradient id="bg" x1="7" y1="5" x2="90" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0b3c49"/>
+      <stop offset=".55" stop-color="#0f5663"/>
+      <stop offset="1" stop-color="#237786"/>
+    </linearGradient>
+    <linearGradient id="note" x1="30" y1="21" x2="69" y2="76" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e4f2f1"/>
+      <stop offset="1" stop-color="#b9ddde"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="16" fill="url(#bg)"/>
+  <circle cx="48" cy="48" r="31" fill="none" stroke="#b9ddde" stroke-width="2" opacity=".26"/>
+  <path d="M39 62V32l31-8v30" fill="none" stroke="url(#note)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M42 35 67 29" stroke="#0f5663" stroke-width="2" opacity=".5"/>
+  <ellipse cx="31" cy="65" rx="11" ry="8" transform="rotate(-18 31 65)" fill="#e4f2f1"/>
+  <ellipse cx="62" cy="57" rx="11" ry="8" transform="rotate(-18 62 57)" fill="#b9ddde"/>
+  <path d="M19 78h58" stroke="#71b2b9" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+</svg>
