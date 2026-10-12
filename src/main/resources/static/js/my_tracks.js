@@ -28,7 +28,8 @@ window.initializeMyTracks = function() {
         tracks.forEach(function(track) {
             var item = $(window.createTrackCard(track, {
                 deletable: true,
-                includeArtistInDownloadLabel: false
+                includeArtistInDownloadLabel: false,
+                showArtist: true
             }));
             tracksList.append(item);
         });

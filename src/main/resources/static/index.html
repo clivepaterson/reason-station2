@@ -131,7 +131,9 @@
             <div id="upload-dialog-backdrop" class="upload-dialog-backdrop" hidden></div>
             <form id="upload-track-form" class="track-form" hidden>
                 <h2>Upload a track</h2>
-                <label for="artist-alias">Artist alias</label>
+                <label for="artist-alias">
+                    Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
+                </label>
                 <input id="artist-alias" name="artistAlias" type="text" required maxlength="100"
                        pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
                        title="Use only letters, numbers, and ()[]_.'+-">
@@ -298,6 +300,21 @@
         </div>
     </section>
 
+    <section id="about-page" class="about-page" hidden>
+        <div class="container">
+            <article class="about-site-card">
+                <span class="about-site-eyebrow">About this site</span>
+                <h1>Why I made this site.</h1>
+                <div class="about-site-copy">
+                    <p>I realised one day that reasonstation.net no longer existed, and I felt this was a great loss.</p>
+                    <p>I like the idea of learning sound synthesis from the ground up which is why I like Reason.</p>
+                    <p>And reasonstation.net was a great resource to learn sound synthesis techniques from others who share their craft.</p>
+                    <p>So I'd like to bring it back.</p>
+                </div>
+            </article>
+        </div>
+    </section>
+
 </main>
 
 <dialog id="login-dialog" class="auth-dialog" aria-labelledby="login-dialog-title">
@@ -370,7 +387,15 @@
     <footer class="footer" id="contact">
         <div class="container">
             <p>&copy; 2026 Reason Station. All rights reserved.</p>
-            <p class="footer-contact">Contact: info@reasonstation.com</p>
+            <div class="footer-details">
+                <p class="footer-contact">Contact: info@reasonstation.com</p>
+                <nav class="footer-nav" aria-label="Footer">
+                    <a class="footer-about-link" id="about-link" href="/index.html?view=about">
+                        <span>About this site</span>
+                        <span class="footer-link-arrow" aria-hidden="true">&rarr;</span>
+                    </a>
+                </nav>
+            </div>
         </div>
     </footer>
 

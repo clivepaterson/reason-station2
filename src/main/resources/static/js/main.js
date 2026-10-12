@@ -1,6 +1,8 @@
 $(document).ready(function() {
     function getPageId(url) {
-        return url.searchParams.get('view') === 'links'
+        return url.searchParams.get('view') === 'about'
+            ? 'about-page'
+            : url.searchParams.get('view') === 'links'
             ? 'links-page'
             : url.searchParams.get('view') === 'my-tracks'
             ? 'my-tracks-page'
@@ -52,7 +54,7 @@ $(document).ready(function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         $('#track-search-input').val(url.searchParams.get('search') || '');
         document.title = pageId === 'home-page'
@@ -82,7 +84,7 @@ $(document).ready(function() {
 
     $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a',
         navigateInternalLink);
-    $('#my-tracks-link, #links-link').on('click', navigateInternalLink);
+    $('#my-tracks-link, #links-link, #about-link').on('click', navigateInternalLink);
 
     window.addEventListener('popstate', function() {
         window.showPage(window.location.href, false);
