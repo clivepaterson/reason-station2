@@ -1,4 +1,9 @@
 $(document).ready(function() {
+    var defaultMetadata = {
+        title: 'Reason Station | Share Reason Music & Sound Synthesis',
+        description: 'Discover, share, and download Reason music projects while learning sound synthesis techniques from other artists.'
+    };
+
     function getPageId(url) {
         return url.searchParams.get('view') === 'about'
             ? 'about-page'
@@ -8,6 +13,83 @@ $(document).ready(function() {
             ? 'my-tracks-page'
             : url.searchParams.has('artistAlias') ? 'artist-page'
             : url.searchParams.has('search') ? 'search-page' : 'home-page';
+    }
+
+    function setMetaContent(selector, content) {
+        $(selector).attr('content', content);
+    }
+
+    function updatePageMetadata(pageId, url) {
+        var artistAlias = (url.searchParams.get('artistAlias') || '').trim();
+        var pageMetadata = {
+            'home-page': defaultMetadata,
+            'artist-page': {
+                title: (artistAlias || 'Artist') + ' | Reason Station',
+                description: artistAlias
+                    ? 'Explore Reason music projects and tracks shared by ' + artistAlias + ' on Reason Station.'
+                    : 'Explore artist tracks and Reason music projects shared on Reason Station.'
+            },
+            'links-page': {
+                title: 'Reason Resources & Tutorials | Reason Station',
+                description: 'Explore selected Reason Studios resources, sound synthesis guides, and music production tutorials.'
+            },
+            'about-page': {
+                title: 'About Reason Station',
+                description: 'Learn why Reason Station was created as a community for sharing Reason projects and sound synthesis techniques.'
+            },
+            'search-page': {
+                title: 'Search Tracks | Reason Station',
+                description: 'Search for artists and Reason music projects shared by the Reason Station community.'
+            },
+            'my-tracks-page': {
+                title: 'My Tracks | Reason Station',
+                description: 'Manage your Reason Station tracks and project uploads.'
+            }
+        }[pageId] || defaultMetadata;
+        var shouldIndex = pageId !== 'search-page' && pageId !== 'my-tracks-page';
+        var canonicalUrl = new URL('/', window.location.origin);
+
+        if (pageId === 'artist-page' && artistAlias) {
+            canonicalUrl.searchParams.set('artistAlias', artistAlias);
+        } else if (pageId === 'links-page') {
+            canonicalUrl.searchParams.set('view', 'links');
+        } else if (pageId === 'about-page') {
+            canonicalUrl.searchParams.set('view', 'about');
+        }
+
+        document.title = pageMetadata.title;
+        $('link[rel="canonical"]').attr('href', canonicalUrl.href);
+        setMetaContent('meta[name="description"]', pageMetadata.description);
+        setMetaContent('meta[name="robots"]', shouldIndex
+            ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+            : 'noindex, follow');
+        setMetaContent('meta[property="og:title"]', pageMetadata.title);
+        setMetaContent('meta[property="og:description"]', pageMetadata.description);
+        setMetaContent('meta[property="og:url"]', canonicalUrl.href);
+        setMetaContent('meta[property="og:image"]',
+            new URL('/images/logo_by_chatgpt.jpg', window.location.origin).href);
+        setMetaContent('meta[name="twitter:title"]', pageMetadata.title);
+        setMetaContent('meta[name="twitter:description"]', pageMetadata.description);
+        setMetaContent('meta[name="twitter:image"]',
+            new URL('/images/logo_by_chatgpt.jpg', window.location.origin).href);
+    }
+
+    function addWebsiteStructuredData() {
+        $('#website-structured-data').text(JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: 'Reason Station',
+            url: new URL('/', window.location.origin).href,
+            description: defaultMetadata.description,
+            potentialAction: {
+                '@type': 'SearchAction',
+                target: {
+                    '@type': 'EntryPoint',
+                    urlTemplate: new URL('/?search={search_term_string}', window.location.origin).href
+                },
+                'query-input': 'required name=search_term_string'
+            }
+        }));
     }
 
     function loadSearchPage(url) {
@@ -57,11 +139,7 @@ $(document).ready(function() {
         $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         $('#track-search-input').val(url.searchParams.get('search') || '');
-        document.title = pageId === 'home-page'
-            ? 'Reason Station - Explore Ideas Through Reasoning'
-            : pageId === 'artist-page'
-                ? 'Reason Station - ' + (url.searchParams.get('artistAlias') || 'Artist')
-                : 'Reason Station - ' + $('#' + pageId + ' h1').first().text();
+        updatePageMetadata(pageId, url);
 
         if (pageId === 'home-page' && window.loadDiscovery) {
             window.loadDiscovery();
@@ -128,6 +206,7 @@ $(document).ready(function() {
     }
 
     var currentUrl = new URL(window.location.href);
+    addWebsiteStructuredData();
     window.showPage(currentUrl, false);
 
     fetch('/api/me')

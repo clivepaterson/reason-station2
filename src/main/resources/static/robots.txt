@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /oauth2/
+Disallow: /login
+Disallow: /logout
+Disallow: /scalar/
+Disallow: /swagger-ui/
+Disallow: /*?view=my-tracks
