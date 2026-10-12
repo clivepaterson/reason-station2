@@ -21,8 +21,6 @@ CREATE TABLE IF NOT EXISTS tracks (
     date_uploaded TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE tracks DROP COLUMN IF EXISTS download_count;
-
 CREATE TABLE IF NOT EXISTS track_downloads (
     trackid INTEGER NOT NULL REFERENCES tracks(trackid) ON DELETE CASCADE,
     ip_address INET NOT NULL,
@@ -38,19 +36,16 @@ CREATE TABLE IF NOT EXISTS track_ratings (
     CONSTRAINT track_ratings_pkey PRIMARY KEY (trackid, userid)
 );
 
-ALTER TABLE track_downloads DROP CONSTRAINT IF EXISTS track_downloads_pkey;
 ALTER TABLE track_downloads
     ADD CONSTRAINT track_downloads_pkey PRIMARY KEY (trackid, ip_address);
 
 CREATE INDEX IF NOT EXISTS idx_tracks_userid ON tracks(userid);
 CREATE INDEX IF NOT EXISTS idx_tracks_artist_alias ON tracks(artist_alias);
-CREATE INDEX IF NOT EXISTS idx_track_downloads_trackid ON track_downloads(trackid);
-CREATE INDEX IF NOT EXISTS idx_track_ratings_trackid ON track_ratings(trackid);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_track_downloads_trackid_ip_address
-    ON track_downloads(trackid, ip_address);
+CREATE INDEX IF NOT EXISTS idx_track_downloads_date_trackid
+    ON track_downloads(date_downloaded, trackid);
+CREATE INDEX IF NOT EXISTS idx_track_ratings_date_trackid
+    ON track_ratings(date_rated, trackid) INCLUDE (rating);
 CREATE INDEX IF NOT EXISTS idx_tracks_artist_alias_track_name_fts
     ON tracks USING GIN (
         to_tsvector('simple', artist_alias || ' ' || track_name)
     );
-CREATE INDEX IF NOT EXISTS idx_user_alias ON "user"(alias);
-CREATE INDEX IF NOT EXISTS idx_user_email ON "user"(email);

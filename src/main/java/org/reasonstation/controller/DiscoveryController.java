@@ -48,7 +48,7 @@ public class DiscoveryController {
                         track.trackName(),
                         track.musicStyle(),
                         track.filename(),
-                        downloads.countByTrackid(track.trackid()),
+                        track.downloadCount(),
                         track.averageTrackRating(),
                         track.dateUploaded()))
                 .toList();
@@ -112,7 +112,7 @@ public class DiscoveryController {
                         track.trackName(),
                         track.musicStyle(),
                         track.filename(),
-                        downloads.countByTrackid(track.trackid()),
+                        track.downloadCount(),
                         track.averageTrackRating(),
                         track.dateUploaded()))
                 .toList());
@@ -147,7 +147,7 @@ public class DiscoveryController {
             String trackName,
             String musicStyle,
             String filename,
-            int downloadCount,
+            long downloadCount,
             Double averageTrackRating,
             java.time.Instant dateUploaded) {
     }

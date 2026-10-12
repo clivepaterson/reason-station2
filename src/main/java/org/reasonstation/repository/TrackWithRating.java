@@ -11,5 +11,6 @@ public record TrackWithRating(
         String filename,
         String trackUri,
         Instant dateUploaded,
-        Double averageTrackRating) {
+        Double averageTrackRating,
+        long downloadCount) {
 }

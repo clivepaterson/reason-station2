@@ -58,6 +58,12 @@
             <artifactId>spring-boot-starter-data-jdbc</artifactId>
         </dependency>
 
+        <!-- Repository query logging -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
+
         <!-- Spring Data JDBC (core library) -->
         <dependency>
             <groupId>org.springframework.data</groupId>

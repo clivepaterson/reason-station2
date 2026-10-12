@@ -10,10 +10,17 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TrackDownloadRepository extends CrudRepository<TrackDownload, String> {
     @Modifying
-    @Query("INSERT INTO track_downloads (trackid, ip_address) VALUES (:trackid, CAST(:ipAddress AS inet)) " +
-            "ON CONFLICT (trackid, ip_address) DO NOTHING")
+    @Query("""
+            INSERT INTO track_downloads (trackid, ip_address)
+            VALUES (:trackid, CAST(:ipAddress AS inet))
+            ON CONFLICT (trackid, ip_address) DO NOTHING
+            """)
     void recordDownload(@Param("trackid") Long trackid, @Param("ipAddress") String ipAddress);
 
-    @Query("SELECT COUNT(ip_address) FROM track_downloads WHERE trackid = :trackid")
+    @Query("""
+            SELECT COUNT(ip_address)
+            FROM track_downloads
+            WHERE trackid = :trackid
+            """)
     int countByTrackid(@Param("trackid") Long trackid);
 }

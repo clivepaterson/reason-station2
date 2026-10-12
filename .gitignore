@@ -42,3 +42,4 @@ src/main/resources/application.properties
 s3.json
 *.local.properties
 *.local.json
+/.idea/vcs.xml

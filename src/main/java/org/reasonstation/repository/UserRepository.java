@@ -13,7 +13,12 @@ import java.util.UUID;
 @Repository
 public interface UserRepository extends CrudRepository<User, Long> {
 
-    @Query("SELECT * FROM \"user\" ORDER BY RANDOM() LIMIT :limit")
+    @Query("""
+            SELECT *
+            FROM "user"
+            ORDER BY RANDOM()
+            LIMIT :limit
+            """)
     List<User> findRandomUsers(@Param("limit") int limit);
     
     /**
@@ -31,12 +36,20 @@ public interface UserRepository extends CrudRepository<User, Long> {
     /**
      * Check if a user exists by alias
      */
-    @Query("SELECT COUNT(*) > 0 FROM \"user\" WHERE alias = :alias")
+    @Query("""
+            SELECT COUNT(*) > 0
+            FROM "user"
+            WHERE alias = :alias
+            """)
     boolean existsByAlias(@Param("alias") String alias);
     
     /**
      * Check if a user exists by email
      */
-    @Query("SELECT COUNT(*) > 0 FROM \"user\" WHERE email = :email")
+    @Query("""
+            SELECT COUNT(*) > 0
+            FROM "user"
+            WHERE email = :email
+            """)
     boolean existsByEmail(@Param("email") String email);
 }
