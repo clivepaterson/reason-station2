@@ -32,31 +32,11 @@ $(document).ready(function() {
                     return;
                 }
                 tracks.forEach(function(track) {
-                    var item = $('<article>').addClass('track-card');
-                    item.append(window.createMusicStyleIcon(track.musicStyle));
-                    var content = $('<div>').addClass('track-card-content');
-                    item.append(content);
-                    content.append($('<h3>').text(track.trackName));
-                    content.append($('<span>').addClass('track-style-badge').text(track.musicStyle));
-                    content.append($('<a>').addClass('track-file-meta')
-                        .attr({
-                            href: '/api/tracks/' + encodeURIComponent(track.trackid) + '/download',
-                            'aria-label': 'Download ' + track.trackName + ' by ' + track.artistAlias
-                        })
-                        .text(track.filename || 'By ' + track.artistAlias));
-                    var metadata = $('<div>').addClass('track-card-meta')
-                        .append($('<span>').addClass('track-style-meta').text('Style: ' + track.musicStyle))
-                        .append($('<span>').addClass('track-downloads-meta')
-                            .text('Downloads: ' + track.downloadCount));
-                    window.addTrackRatingMeta(metadata[0], track);
-                    content.append(metadata);
-                    var actions = $('<div>').addClass('track-card-actions');
-                    actions.append($('<a>').addClass('download-track-link')
-                        .attr('href', '/api/tracks/' + encodeURIComponent(track.trackid) + '/download')
-                        .text('Download'));
-                    actions.append(window.createRateTrackButton(track));
-                    item.append(actions);
-                    searchResults.append(item);
+                    searchResults.append(window.createTrackCard(track, {
+                        filenameFallback: 'By ' + track.artistAlias,
+                        includeArtistInDownloadLabel: true,
+                        showArtist: true
+                    }));
                 });
             })
             .catch(function(error) {
@@ -134,7 +114,7 @@ $(document).ready(function() {
         $(this).closest('dialog')[0].close();
     });
 
-    $('.auth-dialog').on('click', function(event) {
+    $('.auth-dialog').on('mousedown', function(event) {
         if (event.target === this) {
             this.close();
         }

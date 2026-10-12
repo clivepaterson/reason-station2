@@ -144,53 +144,11 @@ window.loadDiscovery = function() {
     }, 'No users found.');
 
     loadDiscoveryList('/api/discovery/tracks', '#random-tracks', function(track) {
-        var item = document.createElement('li');
-        item.className = 'track-discovery-item track-card';
-        item.appendChild(window.createMusicStyleIcon(track.musicStyle));
-        var content = document.createElement('div');
-        content.className = 'track-card-content';
-        item.appendChild(content);
-        var title = document.createElement('h3');
-        title.textContent = track.trackName;
-        content.appendChild(title);
-        var artist = document.createElement('a');
-        artist.className = 'track-artist-link';
-        artist.href = '/index.html?artistAlias=' + encodeURIComponent(track.artistAlias);
-        artist.textContent = 'by ' + track.artistAlias;
-        content.appendChild(artist);
-        var badge = document.createElement('span');
-        badge.className = 'track-style-badge';
-        badge.textContent = track.musicStyle;
-        content.appendChild(badge);
-        var filename = document.createElement('a');
-        filename.className = 'track-file-meta';
-        filename.href = '/api/tracks/' + encodeURIComponent(track.trackid) + '/download';
-        filename.setAttribute('aria-label', 'Download ' + track.trackName + ' by ' + track.artistAlias);
-        filename.textContent = track.filename || 'Unnamed file';
-        content.appendChild(filename);
-        var metadata = document.createElement('div');
-        metadata.className = 'track-card-meta';
-        content.appendChild(metadata);
-        var style = document.createElement('span');
-        style.className = 'track-style-meta';
-        style.textContent = 'Style: ' + track.musicStyle;
-        metadata.appendChild(style);
-        var downloads = document.createElement('span');
-        downloads.className = 'track-downloads-meta';
-        downloads.textContent = 'Downloads: ' + track.downloadCount;
-        metadata.appendChild(downloads);
-        window.addTrackRatingMeta(metadata, track);
-        var actions = document.createElement('div');
-        actions.className = 'track-card-actions';
-        item.appendChild(actions);
-        var link = document.createElement('a');
-        link.className = 'download-track-link';
-        link.href = '/api/tracks/' + encodeURIComponent(track.trackid) + '/download';
-        link.setAttribute('aria-label', 'Download ' + track.trackName + ' by ' + track.artistAlias);
-        link.textContent = 'Download';
-        actions.appendChild(link);
-        actions.appendChild(window.createRateTrackButton(track));
-        return item;
+        return window.createTrackCard(track, {
+            tagName: 'li',
+            className: 'track-discovery-item',
+            showArtist: true
+        });
     }, 'No tracks found.');
 
     loadDiscoveryList('/api/discovery/popular-tracks', '#popular-tracks', function(track) {

@@ -134,6 +134,27 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
      * Find all tracks for a specific user
      */
     List<Track> findByUserid(Long userid);
+
+    @Query("""
+            SELECT t.trackid,
+                   t.userid,
+                   t.artist_alias,
+                   t.track_name,
+                   t.music_style,
+                   t.filename,
+                   t.track_uri,
+                   t.date_uploaded,
+                   (SELECT AVG(r.rating)
+                    FROM track_ratings r
+                    WHERE r.trackid = t.trackid) AS average_track_rating,
+                   (SELECT COUNT(*)
+                    FROM track_downloads d
+                    WHERE d.trackid = t.trackid) AS download_count
+            FROM tracks t
+            WHERE t.userid = :userid
+            ORDER BY t.date_uploaded DESC
+            """)
+    List<TrackWithRating> findByUseridWithRating(@Param("userid") Long userid);
     
     /**
      * Find tracks by user and artist alias
@@ -185,30 +206,26 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
 
     @Query("""
             SELECT t.trackid,
-                   t.userid,
                    t.artist_alias,
                    t.track_name,
                    t.music_style,
                    t.filename,
-                   t.track_uri,
                    t.date_uploaded,
-                   COUNT(d.ip_address) AS download_count
+                   COUNT(*) AS download_count
             FROM tracks t
             LEFT JOIN track_downloads d ON d.trackid = t.trackid
             WHERE t.artist_alias ILIKE CONCAT('%', :searchTerm, '%')
                OR t.track_name ILIKE CONCAT('%', :searchTerm, '%')
             GROUP BY t.trackid,
-                     t.userid,
                      t.artist_alias,
                      t.track_name,
                      t.music_style,
                      t.filename,
-                     t.track_uri,
                      t.date_uploaded
             ORDER BY t.artist_alias,
                      t.track_name
             """)
-    List<Track> searchByArtistAliasOrTrackName(@Param("searchTerm") String searchTerm);
+    List<TrackSearchResult> searchByArtistAliasOrTrackName(@Param("searchTerm") String searchTerm);
     
     /**
      * Find a track by user and filename

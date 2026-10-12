@@ -5,6 +5,7 @@ import org.reasonstation.entity.User;
 import org.reasonstation.repository.TrackDownloadRepository;
 import org.reasonstation.repository.TrackRatingRepository;
 import org.reasonstation.repository.TrackRepository;
+import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
 import org.springframework.http.HttpStatus;
@@ -102,8 +103,8 @@ public class TrackController {
     public ResponseEntity<?> currentUserTracks(Authentication authentication) {
         return findCurrentUser(authentication)
                 .<ResponseEntity<?>>map(user -> ResponseEntity.ok(
-                        tracks.findByUserid(user.getUserid()).stream()
-                        .map(track -> TrackResponse.from(track, downloads.countByTrackid(track.getTrackid())))
+                        tracks.findByUseridWithRating(user.getUserid()).stream()
+                                .map(TrackResponse::from)
                                 .toList()))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "The authenticated user was not found.")));
@@ -243,11 +244,18 @@ public class TrackController {
     }
 
     private record TrackResponse(Long trackid, String artistAlias, String trackName, String musicStyle,
-                                 String filename, int downloadCount, java.time.Instant dateUploaded) {
+                                 String filename, long downloadCount, Double averageTrackRating,
+                                 java.time.Instant dateUploaded) {
+        private static TrackResponse from(TrackWithRating track) {
+            return new TrackResponse(track.trackid(), track.artistAlias(), track.trackName(),
+                    track.musicStyle(), track.filename(), track.downloadCount(),
+                    track.averageTrackRating(), track.dateUploaded());
+        }
+
         private static TrackResponse from(Track track, int downloadCount) {
             return new TrackResponse(track.getTrackid(), track.getArtistAlias(),
                     track.getTrackName(), track.getMusicStyle(), track.getFilename(), downloadCount,
-                    track.getDateUploaded());
+                    null, track.getDateUploaded());
         }
     }
 

@@ -43,7 +43,7 @@
         dialog.querySelector('.dialog-close').addEventListener('click', function() {
             dialog.close();
         });
-        dialog.addEventListener('click', function(event) {
+        dialog.addEventListener('mousedown', function(event) {
             if (event.target === dialog) {
                 dialog.close();
             }

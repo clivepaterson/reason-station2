@@ -26,48 +26,10 @@ window.initializeMyTracks = function() {
         }
 
         tracks.forEach(function(track) {
-            var item = $('<article>')
-                .addClass('track-card');
-            item.append(window.createMusicStyleIcon(track.musicStyle));
-            var content = $('<div>').addClass('track-card-content');
-            item.append(content);
-            content.append($('<h3>').text(track.trackName));
-            content.append($('<span>').addClass('track-style-badge').text(track.musicStyle));
-            content.append($('<a>').addClass('track-file-meta')
-                .attr({
-                    href: '/api/tracks/' + encodeURIComponent(track.trackid) + '/download',
-                    'aria-label': 'Download ' + track.trackName
-                })
-                .text(track.filename || 'Unnamed file'));
-            var metadata = $('<div>').addClass('track-card-meta')
-                .append($('<span>').addClass('track-style-meta').text('Style: ' + track.musicStyle))
-                .append($('<span>').addClass('track-downloads-meta')
-                    .text('Downloads: ' + track.downloadCount));
-            window.addTrackRatingMeta(metadata[0], track);
-            content.append(metadata);
-            var actions = $('<div>').addClass('track-card-actions');
-            actions.append($('<a>')
-                .addClass('download-track-link')
-                .attr({
-                    href: '/api/tracks/' + encodeURIComponent(track.trackid) + '/download',
-                    'aria-label': 'Download ' + track.trackName
-                })
-                .text('Download'));
-            actions.append(window.createRateTrackButton(track));
-            item.append(actions);
-            item.append($('<button>')
-                .addClass('delete-track-button')
-                .attr({
-                    type: 'button',
-                    'data-track-id': track.trackid,
-                    'aria-label': 'Delete track',
-                    title: 'Delete track'
-                })
-                .append($('<img>')
-                    .attr({
-                        src: '/images/trash_by_chatgpt.jpg',
-                        alt: ''
-                    })));
+            var item = $(window.createTrackCard(track, {
+                deletable: true,
+                includeArtistInDownloadLabel: false
+            }));
             tracksList.append(item);
         });
     }
@@ -158,7 +120,7 @@ window.initializeMyTracks = function() {
             });
     });
 
-    $(document).off('click.siteTracks').on('click.siteTracks', function(event) {
+    $(document).off('mousedown.siteTracks').on('mousedown.siteTracks', function(event) {
         if (!$(event.target).closest('#upload-track-form, #upload-track-button').length) {
             closeUploadForm();
         }

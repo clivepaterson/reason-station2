@@ -1,5 +1,7 @@
 -- Idempotent SQL schema setup for ReasonStation
 
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE TABLE IF NOT EXISTS "user" (
     userid SERIAL PRIMARY KEY,
     alias VARCHAR(255) NOT NULL UNIQUE,
@@ -36,16 +38,13 @@ CREATE TABLE IF NOT EXISTS track_ratings (
     CONSTRAINT track_ratings_pkey PRIMARY KEY (trackid, userid)
 );
 
-ALTER TABLE track_downloads
-    ADD CONSTRAINT track_downloads_pkey PRIMARY KEY (trackid, ip_address);
-
 CREATE INDEX IF NOT EXISTS idx_tracks_userid ON tracks(userid);
 CREATE INDEX IF NOT EXISTS idx_tracks_artist_alias ON tracks(artist_alias);
+CREATE INDEX IF NOT EXISTS idx_tracks_artist_alias_trgm
+    ON tracks USING GIN (artist_alias gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_tracks_track_name_trgm
+    ON tracks USING GIN (track_name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_track_downloads_date_trackid
     ON track_downloads(date_downloaded, trackid);
 CREATE INDEX IF NOT EXISTS idx_track_ratings_date_trackid
     ON track_ratings(date_rated, trackid) INCLUDE (rating);
-CREATE INDEX IF NOT EXISTS idx_tracks_artist_alias_track_name_fts
-    ON tracks USING GIN (
-        to_tsvector('simple', artist_alias || ' ' || track_name)
-    );

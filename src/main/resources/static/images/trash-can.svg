@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Trash can</title>
+  <defs>
+    <mask id="slots">
+      <rect width="64" height="64" fill="#fff"/>
+      <rect x="20" y="29" width="5" height="24" rx="2.5" fill="#000"/>
+      <rect x="29.5" y="29" width="5" height="24" rx="2.5" fill="#000"/>
+      <rect x="39" y="29" width="5" height="24" rx="2.5" fill="#000"/>
+    </mask>
+  </defs>
+  <g fill="#2B3B52">
+    <path d="M20 16a7 7 0 0 1 7-7h10a7 7 0 0 1 7 7v5h9a4 4 0 0 1 0 8H11a4 4 0 0 1 0-8h9v-5Zm6 5h12v-5a1 1 0 0 0-1-1H27a1 1 0 0 0-1 1v5Z"/>
+    <path d="M14 31h36l-4.4 27.1A5.8 5.8 0 0 1 39.9 63H24.1a5.8 5.8 0 0 1-5.7-4.9L14 31Z" mask="url(#slots)"/>
+  </g>
+</svg>

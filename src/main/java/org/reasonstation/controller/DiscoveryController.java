@@ -1,7 +1,6 @@
 package org.reasonstation.controller;
 
 import org.reasonstation.entity.Track;
-import org.reasonstation.repository.TrackDownloadRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,11 +14,9 @@ import java.util.Map;
 @RequestMapping("/api/discovery")
 public class DiscoveryController {
     private final TrackRepository tracks;
-    private final TrackDownloadRepository downloads;
 
-    public DiscoveryController(TrackRepository tracks, TrackDownloadRepository downloads) {
+    public DiscoveryController(TrackRepository tracks) {
         this.tracks = tracks;
-        this.downloads = downloads;
     }
 
     @GetMapping("/artists")
@@ -131,13 +128,13 @@ public class DiscoveryController {
 
         return ResponseEntity.ok(tracks.searchByArtistAliasOrTrackName(searchTerm).stream()
                 .map(track -> Map.of(
-                        "trackid", track.getTrackid(),
-                        "artistAlias", track.getArtistAlias(),
-                        "trackName", track.getTrackName(),
-                        "musicStyle", track.getMusicStyle(),
-                        "filename", track.getFilename(),
-                        "downloadCount", downloads.countByTrackid(track.getTrackid()),
-                        "dateUploaded", track.getDateUploaded()))
+                        "trackid", track.trackid(),
+                        "artistAlias", track.artistAlias(),
+                        "trackName", track.trackName(),
+                        "musicStyle", track.musicStyle(),
+                        "filename", track.filename(),
+                        "downloadCount", track.downloadCount(),
+                        "dateUploaded", track.dateUploaded()))
                 .toList());
     }
 

@@ -32,47 +32,7 @@ window.initializeArtistPage = function() {
                 tracksList.appendChild(document.createElement('p')).textContent = 'No tracks found.';
             } else {
                 tracks.forEach(function(track) {
-                    var item = document.createElement('article');
-                    item.className = 'track-card';
-                    item.appendChild(window.createMusicStyleIcon(track.musicStyle));
-                    var content = document.createElement('div');
-                    content.className = 'track-card-content';
-                    item.appendChild(content);
-                    var title = document.createElement('h3');
-                    title.textContent = track.trackName;
-                    content.appendChild(title);
-                    var badge = document.createElement('span');
-                    badge.className = 'track-style-badge';
-                    badge.textContent = track.musicStyle;
-                    content.appendChild(badge);
-                    var filename = document.createElement('a');
-                    filename.className = 'track-file-meta';
-                    filename.href = '/api/tracks/' + encodeURIComponent(track.trackid) + '/download';
-                    filename.setAttribute('aria-label', 'Download ' + track.trackName + ' by ' + track.artistAlias);
-                    filename.textContent = track.filename || 'Unnamed file';
-                    content.appendChild(filename);
-                    var metadata = document.createElement('div');
-                    metadata.className = 'track-card-meta';
-                    content.appendChild(metadata);
-                    var style = document.createElement('span');
-                    style.className = 'track-style-meta';
-                    style.textContent = 'Style: ' + track.musicStyle;
-                    metadata.appendChild(style);
-                    var downloads = document.createElement('span');
-                    downloads.className = 'track-downloads-meta';
-                    downloads.textContent = 'Downloads: ' + track.downloadCount;
-                    metadata.appendChild(downloads);
-                    window.addTrackRatingMeta(metadata, track);
-                    var actions = document.createElement('div');
-                    actions.className = 'track-card-actions';
-                    item.appendChild(actions);
-                    var link = document.createElement('a');
-                    link.className = 'download-track-link';
-                    link.href = '/api/tracks/' + encodeURIComponent(track.trackid) + '/download';
-                    link.textContent = 'Download';
-                    actions.appendChild(link);
-                    actions.appendChild(window.createRateTrackButton(track));
-                    tracksList.appendChild(item);
+                    tracksList.appendChild(window.createTrackCard(track));
                 });
             }
             tracksList.hidden = false;
