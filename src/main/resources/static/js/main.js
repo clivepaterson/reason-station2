@@ -5,7 +5,11 @@ $(document).ready(function() {
     };
 
     function getPageId(url) {
-        return url.searchParams.get('view') === 'about'
+        return url.searchParams.has('tutorial')
+            ? 'tutorial-detail-page'
+            : url.searchParams.get('view') === 'tutorials'
+            ? 'tutorials-page'
+            : url.searchParams.get('view') === 'about'
             ? 'about-page'
             : url.searchParams.get('view') === 'links'
             ? 'links-page'
@@ -33,6 +37,14 @@ $(document).ready(function() {
                 title: 'Reason Resources & Tutorials | Reason Station',
                 description: 'Explore selected Reason Studios resources, sound synthesis guides, and music production tutorials.'
             },
+            'tutorials-page': {
+                title: 'Beginner Synthesis Tutorials | Reason Station',
+                description: 'Learn synthesis from the ground up with beginner tutorials using Reason Subtractor and effects.'
+            },
+            'tutorial-detail-page': {
+                title: 'Creating a Kick Drum with Subtractor | Reason Station',
+                description: 'Learn how to create a kick drum using Reason Subtractor.'
+            },
             'about-page': {
                 title: 'About Reason Station',
                 description: 'Learn why Reason Station was created as a community for sharing Reason projects and sound synthesis techniques.'
@@ -51,6 +63,10 @@ $(document).ready(function() {
 
         if (pageId === 'artist-page' && artistAlias) {
             canonicalUrl.searchParams.set('artistAlias', artistAlias);
+        } else if (pageId === 'tutorial-detail-page') {
+            canonicalUrl.searchParams.set('tutorial', 'creating-a-kick-drum');
+        } else if (pageId === 'tutorials-page') {
+            canonicalUrl.searchParams.set('view', 'tutorials');
         } else if (pageId === 'links-page') {
             canonicalUrl.searchParams.set('view', 'links');
         } else if (pageId === 'about-page') {
@@ -136,7 +152,7 @@ $(document).ready(function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #about-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         $('#track-search-input').val(url.searchParams.get('search') || '');
         updatePageMetadata(pageId, url);
@@ -160,9 +176,9 @@ $(document).ready(function() {
         window.showPage(this.href, true);
     }
 
-    $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a',
+    $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .tutorial-card, .tutorial-back-link',
         navigateInternalLink);
-    $('#my-tracks-link, #links-link, #about-link').on('click', navigateInternalLink);
+    $('#my-tracks-link, #tutorials-link, #links-link, #about-link').on('click', navigateInternalLink);
 
     window.addEventListener('popstate', function() {
         window.showPage(window.location.href, false);

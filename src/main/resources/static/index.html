@@ -50,6 +50,7 @@
                 <button type="submit">Search</button>
             </form>
             <ul class="nav-menu">
+                <li><a id="tutorials-link" href="/index.html?view=tutorials">Tutorials</a></li>
                 <li><a id="links-link" href="/index.html?view=links">Links</a></li>
                 <li><a id="auth-link" href="#register-dialog" data-auth-dialog="register-dialog">Create account</a></li>
                 <li><a id="login-link" href="#login-dialog" data-auth-dialog="login-dialog">Log in</a></li>
@@ -324,6 +325,88 @@
                     </span>
                 </a>
             </div>
+        </div>
+    </section>
+
+    <section id="tutorials-page" class="tutorials-page" hidden>
+        <div class="container">
+            <header class="tutorials-header">
+                <span class="tutorials-eyebrow">Learn synthesis</span>
+                <h1>Tutorials</h1>
+                <p>A list of tutorials I've made for beginners to learn synthesis from the ground up using Subtractor only, with effects.</p>
+            </header>
+
+            <div class="tutorial-list">
+                <a class="tutorial-card" href="/index.html?tutorial=creating-a-kick-drum">
+                    <span class="tutorial-card-image">
+                        <img src="/images/tutorial-kick-waveform.svg"
+                             alt="A kick drum waveform with a sharp attack and fading tail">
+                        <span class="tutorial-number">Tutorial 01</span>
+                    </span>
+                    <span class="tutorial-card-copy">
+                        <span>
+                            <strong>Creating a kick drum</strong>
+                            <span>How to create a kick drum using Subtractor.</span>
+                        </span>
+                        <span class="tutorial-card-arrow" aria-hidden="true">&rarr;</span>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section id="tutorial-detail-page" class="tutorial-detail-page" hidden>
+        <div class="container">
+            <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+            <article class="tutorial-article">
+                <header class="tutorial-article-header">
+                    <div>
+                        <span class="tutorials-eyebrow">Tutorial 01 &middot; Subtractor</span>
+                        <h1>Creating a kick drum</h1>
+                        <p>How to create a kick drum using Subtractor.</p>
+                    </div>
+                    <img src="/images/tutorial-kick-waveform.svg"
+                         alt="A kick drum waveform with a sharp attack and fading tail">
+                </header>
+                <div class="tutorial-content" aria-label="Tutorial content">
+                    <p class="tutorial-introduction">To create a kick drum on any synthesizer, all you need is a sine wave set to the root note of the kick drum and white noise for the initial part of the sound.</p>
+
+                    <section class="tutorial-section">
+                        <h2>The Subtractor settings</h2>
+                        <ol class="tutorial-steps">
+                            <li>Create a Subtractor synthesizer and reset the device.</li>
+                            <li>Set Oscillator 1 to a sine wave on octave 4.</li>
+                            <li>Set Filter 1 to low-pass with the frequency at about 50%.</li>
+                            <li>
+                                Set the Mod Envelope to Oscillator 1 pitch with a decay value of 32. This starts the sine wave at a high pitch and quickly lowers it to the root note of the kick drum.
+                                <strong>This pitch drop is the essence of creating a kick drum on any synthesizer.</strong>
+                            </li>
+                            <li>Set the Filter and Amp Envelopes to a fairly short decay. You can adjust these values to suit the track, but leaving them too long will interfere with the bass elements of your track.</li>
+                            <li>Turn on the Noise Oscillator and adjust its decay, color, and level to suit the sound. A short decay is usually better.</li>
+                        </ol>
+                    </section>
+
+                    <section class="tutorial-section">
+                        <h2>The effects</h2>
+                        <div class="tutorial-effects">
+                            <div>
+                                <h3>Distortion</h3>
+                                <p>Distortion often works well on a kick drum. I've chosen Scream 4 to give the kick some punch.</p>
+                            </div>
+                            <div>
+                                <h3>Compression</h3>
+                                <p>Compression is also useful for kick drums and helps give them more punch.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-1-subtractor-settings.png"
+                             alt="Reason rack showing the Subtractor, Scream 4 distortion, and COMP-01 compressor settings used for the kick drum">
+                        <figcaption>The completed Subtractor patch with Scream 4 distortion and compression.</figcaption>
+                    </figure>
+                </div>
+            </article>
         </div>
     </section>
 

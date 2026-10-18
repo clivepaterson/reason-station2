@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Kick drum waveform</title>
+  <desc id="desc">A sharp low-frequency transient that decays into a short tail.</desc>
+  <defs>
+    <linearGradient id="wave" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffb23e"/>
+      <stop offset="0.55" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+    <filter id="glow" x="-10%" y="-50%" width="120%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round">
+    <path d="M20 120H620" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+    <path d="M20 120
+             C38 120 45 116 54 88
+             C62 55 68 20 78 20
+             C88 20 93 72 101 150
+             C109 218 119 224 130 142
+             C140 67 150 52 162 119
+             C174 181 187 176 200 119
+             C214 72 228 82 242 121
+             C257 156 272 150 287 119
+             C302 94 318 100 334 121
+             C350 138 367 134 384 120
+             C402 108 420 111 438 121
+             C457 129 476 127 495 120
+             C515 115 535 117 555 121
+             C577 124 598 121 620 120"
+          stroke="url(#wave)" stroke-width="8" filter="url(#glow)"/>
+  </g>
+</svg>
