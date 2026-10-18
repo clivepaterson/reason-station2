@@ -2124,6 +2124,104 @@ body.site-page {
         }
     }
 
+    .additional-tutorials {
+        padding-top: clamp(2rem, 5vw, 3.5rem);
+        border-top: 1px solid #d6e8ea;
+    }
+
+    .additional-tutorial-card {
+        display: grid;
+        grid-template-columns: 180px minmax(0, 1fr) auto;
+        align-items: center;
+        max-width: 760px;
+        overflow: hidden;
+        color: $station-deep;
+        border: 1px solid #d6e8ea;
+        border-radius: 14px;
+        background: $station-paper;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+
+        &:hover,
+        &:focus-visible {
+            color: $station-deep;
+            border-color: $station-orange;
+            box-shadow: 0 12px 28px rgba(3, 34, 42, 0.12);
+            transform: translateY(-2px);
+            outline: none;
+        }
+
+        &:focus-visible {
+            box-shadow: 0 0 0 4px rgba($station-orange, 0.3), 0 12px 28px rgba(3, 34, 42, 0.12);
+        }
+    }
+
+    .additional-tutorial-thumbnail {
+        position: relative;
+        align-self: stretch;
+        min-height: 102px;
+        background: #101214;
+
+        img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    }
+
+    .additional-tutorial-play {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 42px;
+        height: 30px;
+        border-radius: 8px;
+        background: #e62117;
+        transform: translate(-50%, -50%);
+
+        &::after {
+            position: absolute;
+            top: 50%;
+            left: 53%;
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+            border-left: 11px solid white;
+            content: "";
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    .additional-tutorial-copy {
+        display: grid;
+        gap: 0.2rem;
+        padding: 1rem 1.25rem;
+
+        strong {
+            font-size: 1.08rem;
+            line-height: 1.35;
+        }
+
+        > span:last-child {
+            color: #5f7b81;
+            font-size: 0.85rem;
+        }
+    }
+
+    .additional-tutorial-provider {
+        color: #c5392f;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .additional-tutorial-arrow {
+        padding-right: 1.25rem;
+        color: $station-orange;
+        font-size: 1.4rem;
+        font-weight: 800;
+    }
+
     .links-list {
         display: grid;
         gap: 2rem;
@@ -2247,6 +2345,14 @@ body.site-page {
 
         .tutorial-screenshots {
             grid-template-columns: 1fr;
+        }
+
+        .additional-tutorial-card {
+            grid-template-columns: 120px minmax(0, 1fr);
+        }
+
+        .additional-tutorial-arrow {
+            display: none;
         }
 
         .tutorial-steps li {
