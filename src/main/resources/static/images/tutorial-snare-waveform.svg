@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Snare drum waveform</title>
+  <desc id="desc">A sharp tonal transient mixed with a short burst of noise.</desc>
+  <defs>
+    <linearGradient id="snare" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffb23e"/>
+      <stop offset=".55" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+    <filter id="glow" x="-10%" y="-50%" width="120%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 120H620" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+    <path d="M20 120 29 49 38 194 47 61 56 181 65 29 74 207 83 45 92 190 101 38
+             110 200 119 57 128 184 137 47 146 191 155 62 164 177 173 55 182 183
+             191 69 200 171 209 63 218 176 227 73 236 166 245 69 254 170 263 77
+             272 161 281 74 290 165 299 81 308 157 317 79 326 160 335 84 344 154
+             353 83 362 156 371 87 380 151 389 87 398 152 407 91 416 148 425 91
+             434 149 443 95 452 144 461 96 470 143 479 99 488 140 497 102 506 137
+             515 105 524 134 533 108 542 131 551 111 560 128 569 114 578 126 587 116
+             596 124 605 118 614 122 620 120"
+          stroke="url(#snare)" stroke-width="5" filter="url(#glow)"/>
+    <path d="M20 120 C43 120 49 32 68 32 C87 32 91 202 112 202
+             C134 202 139 67 163 67 C187 67 193 167 220 167
+             C247 167 255 87 284 87 C313 87 322 149 354 149
+             C386 149 398 99 432 99 C466 99 482 137 520 137
+             C558 137 583 116 620 120"
+          stroke="#ffffff" stroke-opacity=".42" stroke-width="3"/>
+  </g>
+</svg>

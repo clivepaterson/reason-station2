@@ -5,7 +5,9 @@ $(document).ready(function() {
     };
 
     function getPageId(url) {
-        return url.searchParams.get('tutorial') === 'creating-an-open-hi-hat'
+        return url.searchParams.get('tutorial') === 'creating-a-snare-drum'
+            ? 'tutorial-snare-page'
+            : url.searchParams.get('tutorial') === 'creating-an-open-hi-hat'
             ? 'tutorial-open-hi-hat-page'
             : url.searchParams.get('tutorial') === 'creating-a-hi-hat'
             ? 'tutorial-hi-hat-page'
@@ -57,6 +59,10 @@ $(document).ready(function() {
                 title: 'Creating an Open Hi-Hat with Subtractor | Reason Station',
                 description: 'Learn how to create an open hi-hat with a longer noise decay and distortion in Reason Subtractor.'
             },
+            'tutorial-snare-page': {
+                title: 'Creating a Snare Drum with Subtractor | Reason Station',
+                description: 'Learn how to create a snare drum using two Reason Subtractors, a Line Mixer, compression, and distortion.'
+            },
             'about-page': {
                 title: 'About Reason Station',
                 description: 'Learn why Reason Station was created as a community for sharing Reason projects and sound synthesis techniques.'
@@ -75,6 +81,8 @@ $(document).ready(function() {
 
         if (pageId === 'artist-page' && artistAlias) {
             canonicalUrl.searchParams.set('artistAlias', artistAlias);
+        } else if (pageId === 'tutorial-snare-page') {
+            canonicalUrl.searchParams.set('tutorial', 'creating-a-snare-drum');
         } else if (pageId === 'tutorial-open-hi-hat-page') {
             canonicalUrl.searchParams.set('tutorial', 'creating-an-open-hi-hat');
         } else if (pageId === 'tutorial-hi-hat-page') {
@@ -168,7 +176,7 @@ $(document).ready(function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #about-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         $('#track-search-input').val(url.searchParams.get('search') || '');
         updatePageMetadata(pageId, url);

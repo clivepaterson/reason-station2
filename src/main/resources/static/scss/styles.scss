@@ -2003,6 +2003,19 @@ body.site-page {
         line-height: 1.6;
     }
 
+    .tutorial-setup-note {
+        max-width: 760px;
+        margin-top: 1.5rem;
+        padding: 1rem 1.25rem;
+        border: 1px solid #d6e8ea;
+        border-radius: 12px;
+        background: $station-paper;
+
+        strong {
+            color: $station-deep;
+        }
+    }
+
     .tutorial-section {
         margin-top: clamp(2.5rem, 6vw, 4.5rem);
 
@@ -2096,6 +2109,18 @@ body.site-page {
             color: #5f7b81;
             font-size: 0.9rem;
             text-align: center;
+        }
+    }
+
+    .tutorial-screenshots {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+        gap: 1.5rem;
+        margin-top: clamp(2.5rem, 6vw, 4.5rem);
+
+        .tutorial-screenshot {
+            margin-top: 0;
         }
     }
 
@@ -2217,6 +2242,10 @@ body.site-page {
         }
 
         .tutorial-effects {
+            grid-template-columns: 1fr;
+        }
+
+        .tutorial-screenshots {
             grid-template-columns: 1fr;
         }
 
