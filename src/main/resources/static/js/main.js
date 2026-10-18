@@ -5,7 +5,11 @@ $(document).ready(function() {
     };
 
     function getPageId(url) {
-        return url.searchParams.has('tutorial')
+        return url.searchParams.get('tutorial') === 'creating-an-open-hi-hat'
+            ? 'tutorial-open-hi-hat-page'
+            : url.searchParams.get('tutorial') === 'creating-a-hi-hat'
+            ? 'tutorial-hi-hat-page'
+            : url.searchParams.get('tutorial') === 'creating-a-kick-drum'
             ? 'tutorial-detail-page'
             : url.searchParams.get('view') === 'tutorials'
             ? 'tutorials-page'
@@ -45,6 +49,14 @@ $(document).ready(function() {
                 title: 'Creating a Kick Drum with Subtractor | Reason Station',
                 description: 'Learn how to create a kick drum using Reason Subtractor.'
             },
+            'tutorial-hi-hat-page': {
+                title: 'Creating a Hi-Hat with Subtractor | Reason Station',
+                description: 'Learn how to create a hi-hat using the Noise Generator and high-pass filter in Reason Subtractor.'
+            },
+            'tutorial-open-hi-hat-page': {
+                title: 'Creating an Open Hi-Hat with Subtractor | Reason Station',
+                description: 'Learn how to create an open hi-hat with a longer noise decay and distortion in Reason Subtractor.'
+            },
             'about-page': {
                 title: 'About Reason Station',
                 description: 'Learn why Reason Station was created as a community for sharing Reason projects and sound synthesis techniques.'
@@ -63,6 +75,10 @@ $(document).ready(function() {
 
         if (pageId === 'artist-page' && artistAlias) {
             canonicalUrl.searchParams.set('artistAlias', artistAlias);
+        } else if (pageId === 'tutorial-open-hi-hat-page') {
+            canonicalUrl.searchParams.set('tutorial', 'creating-an-open-hi-hat');
+        } else if (pageId === 'tutorial-hi-hat-page') {
+            canonicalUrl.searchParams.set('tutorial', 'creating-a-hi-hat');
         } else if (pageId === 'tutorial-detail-page') {
             canonicalUrl.searchParams.set('tutorial', 'creating-a-kick-drum');
         } else if (pageId === 'tutorials-page') {
@@ -152,7 +168,7 @@ $(document).ready(function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #about-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         $('#track-search-input').val(url.searchParams.get('search') || '');
         updatePageMetadata(pageId, url);

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Hi-hat noise waveform</title>
+  <desc id="desc">A dense burst of high-frequency noise with a short, sharp decay.</desc>
+  <defs>
+    <linearGradient id="noise" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffb23e"/>
+      <stop offset=".55" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+    <filter id="glow" x="-10%" y="-50%" width="120%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 120H620" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+    <path d="M20 120 27 43 34 194 41 70 48 176 55 25 62 204 69 55 76 187 83 39
+             90 212 97 64 104 181 111 30 118 198 125 75 132 173 139 48 146 191
+             153 61 160 180 167 43 174 187 181 69 188 170 195 55 202 180 209 72
+             216 164 223 62 230 174 237 77 244 159 251 70 258 167 265 81 272 155
+             279 76 286 161 293 85 300 151 307 82 314 156 321 89 328 148 335 87
+             342 152 349 91 356 145 363 90 370 148 377 94 384 143 391 93 398 146
+             405 96 412 140 419 97 426 142 433 99 440 138 447 100 454 140 461 103
+             468 136 475 104 482 137 489 106 496 134 503 107 510 135 517 109 524 132
+             531 111 538 131 545 112 552 130 559 114 566 128 573 115 580 126 587 117
+             594 124 601 118 608 122 620 120"
+          stroke="url(#noise)" stroke-width="5" filter="url(#glow)"/>
+  </g>
+</svg>

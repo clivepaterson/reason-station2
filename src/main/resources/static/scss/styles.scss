@@ -2075,6 +2075,11 @@ body.site-page {
         }
     }
 
+    .tutorial-effects--single {
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 560px;
+    }
+
     .tutorial-screenshot {
         margin-top: clamp(2.5rem, 6vw, 4.5rem);
 
