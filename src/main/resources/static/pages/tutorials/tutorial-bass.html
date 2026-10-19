@@ -1,0 +1,53 @@
+<section id="tutorial-bass-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 05 &middot; Subtractor</span>
+                    <h1>Creating a bass</h1>
+                    <p>How to create a bass sound using Subtractor.</p>
+                </div>
+                <img src="/images/tutorial-bass-waveform.svg"
+                     alt="A low-frequency bass waveform made from two layered sawtooth waves">
+            </header>
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">There are many ways to make a bass sound. This is a very basic example.</p>
+
+                <section class="tutorial-section">
+                    <h2>The Subtractor settings</h2>
+                    <ol class="tutorial-steps">
+                        <li>Use a sawtooth wave for Oscillators 1 and 2. Set Oscillator 2 one octave lower, then mix the two oscillators equally.</li>
+                        <li>Set Filter 1 to low-pass.</li>
+                        <li>Set the Filter Envelope to no attack, a short decay, and no sustain or release.</li>
+                        <li>Set the Amp Envelope to no attack or decay, 100% sustain, and a short release.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The effects</h2>
+                    <div class="tutorial-effects">
+                        <div>
+                            <h3>Sidechain compression</h3>
+                            <p>Add an MClass Compressor for sidechaining. On the rear panel, split the kick drum signal and connect it to the compressor's Sidechain In. This ducks the bass volume each time the kick plays, helping the two sounds sit together in the mix.</p>
+                            <p>Set a low threshold and a high ratio, then adjust them to suit your track.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="tutorial-screenshots">
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-5-bass-settings.png"
+                             alt="Front of the Reason rack showing Subtractor and MClass Compressor settings for the bass sound">
+                        <figcaption>The Subtractor oscillator, filter, envelope, and compressor settings.</figcaption>
+                    </figure>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-5-bass-wiring.png"
+                             alt="Back of the Reason rack showing the kick drum signal connected to the MClass Compressor sidechain input">
+                        <figcaption>The rear-panel wiring with a split of the kick drum connected to Sidechain In.</figcaption>
+                    </figure>
+                </div>
+            </div>
+        </article>
+    </div>
+</section>

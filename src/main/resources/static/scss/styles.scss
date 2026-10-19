@@ -1842,12 +1842,13 @@ body.site-page {
 
     .tutorial-list {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+        grid-template-columns: 1fr;
         gap: 2rem;
     }
 
     .tutorial-card {
-        display: block;
+        display: grid;
+        grid-template-columns: clamp(130px, 30%, 180px) minmax(0, 1fr);
         overflow: hidden;
         color: $station-deep;
         background: white;
@@ -1871,21 +1872,22 @@ body.site-page {
 
     .tutorial-card-image {
         position: relative;
-        display: block;
-        padding: clamp(2rem, 5vw, 4rem);
+        display: grid;
+        align-content: center;
+        gap: 1rem;
+        padding: clamp(1rem, 2vw, 1.5rem);
         background: $station-deep;
 
         img {
             display: block;
+            grid-row: 2;
             width: 100%;
-            min-height: 150px;
         }
     }
 
     .tutorial-number {
-        position: absolute;
-        top: 1rem;
-        left: 1rem;
+        grid-row: 1;
+        justify-self: start;
         padding: 0.45rem 0.7rem;
         color: $station-deep;
         background: $station-orange;
@@ -1910,7 +1912,7 @@ body.site-page {
 
         strong {
             color: $station-deep;
-            font-size: clamp(1.3rem, 2.5vw, 1.75rem);
+            font-size: clamp(1.05rem, 1.8vw, 1.3rem);
         }
 
         strong + span {
@@ -2268,6 +2270,20 @@ body.site-page {
         }
     }
 
+    .featured-link--book {
+        .featured-link-image {
+            display: grid;
+            place-items: center;
+            background: #101214;
+        }
+
+        img {
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    }
+
     .featured-link-image {
         position: relative;
         overflow: hidden;
@@ -2361,12 +2377,15 @@ body.site-page {
 
         .tutorial-card-copy {
             align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem;
         }
 
         .tutorial-card-arrow {
-            flex-basis: 42px;
-            width: 42px;
-            height: 42px;
+            flex-basis: 36px;
+            width: 36px;
+            height: 36px;
+            font-size: 1.3rem;
         }
 
         .featured-link img {
@@ -2382,6 +2401,10 @@ body.site-page {
                 margin-inline: auto;
                 aspect-ratio: 16 / 9;
             }
+        }
+
+        .featured-link--book img {
+            aspect-ratio: auto;
         }
 
         .featured-link-copy {

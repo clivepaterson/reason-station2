@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Bass waveform</title>
+  <desc id="desc">Two layered low-frequency sawtooth waves.</desc>
+  <defs>
+    <linearGradient id="bass" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffb23e"/>
+      <stop offset=".55" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+    <filter id="glow" x="-10%" y="-50%" width="120%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 120H620" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+    <path d="M20 178 L102 62 L102 178 L184 62 L184 178 L266 62 L266 178
+             L348 62 L348 178 L430 62 L430 178 L512 62 L512 178 L594 62 L594 178 L620 141"
+          stroke="url(#bass)" stroke-width="6" filter="url(#glow)"/>
+    <path d="M20 154 L143 86 L143 154 L266 86 L266 154 L389 86 L389 154
+             L512 86 L512 154 L620 94"
+          stroke="#ffffff" stroke-opacity=".42" stroke-width="3"/>
+  </g>
+</svg>
