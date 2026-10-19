@@ -174,23 +174,39 @@ $(document).ready(async function() {
 
     function loadSearchPage(url) {
         var searchTerm = (url.searchParams.get('search') || '').trim();
+        var requestedPage = Number.parseInt(url.searchParams.get('page') || '1', 10);
+        var page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
         var searchResults = $('#search-results');
+        var searchPagination = $('#search-pagination');
         $('#search-status').text(searchTerm ? 'Searching for "' + searchTerm + '"...' : 'Enter a search term.');
         if (!searchTerm) {
             searchResults.empty();
+            searchPagination.attr('hidden', true);
             return;
         }
 
-        fetch('/api/discovery/search?query=' + encodeURIComponent(searchTerm))
+        fetch('/api/discovery/search?query=' + encodeURIComponent(searchTerm) + '&page=' + page)
             .then(function(response) {
-                if (!response.ok) {
-                    throw new Error('Unable to search tracks.');
-                }
-                return response.json();
+                return response.json().then(function(body) {
+                    if (!response.ok) {
+                        throw new Error(body.error || 'Unable to search tracks.');
+                    }
+                    return body;
+                });
             })
-            .then(function(tracks) {
+            .then(function(searchPage) {
+                var tracks = searchPage.results;
                 searchResults.empty();
-                $('#search-status').text(tracks.length + ' track' + (tracks.length === 1 ? '' : 's') + ' found.');
+                $('#search-status').text(searchPage.totalElements + ' track'
+                    + (searchPage.totalElements === 1 ? '' : 's') + ' found.');
+                searchPagination.attr('hidden', searchPage.totalPages <= 1);
+                $('#search-page-status').text('Page ' + searchPage.page + ' of ' + searchPage.totalPages);
+                $('#search-previous-page')
+                    .prop('disabled', searchPage.page <= 1)
+                    .data('page', searchPage.page - 1);
+                $('#search-next-page')
+                    .prop('disabled', searchPage.page >= searchPage.totalPages)
+                    .data('page', searchPage.page + 1);
                 if (tracks.length === 0) {
                     searchResults.append($('<p>').text('No tracks found.'));
                     return;
@@ -206,7 +222,24 @@ $(document).ready(async function() {
             .catch(function(error) {
                 $('#search-status').text(error.message);
                 searchResults.empty();
+                searchPagination.attr('hidden', true);
             });
+    }
+
+    function navigateToSearchPage(page) {
+        var url = new URL(window.location.href);
+        if (page === 1) {
+            url.searchParams.delete('page');
+        } else {
+            url.searchParams.set('page', page);
+        }
+        window.showPage(url, true);
+    }
+
+    function updateSearchButtonState() {
+        var searchExpression = $('#track-search-input').val() || '';
+        var alphanumericCharacters = searchExpression.match(/[\p{L}\p{N}]/gu) || [];
+        $('#track-search-form button[type="submit"]').prop('disabled', alphanumericCharacters.length < 2);
     }
 
     window.showPage = function(targetUrl, updateHistory) {
@@ -218,7 +251,7 @@ $(document).ready(async function() {
 
         $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
-        $('#track-search-input').val(url.searchParams.get('search') || '');
+        updateSearchButtonState();
         updatePageMetadata(pageId, url);
 
         if (pageId === 'home-page' && window.loadDiscovery) {
@@ -243,6 +276,10 @@ $(document).ready(async function() {
     $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .tutorial-card, .tutorial-back-link',
         navigateInternalLink);
     $('#my-tracks-link, #tutorials-link, #links-link, #about-link').on('click', navigateInternalLink);
+    $('#track-search-input').on('input', updateSearchButtonState);
+    $('#search-previous-page, #search-next-page').on('click', function() {
+        navigateToSearchPage($(this).data('page'));
+    });
 
     window.addEventListener('popstate', function() {
         window.showPage(window.location.href, false);

@@ -8,6 +8,7 @@ import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -151,12 +152,8 @@ public class TrackController {
     }
 
     @PostMapping(value = "/{trackid}/rating", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> rateTrack(Authentication authentication, @PathVariable Long trackid,
-                                       @RequestBody RatingRequest request) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Authentication is required."));
-        }
+    public ResponseEntity<?> rateTrack(@PathVariable Long trackid, @RequestBody RatingRequest request,
+                                       HttpServletRequest httpRequest) {
         if (trackid == null || trackid < 1) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Track ID must be a positive integer."));
@@ -171,13 +168,18 @@ public class TrackController {
                     .body(Map.of("error", "Track not found."));
         }
 
-        return findCurrentUser(authentication)
-                .<ResponseEntity<?>>map(user -> {
-                    ratings.upsertRating(trackid, user.getUserid(), request.rating().shortValue());
-                    return ResponseEntity.ok(Map.of("trackid", trackid, "rating", request.rating()));
-                })
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "The authenticated user was not found.")));
+        String ipAddress = httpRequest.getRemoteAddr();
+        if (ipAddress == null || ipAddress.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "An IP address is required."));
+        }
+
+        try {
+            ratings.recordRating(trackid, ipAddress, request.rating().shortValue());
+        } catch (DuplicateKeyException ignored) {
+            // This IP address has already rated the track.
+        }
+        return ResponseEntity.ok(Map.of("trackid", trackid, "rating", request.rating()));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

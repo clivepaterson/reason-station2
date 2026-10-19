@@ -8,12 +8,12 @@ import java.time.Instant;
 
 @Table("track_ratings")
 public class TrackRating {
-    @Id
     @Column("trackid")
     private Long trackid;
 
-    @Column("userid")
-    private Long userid;
+    @Id
+    @Column("ip_address")
+    private String ipAddress;
 
     @Column("rating")
     private Short rating;

@@ -211,8 +211,10 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.music_style,
                    t.filename,
                    t.date_uploaded,
+                   AVG(r.rating) AS average_track_rating,
                    COUNT(*) AS download_count
             FROM tracks t
+            LEFT JOIN track_ratings r ON r.trackid = t.trackid
             LEFT JOIN track_downloads d ON d.trackid = t.trackid
             WHERE t.artist_alias ILIKE CONCAT('%', :searchTerm, '%')
                OR t.track_name ILIKE CONCAT('%', :searchTerm, '%')
@@ -223,9 +225,23 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.filename,
                      t.date_uploaded
             ORDER BY t.artist_alias,
-                     t.track_name
+                     t.track_name,
+                     t.trackid
+            LIMIT :limit
+            OFFSET :offset
             """)
-    List<TrackSearchResult> searchByArtistAliasOrTrackName(@Param("searchTerm") String searchTerm);
+    List<TrackSearchResult> searchByArtistAliasOrTrackName(
+            @Param("searchTerm") String searchTerm,
+            @Param("limit") int limit,
+            @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM tracks t
+            WHERE t.artist_alias ILIKE CONCAT('%', :searchTerm, '%')
+               OR t.track_name ILIKE CONCAT('%', :searchTerm, '%')
+            """)
+    long countByArtistAliasOrTrackName(@Param("searchTerm") String searchTerm);
     
     /**
      * Find a track by user and filename

@@ -74,6 +74,7 @@ public class SecurityConfig {
                                 "/oauth2/**", "/login/oauth2/**",
                                 "/api/verify-email",
                                 "/index.html", "/api/discovery/**", "/api/tracks/*/download",
+                                "/api/tracks/*/rating",
                                 "/error", "/hello").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())

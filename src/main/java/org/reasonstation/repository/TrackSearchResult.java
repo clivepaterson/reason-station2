@@ -9,5 +9,6 @@ public record TrackSearchResult(
         String musicStyle,
         String filename,
         Instant dateUploaded,
+        Double averageTrackRating,
         long downloadCount) {
 }

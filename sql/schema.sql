@@ -32,10 +32,10 @@ CREATE TABLE IF NOT EXISTS track_downloads (
 
 CREATE TABLE IF NOT EXISTS track_ratings (
     trackid INTEGER NOT NULL REFERENCES tracks(trackid) ON DELETE CASCADE,
-    userid INTEGER NOT NULL REFERENCES "user"(userid) ON DELETE CASCADE,
+    ip_address INET NOT NULL,
     rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     date_rated TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT track_ratings_pkey PRIMARY KEY (trackid, userid)
+    CONSTRAINT track_ratings_trackid_ip_address_key UNIQUE (trackid, ip_address)
 );
 
 CREATE INDEX IF NOT EXISTS idx_tracks_userid ON tracks(userid);

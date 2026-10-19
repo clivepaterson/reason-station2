@@ -8,16 +8,12 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface TrackRatingRepository extends CrudRepository<TrackRating, Long> {
+public interface TrackRatingRepository extends CrudRepository<TrackRating, String> {
     @Modifying
     @Query("""
-            INSERT INTO track_ratings (trackid, userid, rating)
-            VALUES (:trackid, :userid, :rating)
-            ON CONFLICT (trackid, userid)
-            DO UPDATE SET
-                rating = EXCLUDED.rating,
-                date_rated = CURRENT_TIMESTAMP
+            INSERT INTO track_ratings (trackid, ip_address, rating)
+            VALUES (:trackid, CAST(:ipAddress AS inet), :rating)
             """)
-    void upsertRating(@Param("trackid") Long trackid, @Param("userid") Long userid,
+    void recordRating(@Param("trackid") Long trackid, @Param("ipAddress") String ipAddress,
                       @Param("rating") short rating);
 }

@@ -13,6 +13,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/discovery")
 public class DiscoveryController {
+    private static final int SEARCH_PAGE_SIZE = 20;
+
     private final TrackRepository tracks;
 
     public DiscoveryController(TrackRepository tracks) {
@@ -116,26 +118,56 @@ public class DiscoveryController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<?> searchTracks(@RequestParam("query") String query) {
+    public ResponseEntity<?> searchTracks(
+            @RequestParam("query") String query,
+            @RequestParam(value = "page", defaultValue = "1") int page) {
         String searchTerm = query.trim();
-        if (searchTerm.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "A search term is required."));
+        long alphanumericCharacterCount = searchTerm.codePoints()
+                .filter(Character::isLetterOrDigit)
+                .limit(2)
+                .count();
+        if (alphanumericCharacterCount < 2) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Search terms must contain at least 2 alphanumeric characters."));
         }
         if (searchTerm.length() > 100) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Search terms must be 100 characters or fewer."));
         }
+        if (page < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Page numbers must be 1 or greater."));
+        }
 
-        return ResponseEntity.ok(tracks.searchByArtistAliasOrTrackName(searchTerm).stream()
-                .map(track -> Map.of(
-                        "trackid", track.trackid(),
-                        "artistAlias", track.artistAlias(),
-                        "trackName", track.trackName(),
-                        "musicStyle", track.musicStyle(),
-                        "filename", track.filename(),
-                        "downloadCount", track.downloadCount(),
-                        "dateUploaded", track.dateUploaded()))
-                .toList());
+        long totalElements = tracks.countByArtistAliasOrTrackName(searchTerm);
+        int totalPages = (int) ((totalElements + SEARCH_PAGE_SIZE - 1) / SEARCH_PAGE_SIZE);
+        long offset = (long) (page - 1) * SEARCH_PAGE_SIZE;
+        var results = tracks.searchByArtistAliasOrTrackName(searchTerm, SEARCH_PAGE_SIZE, offset).stream()
+                .map(track -> new TrackDiscoveryResponse(
+                        track.trackid(),
+                        track.artistAlias(),
+                        track.trackName(),
+                        track.musicStyle(),
+                        track.filename(),
+                        track.downloadCount(),
+                        track.averageTrackRating(),
+                        track.dateUploaded()))
+                .toList();
+
+        return ResponseEntity.ok(new TrackSearchPageResponse(
+                results,
+                page,
+                SEARCH_PAGE_SIZE,
+                totalElements,
+                totalPages));
+    }
+
+    private record TrackSearchPageResponse(
+            java.util.List<TrackDiscoveryResponse> results,
+            int page,
+            int pageSize,
+            long totalElements,
+            int totalPages) {
     }
 
     private record TrackDiscoveryResponse(
