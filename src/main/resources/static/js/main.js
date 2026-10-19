@@ -1,4 +1,35 @@
-$(document).ready(function() {
+$(document).ready(async function() {
+    var pageFragments = [
+        'home.html',
+        'my-tracks.html',
+        'artist.html',
+        'search.html',
+        'links.html',
+        'tutorials.html',
+        'tutorials/tutorial-kick-drum.html',
+        'tutorials/tutorial-hi-hat.html',
+        'tutorials/tutorial-open-hi-hat.html',
+        'tutorials/tutorial-snare-drum.html',
+        'about.html'
+    ];
+
+    try {
+        var pages = await Promise.all(pageFragments.map(function(filename) {
+            return fetch('/pages/' + filename).then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Unable to load page: ' + filename);
+                }
+                return response.text();
+            });
+        }));
+        $('#site-content').html(pages.join('\n'));
+    } catch (error) {
+        $('#site-content')
+            .empty()
+            .append($('<p>').addClass('form-message error').text(error.message));
+        return;
+    }
+
     var defaultMetadata = {
         title: 'Reason Station | Share Reason Music & Sound Synthesis',
         description: 'Discover, share, and download Reason music projects while learning sound synthesis techniques from other artists.'
@@ -272,5 +303,4 @@ $(document).ready(function() {
                     : error.message);
             }
         });
-
 });

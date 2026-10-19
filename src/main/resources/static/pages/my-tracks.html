@@ -1,0 +1,98 @@
+<section id="my-tracks-page" class="tracks-page" hidden>
+    <div class="container">
+        <div class="tracks-header">
+            <div>
+                <h1>My tracks</h1>
+                <p id="tracks-status" aria-live="polite">Checking your sign-in status...</p>
+            </div>
+            <button class="cta-button" id="upload-track-button" type="button" hidden>Upload Track</button>
+        </div>
+
+        <div id="upload-dialog-backdrop" class="upload-dialog-backdrop" hidden></div>
+        <form id="upload-track-form" class="track-form" hidden>
+            <h2>Upload a track</h2>
+            <label for="artist-alias">
+                Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
+            </label>
+            <input id="artist-alias" name="artistAlias" type="text" required maxlength="100"
+                   pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
+                   title="Use only letters, numbers, and ()[]_.'+-">
+            <label for="track-name">Track name</label>
+            <input id="track-name" name="trackName" type="text" required maxlength="200"
+                   pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
+                   title="Use only letters, numbers, and ()[]_.'+-">
+            <label for="music-style">Music style</label>
+            <input id="music-style" name="musicStyle" type="text" required maxlength="100"
+                   list="music-style-options" autocomplete="off">
+            <datalist id="music-style-options">
+                <option value="Rock"><option value="Alternative Rock"><option value="Classic Rock">
+                <option value="Hard Rock"><option value="Soft Rock"><option value="Indie Rock">
+                <option value="Progressive Rock"><option value="Psychedelic Rock"><option value="Punk Rock">
+                <option value="Post-Punk"><option value="Garage Rock"><option value="Grunge"><option value="Emo">
+                <option value="Pop Rock"><option value="Southern Rock"><option value="Blues Rock">
+                <option value="Folk Rock"><option value="Industrial Rock"><option value="Gothic Rock">
+                <option value="Post-Rock"><option value="Math Rock"><option value="Metal"><option value="Heavy Metal">
+                <option value="Thrash Metal"><option value="Death Metal"><option value="Black Metal">
+                <option value="Doom Metal"><option value="Power Metal"><option value="Progressive Metal">
+                <option value="Symphonic Metal"><option value="Folk Metal"><option value="Nu Metal">
+                <option value="Metalcore"><option value="Deathcore"><option value="Industrial Metal">
+                <option value="Gothic Metal"><option value="Sludge Metal"><option value="Stoner Metal">
+                <option value="Pop"><option value="Synthpop"><option value="Electropop"><option value="Dance Pop">
+                <option value="Indie Pop"><option value="Dream Pop"><option value="Art Pop"><option value="Hyperpop">
+                <option value="K-Pop"><option value="J-Pop"><option value="Teen Pop"><option value="Power Pop">
+                <option value="Bedroom Pop"><option value="Pop Punk"><option value="Electronic"><option value="House">
+                <option value="Deep House"><option value="Tech House"><option value="Progressive House">
+                <option value="Electro House"><option value="Techno"><option value="Detroit Techno">
+                <option value="Trance"><option value="Psytrance"><option value="Drum &amp; Bass"><option value="Jungle">
+                <option value="Dubstep"><option value="Garage"><option value="Breakbeat"><option value="Hardcore">
+                <option value="IDM"><option value="Ambient"><option value="Downtempo"><option value="Chillout">
+                <option value="Synthwave"><option value="Vaporwave"><option value="Future Bass"><option value="Glitch">
+                <option value="Electro"><option value="Jazz"><option value="Bebop"><option value="Cool Jazz">
+                <option value="Swing"><option value="Big Band"><option value="Fusion"><option value="Jazz Funk">
+                <option value="Smooth Jazz"><option value="Free Jazz"><option value="Avant-Garde Jazz">
+                <option value="Latin Jazz"><option value="Acid Jazz"><option value="Vocal Jazz"><option value="Nu Jazz">
+                <option value="Blues"><option value="Delta Blues"><option value="Chicago Blues">
+                <option value="Electric Blues"><option value="Country Blues"><option value="Texas Blues">
+                <option value="Soul Blues"><option value="Funk &amp; Soul"><option value="Funk"><option value="P-Funk">
+                <option value="Soul"><option value="Motown"><option value="Neo-Soul"><option value="Funk Rock">
+                <option value="Gospel Soul"><option value="Southern Soul"><option value="Disco"><option value="Boogie">
+                <option value="Classical"><option value="Baroque"><option value="Romantic">
+                <option value="Modern Classical"><option value="Contemporary Classical"><option value="Minimalism">
+                <option value="Neoclassical"><option value="Orchestral"><option value="Chamber Music"><option value="Opera">
+                <option value="Choral"><option value="Film Score"><option value="Video Game Music"><option value="Folk">
+                <option value="Indie Folk"><option value="Country"><option value="Bluegrass"><option value="Americana">
+                <option value="Celtic"><option value="Irish Folk"><option value="Flamenco"><option value="Reggae">
+                <option value="Ska"><option value="Dub"><option value="Afrobeat"><option value="Highlife"><option value="Latin">
+                <option value="Salsa"><option value="Samba"><option value="Bossa Nova"><option value="Cumbia">
+                <option value="Reggaeton"><option value="Tango"><option value="Klezmer"><option value="Indian Classical">
+                <option value="Middle Eastern"><option value="African Traditional"><option value="Asian Traditional">
+                <option value="Hip-Hop"><option value="Boom Bap"><option value="East Coast Hip-Hop">
+                <option value="West Coast Hip-Hop"><option value="Gangsta Rap"><option value="Trap"><option value="Drill">
+                <option value="Cloud Rap"><option value="Lo-Fi Hip-Hop"><option value="Conscious Hip-Hop">
+                <option value="Alternative Hip-Hop"><option value="Jazz Rap"><option value="Experimental Hip-Hop">
+                <option value="Old School Hip-Hop"><option value="R&amp;B"><option value="Contemporary R&amp;B">
+                <option value="Alternative R&amp;B"><option value="New Jack Swing"><option value="Quiet Storm">
+                <option value="Gospel"><option value="Dark Ambient"><option value="Drone"><option value="Ethereal">
+                <option value="Atmospheric"><option value="Experimental"><option value="Noise"><option value="Industrial">
+                <option value="Minimalist"><option value="Avant-Garde"><option value="Soundscape"><option value="Cinematic">
+                <option value="Darkwave"><option value="Witch House"><option value="Eurodance"><option value="Dancehall">
+                <option value="EDM"><option value="Future House"><option value="Bass House"><option value="UK Garage">
+                <option value="Epic"><option value="Emotional"><option value="Melancholic"><option value="Uplifting">
+                <option value="Dark"><option value="Aggressive"><option value="Dreamy"><option value="Relaxing">
+                <option value="Energetic"><option value="Romantic"><option value="Mysterious"><option value="Haunting">
+                <option value="Futuristic"><option value="Retro"><option value="Vintage"><option value="Minimal">
+                <option value="Acoustic"><option value="Live"><option value="Instrumental"><option value="Vocal">
+                <option value="Female Vocal"><option value="Male Vocal"><option value="Other">
+            </datalist>
+            <label for="track-file">Audio file</label>
+            <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason" multiple required>
+            <button class="cta-button" type="submit">Upload</button>
+            <p id="upload-status" class="form-message" aria-live="polite"></p>
+        </form>
+
+        <section>
+            <h2>Uploaded tracks</h2>
+            <div id="tracks-list" class="tracks-list"></div>
+        </section>
+    </div>
+</section>

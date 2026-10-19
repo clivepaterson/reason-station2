@@ -1,0 +1,36 @@
+<section id="tutorial-hi-hat-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 02 &middot; Subtractor</span>
+                    <h1>Creating a hi-hat</h1>
+                    <p>How to create a hi-hat using Subtractor.</p>
+                </div>
+                <img src="/images/tutorial-hi-hat-waveform.svg"
+                     alt="A dense noise waveform with a short, sharp decay">
+            </header>
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">A hi-hat can be created using only the Noise Oscillator.</p>
+
+                <section class="tutorial-section">
+                    <h2>The Subtractor settings</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a Subtractor synthesizer and reset the device.</li>
+                        <li>Turn off Oscillators 1 and 2 by disabling Oscillator 2 and moving the mix fully toward Oscillator 2.</li>
+                        <li>Turn on the Noise Generator and set its level and decay to maximum.</li>
+                        <li>Set Filter 1 to high-pass at around 7 kHz to remove all low frequencies.</li>
+                        <li>Set the Filter and Amp Envelopes to no attack, a very short decay, and no sustain or release.</li>
+                    </ol>
+                </section>
+
+                <figure class="tutorial-screenshot">
+                    <img src="/images/tutorial-2-hi-hat-settings.png"
+                         alt="Reason rack showing the Subtractor noise generator, high-pass filter, and short envelope settings used for the hi-hat">
+                    <figcaption>The completed Subtractor hi-hat patch using the Noise Generator and a high-pass filter.</figcaption>
+                </figure>
+            </div>
+        </article>
+    </div>
+</section>

@@ -1,0 +1,84 @@
+<div id="home-page">
+    <section class="hero" id="home">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Welcome to <span class="hero-brand">Reason <b>Station</b><span class="hero-rs-2">2</span></span></h1>
+                <p>A platform for sharing your love of sound synthesis</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="home-discovery">
+        <div class="container home-discovery-layout">
+            <div class="home-discovery-main">
+                <section class="about" id="artist">
+                    <h2>3 random artists to explore</h2>
+                    <div id="random-artist-loading" class="loading-indicator" role="status">
+                        <span class="loading-spinner" aria-hidden="true"></span>
+                        <span>Loading artists...</span>
+                    </div>
+                    <ul id="random-artist" class="discovery-list" hidden></ul>
+                </section>
+
+                <section class="features" id="tracks">
+                    <h2>Random tracks</h2>
+                    <div id="random-tracks-loading" class="loading-indicator" role="status">
+                        <span class="loading-spinner" aria-hidden="true"></span>
+                        <span>Loading tracks...</span>
+                    </div>
+                    <ul id="random-tracks" class="discovery-list" hidden></ul>
+                </section>
+            </div>
+
+            <aside class="discovery-sidebar" aria-label="Track and artist charts">
+                <section class="sidebar-panel sidebar-panel-featured">
+                    <header class="sidebar-panel-header">
+                        <span class="sidebar-eyebrow">Weekly chart</span>
+                        <h2>Most popular tracks this week</h2>
+                    </header>
+                    <div id="popular-tracks-loading" class="sidebar-loading loading-indicator" role="status">
+                        <span class="loading-spinner" aria-hidden="true"></span>
+                        <span>Loading chart...</span>
+                    </div>
+                    <ol id="popular-tracks" class="sidebar-list track-ranking" hidden></ol>
+                </section>
+
+                <section class="sidebar-panel">
+                    <header class="sidebar-panel-header">
+                        <span class="sidebar-eyebrow">Weekly ratings</span>
+                        <h2>Highest rated tracks this week</h2>
+                    </header>
+                    <div id="highest-rated-tracks-loading" class="sidebar-loading loading-indicator" role="status">
+                        <span class="loading-spinner" aria-hidden="true"></span>
+                        <span>Loading ratings...</span>
+                    </div>
+                    <ol id="highest-rated-tracks" class="sidebar-list track-ranking" hidden></ol>
+                </section>
+
+                <section class="sidebar-panel">
+                    <header class="sidebar-panel-header">
+                        <span class="sidebar-eyebrow">Monthly chart</span>
+                        <h2>Most popular artists this month</h2>
+                    </header>
+                    <div id="popular-artists-loading" class="sidebar-loading loading-indicator" role="status">
+                        <span class="loading-spinner" aria-hidden="true"></span>
+                        <span>Loading artists...</span>
+                    </div>
+                    <ol id="popular-artists" class="sidebar-list artist-ranking" hidden></ol>
+                </section>
+
+                <section class="sidebar-panel">
+                    <header class="sidebar-panel-header">
+                        <span class="sidebar-eyebrow">Just uploaded</span>
+                        <h2>The 10 newest tracks</h2>
+                    </header>
+                    <div id="newest-tracks-loading" class="sidebar-loading loading-indicator" role="status">
+                        <span class="loading-spinner" aria-hidden="true"></span>
+                        <span>Loading tracks...</span>
+                    </div>
+                    <ol id="newest-tracks" class="sidebar-list newest-ranking" hidden></ol>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>

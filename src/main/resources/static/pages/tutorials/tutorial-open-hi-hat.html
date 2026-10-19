@@ -1,0 +1,46 @@
+<section id="tutorial-open-hi-hat-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 03 &middot; Subtractor</span>
+                    <h1>Creating an open hi-hat</h1>
+                    <p>How to create an open hi-hat using Subtractor.</p>
+                </div>
+                <img src="/images/tutorial-open-hi-hat-waveform.svg"
+                     alt="A dense noise waveform with a longer fading tail">
+            </header>
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">A hi-hat can be created using only the Noise Oscillator. An open hi-hat uses the same technique as a closed hi-hat, but with a longer decay.</p>
+
+                <section class="tutorial-section">
+                    <h2>The Subtractor settings</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a Subtractor synthesizer and reset the device.</li>
+                        <li>Turn off Oscillators 1 and 2 by disabling Oscillator 2 and moving the mix fully toward Oscillator 2.</li>
+                        <li>Turn on the Noise Generator and set its level and decay to maximum.</li>
+                        <li>Set Filter 1 to high-pass at around 6 kHz to remove all low frequencies. This is slightly lower than the frequency used for a closed hi-hat.</li>
+                        <li>Set the Amp Envelope to no attack, a short decay that is longer than the closed hi-hat, and no sustain or release.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The effects</h2>
+                    <div class="tutorial-effects tutorial-effects--single">
+                        <div>
+                            <h3>Distortion</h3>
+                            <p>Add some distortion to give the open hi-hat extra character.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <figure class="tutorial-screenshot">
+                    <img src="/images/tutorial-3-open-hi-hat-settings.png"
+                         alt="Reason rack showing the Subtractor noise generator, longer envelopes, high-pass filter, and Scream 4 distortion used for the open hi-hat">
+                    <figcaption>The completed open hi-hat patch with a longer decay and Scream 4 distortion.</figcaption>
+                </figure>
+            </div>
+        </article>
+    </div>
+</section>

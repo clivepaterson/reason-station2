@@ -192,5 +192,3 @@ window.loadDiscovery = function() {
         });
     }, 'No tracks have been uploaded yet.');
 };
-
-window.loadDiscovery();

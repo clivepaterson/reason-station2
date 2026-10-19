@@ -1,0 +1,88 @@
+<section id="tutorial-snare-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 04 &middot; Subtractor</span>
+                    <h1>Creating a snare drum</h1>
+                    <p>How to create a snare using Subtractor.</p>
+                </div>
+                <img src="/images/tutorial-snare-waveform.svg"
+                     alt="A snare waveform combining a sharp tonal hit with a burst of noise">
+            </header>
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">A snare drum is similar to a kick drum, but uses a band-pass filter to occupy a tighter mid-frequency space.</p>
+                <p class="tutorial-setup-note"><strong>Before you begin:</strong> create a Line Mixer so that you can combine two Subtractor synthesizers.</p>
+
+                <section class="tutorial-section">
+                    <h2>Subtractor 1: triangle or sine wave</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a Subtractor synthesizer and reset the device.</li>
+                        <li>Set Oscillator 1 to a triangle or sine wave. A triangle wave adds more harmonics to the sound.</li>
+                        <li>Set Filter 1 to band-pass. This excludes low frequencies so the snare can occupy a tight frequency space. Adjust the filter frequency to suit the note you are playing.</li>
+                        <li>Use no Filter Envelope.</li>
+                        <li>Set the Mod Envelope to Oscillator 1 pitch with a decay value of 20, so the sound starts at a high pitch and quickly lowers to the root note.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>Subtractor 2: noise</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create another Subtractor synthesizer for white noise and reset the device. This lets you control the white noise ADSR independently.</li>
+                        <li>Turn off Oscillators 1 and 2 by disabling Oscillator 2 and moving the mix fully toward Oscillator 2.</li>
+                        <li>Turn on the Noise Generator and set decay and level to 100%. Adjust the color to taste.</li>
+                        <li>Set the Amp Envelope to no attack, a very short decay, and no sustain or release.</li>
+                        <li>Reduce the volume of the white-noise Subtractor until it mixes well with Subtractor 1's triangle sound.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The effects</h2>
+                    <div class="tutorial-effects">
+                        <div>
+                            <h3>Compression</h3>
+                            <p>Add a compressor and increase the ratio to boost the sound. Wire both Subtractors to the Line Mixer, then connect the Line Mixer to the compressor.</p>
+                        </div>
+                        <div>
+                            <h3>Distortion</h3>
+                            <p>Add distortion to give the snare more crunch. This example uses Scream 4 tube distortion.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="tutorial-screenshots">
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-4-snare-settings.png"
+                             alt="Front of the Reason rack showing two Subtractors, a Line Mixer, COMP-01 compressor, and Scream 4 distortion configured for the snare">
+                        <figcaption>The complete snare rack with separate tonal and noise Subtractors.</figcaption>
+                    </figure>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-4-snare-wiring.png"
+                             alt="Back of the Reason rack showing both Subtractors wired into the Line Mixer, compressor, and Scream 4 distortion">
+                        <figcaption>The rear-panel wiring for the two Subtractors, Line Mixer, compressor, and distortion.</figcaption>
+                    </figure>
+                </div>
+
+                <section class="tutorial-section additional-tutorials">
+                    <h2>Additional tutorials</h2>
+                    <a class="additional-tutorial-card"
+                       href="https://www.youtube.com/watch?v=01pD7C6PTYI"
+                       target="_blank" rel="noopener noreferrer">
+                        <span class="additional-tutorial-thumbnail">
+                            <img src="/images/tutorial-4-additional-video.jpg"
+                                 alt="Snare Drum creation using a Subtractor video thumbnail">
+                            <span class="additional-tutorial-play" aria-hidden="true"></span>
+                        </span>
+                        <span class="additional-tutorial-copy">
+                            <span class="additional-tutorial-provider">YouTube &middot; PulseCrush</span>
+                            <strong>Snare Drum creation using a Subtractor</strong>
+                            <span>Watch on YouTube</span>
+                        </span>
+                        <span class="additional-tutorial-arrow" aria-hidden="true">&nearr;</span>
+                    </a>
+                </section>
+            </div>
+        </article>
+    </div>
+</section>
