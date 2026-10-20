@@ -1,0 +1,86 @@
+<section id="tutorial-pwm-lead-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 06 &middot; Subtractor</span>
+                    <h1>Creating a lead / pad with pulse width modulation (PWM)</h1>
+                    <p>How to create a basic lead using Subtractor with sawtooth pulse width modulation.</p>
+                </div>
+                <img src="/images/tutorial-pwm-waveform.svg"
+                     alt="A pulse-width-modulated waveform with changing pulse widths">
+            </header>
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">We are going to use Subtractor's PWM feature to create a rich lead sound.</p>
+
+                <figure class="tutorial-screenshot">
+                    <a href="https://docs.reasonstudios.com/reason13/subtractor-synthesizer#1002656"
+                       target="_blank" rel="noopener noreferrer">
+                        <img src="/images/tutorial-6-phase-offset-modulation.png"
+                             alt="Reason Studios documentation explaining Subtractor phase offset modulation and pulse width modulation">
+                    </a>
+                    <figcaption>Subtractor creates PWM by subtracting a phase-offset copy of a sawtooth wave. Read the <a href="https://docs.reasonstudios.com/reason13/subtractor-synthesizer#1002656" target="_blank" rel="noopener noreferrer">Reason Studios documentation</a>.</figcaption>
+                </figure>
+
+                <section class="tutorial-section">
+                    <h2>The Subtractor settings</h2>
+                    <ol class="tutorial-steps">
+                        <li>Use a sawtooth wave for Oscillators 1 and 2. Detune Oscillator 2 by -3 cents, then mix the two oscillators equally.</li>
+                        <li>Set the phase mode to subtraction (&minus;). This subtracts a phase-offset copy of each sawtooth, producing a square wave whose pulse width can be controlled with the Phase knob.</li>
+                        <li>Set LFO 1 to a triangle wave, route it to Phase, and use a rate of about 36 and an amount of about 6. This continuously varies the pulse width of the square wave.</li>
+                        <li>Set the filter's Velocity control to 0 so note velocity does not alter the filter.</li>
+                        <li>Set Filter 1 to high-pass to remove the low frequencies. We will add a low-pass filter later in the effects chain.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The effects</h2>
+                    <div class="tutorial-effects">
+                        <div>
+                            <h3>ECF-42 filter</h3>
+                            <p>Add an ECF-42 Envelope Controlled Filter and set it to low-pass. Assign filter frequency to Combinator Control 1 and filter resonance to Combinator Control 2.</p>
+                        </div>
+                        <div>
+                            <h3>CF-101 chorus/flanger</h3>
+                            <p>Add a CF-101 Chorus/Flanger to widen and enrich the lead sound.</p>
+                        </div>
+                        <div>
+                            <h3>RV-7 reverb</h3>
+                            <p>Add an RV-7 Digital Reverb with a small room size and a mostly dry mix.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <figure class="tutorial-screenshot">
+                    <img src="/images/tutorial-6-pwm-rack.png"
+                         alt="Reason rack showing the Combinator controls, Subtractor PWM settings, ECF-42 filter, CF-101 chorus, and RV-7 reverb">
+                    <figcaption>The complete PWM lead rack and Combinator control assignments.</figcaption>
+                </figure>
+
+                <section class="tutorial-section">
+                    <h2>Creating a chord progression</h2>
+                    <p>The easiest way to start a chord progression is to use the circle of fifths.</p>
+                    <p>You can move to adjacent chords around the inner or outer circle, or move between adjacent chords on the inner and outer rings.</p>
+                </section>
+
+                <figure class="tutorial-screenshot">
+                    <img src="/images/circle-of-fifths.svg"
+                         alt="Circle of fifths showing major keys on the outer ring and relative minor keys on the inner ring">
+                    <figcaption>Use the circle of fifths to find closely related major and minor chords.</figcaption>
+                </figure>
+
+                <section class="tutorial-section">
+                    <h2>Example progression</h2>
+                    <p>This example uses C minor, E-flat major, B-flat major, and G minor.</p>
+                </section>
+
+                <figure class="tutorial-screenshot">
+                    <img src="/images/tutorial-6-chord-progression.png"
+                         alt="Reason piano roll showing a C minor, E-flat major, B-flat major, and G minor chord progression">
+                    <figcaption>C minor &ndash; E-flat major &ndash; B-flat major &ndash; G minor.</figcaption>
+                </figure>
+            </div>
+        </article>
+    </div>
+</section>

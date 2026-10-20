@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title description">
+  <title id="title">Circle of fifths</title>
+  <desc id="description">The twelve major keys, their relative minor keys, and the number of sharps or flats in each key signature.</desc>
+  <defs>
+    <radialGradient id="page" cx="50%" cy="42%" r="68%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".72" stop-color="#f3fbfb"/>
+      <stop offset="1" stop-color="#d7ecee"/>
+    </radialGradient>
+    <linearGradient id="major-ring" x1="205" y1="170" x2="1000" y2="1030" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#237c88"/>
+      <stop offset=".52" stop-color="#176a76"/>
+      <stop offset="1" stop-color="#0f4b58"/>
+    </linearGradient>
+    <linearGradient id="minor-ring" x1="350" y1="300" x2="855" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b8e0e2"/>
+      <stop offset="1" stop-color="#72b9c0"/>
+    </linearGradient>
+    <radialGradient id="centre" cx="45%" cy="35%" r="70%">
+      <stop stop-color="#176a76"/>
+      <stop offset="1" stop-color="#083c47"/>
+    </radialGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffb23e"/>
+      <stop offset=".55" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#ff6b1a"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="145%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#083c47" flood-opacity=".2"/>
+    </filter>
+    <style>
+      .major-key {
+        fill: #fff;
+        font: 800 42px "Segoe UI", Tahoma, sans-serif;
+        letter-spacing: -.03em;
+        text-anchor: middle;
+      }
+      .signature {
+        fill: #b8e0e2;
+        font: 700 18px "Segoe UI", Tahoma, sans-serif;
+        letter-spacing: .08em;
+        text-anchor: middle;
+      }
+      .minor-key {
+        fill: #083c47;
+        font: 800 29px "Segoe UI", Tahoma, sans-serif;
+        letter-spacing: -.02em;
+        text-anchor: middle;
+      }
+      .minor-caption {
+        fill: #176a76;
+        font: 700 13px "Segoe UI", Tahoma, sans-serif;
+        letter-spacing: .14em;
+        text-anchor: middle;
+        text-transform: uppercase;
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="1200" rx="48" fill="url(#page)"/>
+  <path d="M0 1040c217-94 396-105 572-38 196 74 385 64 628-67v265H0Z" fill="#82ccd2" opacity=".14"/>
+  <path d="M0 1090c228-77 413-72 580-4 199 81 393 59 620-61v175H0Z" fill="#ff8a16" opacity=".08"/>
+
+  <g filter="url(#shadow)">
+    <circle cx="600" cy="600" r="510" fill="#f3fbfb" stroke="#fff" stroke-width="12"/>
+    <circle cx="600" cy="600" r="488" fill="url(#major-ring)"/>
+    <circle cx="600" cy="600" r="337" fill="url(#minor-ring)"/>
+    <circle cx="600" cy="600" r="214" fill="url(#centre)"/>
+  </g>
+
+  <g fill="none" stroke-linecap="round">
+    <circle cx="600" cy="600" r="488" stroke="#083c47" stroke-opacity=".34" stroke-width="3"/>
+    <circle cx="600" cy="600" r="337" stroke="#f3fbfb" stroke-opacity=".8" stroke-width="5"/>
+    <circle cx="600" cy="600" r="214" stroke="#f3fbfb" stroke-opacity=".55" stroke-width="4"/>
+  </g>
+
+  <g stroke="#f3fbfb" stroke-opacity=".36" stroke-width="3">
+    <path d="M600 112V386" transform="rotate(-15 600 600)"/>
+    <path d="M600 112V386" transform="rotate(15 600 600)"/>
+    <path d="M600 112V386" transform="rotate(45 600 600)"/>
+    <path d="M600 112V386" transform="rotate(75 600 600)"/>
+    <path d="M600 112V386" transform="rotate(105 600 600)"/>
+    <path d="M600 112V386" transform="rotate(135 600 600)"/>
+    <path d="M600 112V386" transform="rotate(165 600 600)"/>
+    <path d="M600 112V386" transform="rotate(195 600 600)"/>
+    <path d="M600 112V386" transform="rotate(225 600 600)"/>
+    <path d="M600 112V386" transform="rotate(255 600 600)"/>
+    <path d="M600 112V386" transform="rotate(285 600 600)"/>
+    <path d="M600 112V386" transform="rotate(315 600 600)"/>
+  </g>
+
+  <g stroke="#0f4b58" stroke-opacity=".2" stroke-width="3">
+    <path d="M600 263V386" transform="rotate(-15 600 600)"/>
+    <path d="M600 263V386" transform="rotate(15 600 600)"/>
+    <path d="M600 263V386" transform="rotate(45 600 600)"/>
+    <path d="M600 263V386" transform="rotate(75 600 600)"/>
+    <path d="M600 263V386" transform="rotate(105 600 600)"/>
+    <path d="M600 263V386" transform="rotate(135 600 600)"/>
+    <path d="M600 263V386" transform="rotate(165 600 600)"/>
+    <path d="M600 263V386" transform="rotate(195 600 600)"/>
+    <path d="M600 263V386" transform="rotate(225 600 600)"/>
+    <path d="M600 263V386" transform="rotate(255 600 600)"/>
+    <path d="M600 263V386" transform="rotate(285 600 600)"/>
+    <path d="M600 263V386" transform="rotate(315 600 600)"/>
+  </g>
+
+  <g>
+    <text class="major-key" x="600" y="182">C</text>
+    <text class="signature" x="600" y="211">NO SHARPS / FLATS</text>
+
+    <text class="major-key" x="812" y="239">G</text>
+    <text class="signature" x="812" y="268">1&#9839;</text>
+
+    <text class="major-key" x="966" y="392">D</text>
+    <text class="signature" x="966" y="421">2&#9839;</text>
+
+    <text class="major-key" x="1022" y="613">A</text>
+    <text class="signature" x="1022" y="642">3&#9839;</text>
+
+    <text class="major-key" x="966" y="826">E</text>
+    <text class="signature" x="966" y="855">4&#9839;</text>
+
+    <text class="major-key" x="812" y="980">B</text>
+    <text class="signature" x="812" y="1009">5&#9839;</text>
+
+    <text class="major-key" x="600" y="1014" style="font-size:32px">F&#9839; / G&#9837;</text>
+    <text class="signature" x="600" y="1043">6&#9839; / 6&#9837;</text>
+
+    <text class="major-key" x="388" y="980">D&#9837;</text>
+    <text class="signature" x="388" y="1009">5&#9837;</text>
+
+    <text class="major-key" x="234" y="826">A&#9837;</text>
+    <text class="signature" x="234" y="855">4&#9837;</text>
+
+    <text class="major-key" x="178" y="613">E&#9837;</text>
+    <text class="signature" x="178" y="642">3&#9837;</text>
+
+    <text class="major-key" x="234" y="392">B&#9837;</text>
+    <text class="signature" x="234" y="421">2&#9837;</text>
+
+    <text class="major-key" x="388" y="239">F</text>
+    <text class="signature" x="388" y="268">1&#9837;</text>
+  </g>
+
+  <g>
+    <text class="minor-key" x="600" y="310">Am</text>
+    <text class="minor-caption" x="600" y="330">RELATIVE MINOR</text>
+    <text class="minor-key" x="746" y="349">Em</text>
+    <text class="minor-key" x="852" y="455">Bm</text>
+    <text class="minor-key" x="890" y="610">F&#9839;m</text>
+    <text class="minor-key" x="852" y="757">C&#9839;m</text>
+    <text class="minor-key" x="746" y="864">G&#9839;m</text>
+    <text class="minor-key" x="600" y="903" style="font-size:23px">D&#9839;m / E&#9837;m</text>
+    <text class="minor-key" x="454" y="864">B&#9837;m</text>
+    <text class="minor-key" x="348" y="757">Fm</text>
+    <text class="minor-key" x="310" y="610">Cm</text>
+    <text class="minor-key" x="348" y="455">Gm</text>
+    <text class="minor-key" x="454" y="349">Dm</text>
+  </g>
+
+  <g transform="translate(0 -55)">
+  <g fill="none" stroke-linecap="round">
+    <path d="M487 650v-34M505 670v-74M523 638v-10M541 680v-94M559 655v-44M641 655v-44M659 680v-94M677 638v-10M695 670v-74M713 650v-34"
+          stroke="#43a8b4" stroke-width="7" opacity=".75" transform="translate(0 60)"/>
+    <path d="M577 668v-70M600 687V579M623 668v-70" stroke="url(#orange)" stroke-width="8"
+          transform="translate(0 60)"/>
+  </g>
+  <text x="600" y="510" fill="#b8e0e2" font-family="Segoe UI, Tahoma, sans-serif" font-size="17"
+        font-weight="800" letter-spacing=".22em" text-anchor="middle">MUSIC THEORY</text>
+  <text x="600" y="563" fill="#fff" font-family="Segoe UI, Tahoma, sans-serif" font-size="43"
+        font-weight="800" letter-spacing="-.04em" text-anchor="middle">CIRCLE OF</text>
+  <text x="600" y="607" fill="url(#orange)" font-family="Segoe UI, Tahoma, sans-serif" font-size="43"
+        font-weight="800" letter-spacing="-.04em" text-anchor="middle">FIFTHS</text>
+  <path d="M530 753c22 10 45 15 70 15s48-5 70-15" fill="none" stroke="#b8e0e2" stroke-linecap="round"
+        stroke-width="3" opacity=".55"/>
+  <text x="600" y="790" fill="#dff2f3" font-family="Segoe UI, Tahoma, sans-serif" font-size="15"
+        font-weight="700" letter-spacing=".16em" text-anchor="middle">CLOCKWISE = FIFTHS</text>
+  <text x="600" y="811" fill="#82ccd2" font-family="Segoe UI, Tahoma, sans-serif" font-size="13"
+        font-weight="650" letter-spacing=".1em" text-anchor="middle">COUNTERCLOCKWISE = FOURTHS</text>
+  </g>
+</svg>

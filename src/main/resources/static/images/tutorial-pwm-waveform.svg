@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Pulse width modulation waveform</title>
+  <desc id="desc">A square waveform whose pulse widths gradually change.</desc>
+  <defs>
+    <linearGradient id="pwm" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffb23e"/>
+      <stop offset=".55" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+    <filter id="glow" x="-10%" y="-50%" width="120%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 120H620" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+    <path d="M20 172V68H76V172H142V68H238V172H288V68H426V172H462V68H610V172H620"
+          stroke="url(#pwm)" stroke-width="6" filter="url(#glow)"/>
+    <path d="M20 156V84H94V156H160V84H272V156H322V84H474V156H510V84H620"
+          stroke="#ffffff" stroke-opacity=".35" stroke-width="3"/>
+  </g>
+</svg>
