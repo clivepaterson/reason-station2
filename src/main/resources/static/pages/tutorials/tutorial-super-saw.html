@@ -1,0 +1,100 @@
+<section id="tutorial-super-saw-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 07 &middot; Subtractor</span>
+                    <h1>Creating a basic super saw</h1>
+                    <p>How to create a basic super saw using Subtractor.</p>
+                </div>
+                <img src="/images/tutorial-supersaw-waveform.svg"
+                     alt="Eight layered sawtooth waves representing a detuned super saw sound">
+            </header>
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">The Roland JP-8000 synthesizer introduced the first supersaw sound, allowing multiple oscillators to play from a single keystroke. A super saw layers several sawtooth oscillators, detunes them slightly from one another, and produces the rich sound that has become synonymous with trance music and man other genres. We are going to recreate that idea with eight oscillators across four Reason Subtractors.</p>
+
+                <section class="tutorial-section">
+                    <h2>The Combinator setup</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a Combinator to contain all of the devices that make up the sound.</li>
+                        <li>Add a Line Mixer 14:2. We will use it to mix four Subtractors.</li>
+                        <li>Add four Subtractors, reset each one to its initial patch, and connect their audio outputs to Line Mixer channels 1&ndash;4.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The Subtractor settings</h2>
+                    <ol class="tutorial-steps">
+                        <li>Use a sawtooth wave for Oscillators 1 and 2 on all four Subtractors.</li>
+                        <li>Set the Filter Envelope Velocity control to 0 on every Subtractor so key velocity does not affect the filter.</li>
+                        <li>Set Amp Envelope Sustain to 127 (100%) on every Subtractor.</li>
+                        <li>Turn on Oscillator 2 on every Subtractor. You now have eight sawtooth oscillators playing for each MIDI note.</li>
+                        <li>Use the Cent controls to detune the eight oscillators in four-cent steps: &minus;14, &minus;10, &minus;6, &minus;2, +2, +6, +10, and +14 cents.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The effects</h2>
+                    <div class="tutorial-effects">
+                        <div>
+                            <h3>RV-7 reverb</h3>
+                            <p>Add an RV-7 Digital Reverb, reduce its Size setting, and connect it to a Send and Return pair on the Line Mixer 14:2. Use the channel send controls to blend reverb into the four Subtractors.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The Combinator settings</h2>
+                    <p><strong>Note:</strong> Click the <strong>Editor</strong> button on the Combinator to access these settings.</p>
+                    <ol class="tutorial-steps">
+                        <li>Select each Subtractor in turn and map Filter Frequency, Filter Resonance, and Amp Release to Combinator Rotary Controls 1, 2, and 3. Set each mapping range from 0 to 127.</li>
+                        <li>Select the Line Mixer and map Combinator Rotary Control 4 to the Channel 1&ndash;4 Aux 1 Send controls. Set each mapping range from 0 to 127 so one control adjusts the reverb level for all four Subtractors.</li>
+                        <li>Play the sound while adjusting the four rotary controls from your MIDI keyboard to shape the filter, release, and reverb.</li>
+                    </ol>
+                </section>
+
+                <div class="tutorial-screenshots">
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-7-combinator-editor.png"
+                             alt="Combinator Editor showing Filter Frequency, Filter Resonance, and Amp Release mappings for the first Subtractor">
+                        <figcaption>Open the Combinator Editor and configure the first Subtractor's performance control mappings.</figcaption>
+                    </figure>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-7-combinator-subtractor-1.png"
+                             alt="Combinator Editor showing performance control mappings for the second Subtractor">
+                        <figcaption>Apply the same Filter Frequency, Filter Resonance, and Amp Release mappings to the second Subtractor.</figcaption>
+                    </figure>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-7-combinator-subtractor-2.png"
+                             alt="Combinator Editor showing performance control mappings for the third Subtractor">
+                        <figcaption>Apply the same performance control mappings to the third Subtractor.</figcaption>
+                    </figure>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-7-combinator-subtractor-3.png"
+                             alt="Combinator Editor showing performance control mappings for the fourth Subtractor">
+                        <figcaption>Apply the same performance control mappings to the fourth Subtractor.</figcaption>
+                    </figure>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-7-combinator-reverb-send.png"
+                             alt="Combinator Editor showing Reverb Send mapped to the four Line Mixer Aux 1 Send controls">
+                        <figcaption>Map the Reverb Send control to Aux 1 Send on Line Mixer channels 1&ndash;4.</figcaption>
+                    </figure>
+                </div>
+
+                <div class="tutorial-screenshots">
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-7-supersaw-rack.png"
+                             alt="Front of the Reason rack showing a Combinator, Line Mixer, four detuned Subtractors, and RV-7 reverb">
+                        <figcaption>The complete super saw rack with eight detuned sawtooth oscillators and mapped Combinator controls.</figcaption>
+                    </figure>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-7-supersaw-wiring.png"
+                             alt="Back of the Reason rack showing four Subtractors connected to the Line Mixer and the RV-7 wired as a send effect">
+                        <figcaption>The rear-panel wiring for the four Subtractors, Line Mixer, and RV-7 send effect.</figcaption>
+                    </figure>
+                </div>
+            </div>
+        </article>
+    </div>
+</section>

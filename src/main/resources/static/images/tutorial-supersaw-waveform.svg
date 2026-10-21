@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Super saw waveform</title>
+  <desc id="desc">Eight slightly offset sawtooth waves layered into a wide, rich waveform.</desc>
+  <defs>
+    <linearGradient id="supersaw" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffb23e"/>
+      <stop offset=".52" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+    <filter id="glow" x="-10%" y="-40%" width="120%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <path id="saw" d="M20 160L76 80V160L132 80V160L188 80V160L244 80V160L300 80V160L356 80V160L412 80V160L468 80V160L524 80V160L580 80V160L620 103"/>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 120H620" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+    <g stroke="#ffffff" stroke-width="2" opacity=".16">
+      <use href="#saw" transform="translate(0 -21)"/>
+      <use href="#saw" transform="translate(0 -15)"/>
+      <use href="#saw" transform="translate(0 -9)"/>
+      <use href="#saw" transform="translate(0 -3)"/>
+      <use href="#saw" transform="translate(0 3)"/>
+      <use href="#saw" transform="translate(0 9)"/>
+      <use href="#saw" transform="translate(0 15)"/>
+      <use href="#saw" transform="translate(0 21)"/>
+    </g>
+    <use href="#saw" stroke="url(#supersaw)" stroke-width="6" filter="url(#glow)"/>
+  </g>
+</svg>

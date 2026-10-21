@@ -12,6 +12,7 @@ $(document).ready(async function() {
         'tutorials/tutorial-snare-drum.html',
         'tutorials/tutorial-bass.html',
         'tutorials/tutorial-pwm-lead.html',
+        'tutorials/tutorial-super-saw.html',
         'about.html'
     ];
 
@@ -38,7 +39,9 @@ $(document).ready(async function() {
     };
 
     function getPageId(url) {
-        return url.searchParams.get('tutorial') === 'creating-a-pwm-lead'
+        return url.searchParams.get('tutorial') === 'creating-a-basic-super-saw'
+            ? 'tutorial-super-saw-page'
+            : url.searchParams.get('tutorial') === 'creating-a-pwm-lead'
             ? 'tutorial-pwm-lead-page'
             : url.searchParams.get('tutorial') === 'creating-a-bass'
             ? 'tutorial-bass-page'
@@ -108,6 +111,10 @@ $(document).ready(async function() {
                 title: 'Creating a PWM Lead or Pad with Subtractor | Reason Station',
                 description: 'Learn how to create a rich lead or pad using pulse width modulation, effects, and a chord progression in Reason Subtractor.'
             },
+            'tutorial-super-saw-page': {
+                title: 'Creating a Basic Super Saw with Subtractor | Reason Station',
+                description: 'Learn how to layer and detune eight sawtooth oscillators with four Reason Subtractors to create a rich super saw sound.'
+            },
             'about-page': {
                 title: 'About Reason Station',
                 description: 'Learn why Reason Station was created as a community for sharing Reason projects and sound synthesis techniques.'
@@ -126,6 +133,8 @@ $(document).ready(async function() {
 
         if (pageId === 'artist-page' && artistAlias) {
             canonicalUrl.searchParams.set('artistAlias', artistAlias);
+        } else if (pageId === 'tutorial-super-saw-page') {
+            canonicalUrl.searchParams.set('tutorial', 'creating-a-basic-super-saw');
         } else if (pageId === 'tutorial-pwm-lead-page') {
             canonicalUrl.searchParams.set('tutorial', 'creating-a-pwm-lead');
         } else if (pageId === 'tutorial-bass-page') {
@@ -258,7 +267,7 @@ $(document).ready(async function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #about-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-super-saw-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         updateSearchButtonState();
         updatePageMetadata(pageId, url);
