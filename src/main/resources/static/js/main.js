@@ -12,6 +12,7 @@ $(document).ready(async function() {
         'tutorials/tutorial-snare-drum.html',
         'tutorials/tutorial-bass.html',
         'tutorials/tutorial-pwm-lead.html',
+        'tutorials/tutorial-fm-synthesis.html',
         'tutorials/tutorial-super-saw.html',
         'about.html'
     ];
@@ -39,7 +40,9 @@ $(document).ready(async function() {
     };
 
     function getPageId(url) {
-        return url.searchParams.get('tutorial') === 'creating-a-basic-super-saw'
+        return url.searchParams.get('tutorial') === 'fm-synthesis-using-subtractor'
+            ? 'tutorial-fm-synthesis-page'
+            : url.searchParams.get('tutorial') === 'creating-a-basic-super-saw'
             ? 'tutorial-super-saw-page'
             : url.searchParams.get('tutorial') === 'creating-a-pwm-lead'
             ? 'tutorial-pwm-lead-page'
@@ -111,6 +114,10 @@ $(document).ready(async function() {
                 title: 'Creating a PWM Lead or Pad with Subtractor | Reason Station',
                 description: 'Learn how to create a rich lead or pad using pulse width modulation, effects, and a chord progression in Reason Subtractor.'
             },
+            'tutorial-fm-synthesis-page': {
+                title: 'FM Synthesis Using Subtractor | Reason Station',
+                description: 'Learn basic FM synthesis by routing envelope and sine-wave CV signals to oscillator pitch in Reason Subtractor.'
+            },
             'tutorial-super-saw-page': {
                 title: 'Creating a Basic Super Saw with Subtractor | Reason Station',
                 description: 'Learn how to layer and detune eight sawtooth oscillators with four Reason Subtractors to create a rich super saw sound.'
@@ -133,6 +140,8 @@ $(document).ready(async function() {
 
         if (pageId === 'artist-page' && artistAlias) {
             canonicalUrl.searchParams.set('artistAlias', artistAlias);
+        } else if (pageId === 'tutorial-fm-synthesis-page') {
+            canonicalUrl.searchParams.set('tutorial', 'fm-synthesis-using-subtractor');
         } else if (pageId === 'tutorial-super-saw-page') {
             canonicalUrl.searchParams.set('tutorial', 'creating-a-basic-super-saw');
         } else if (pageId === 'tutorial-pwm-lead-page') {
@@ -190,76 +199,6 @@ $(document).ready(async function() {
         }));
     }
 
-    function loadSearchPage(url) {
-        var searchTerm = (url.searchParams.get('search') || '').trim();
-        var requestedPage = Number.parseInt(url.searchParams.get('page') || '1', 10);
-        var page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-        var searchResults = $('#search-results');
-        var searchPagination = $('#search-pagination');
-        $('#search-status').text(searchTerm ? 'Searching for "' + searchTerm + '"...' : 'Enter a search term.');
-        if (!searchTerm) {
-            searchResults.empty();
-            searchPagination.attr('hidden', true);
-            return;
-        }
-
-        fetch('/api/discovery/search?query=' + encodeURIComponent(searchTerm) + '&page=' + page)
-            .then(function(response) {
-                return response.json().then(function(body) {
-                    if (!response.ok) {
-                        throw new Error(body.error || 'Unable to search tracks.');
-                    }
-                    return body;
-                });
-            })
-            .then(function(searchPage) {
-                var tracks = searchPage.results;
-                searchResults.empty();
-                $('#search-status').text(searchPage.totalElements + ' track'
-                    + (searchPage.totalElements === 1 ? '' : 's') + ' found.');
-                searchPagination.attr('hidden', searchPage.totalPages <= 1);
-                $('#search-page-status').text('Page ' + searchPage.page + ' of ' + searchPage.totalPages);
-                $('#search-previous-page')
-                    .prop('disabled', searchPage.page <= 1)
-                    .data('page', searchPage.page - 1);
-                $('#search-next-page')
-                    .prop('disabled', searchPage.page >= searchPage.totalPages)
-                    .data('page', searchPage.page + 1);
-                if (tracks.length === 0) {
-                    searchResults.append($('<p>').text('No tracks found.'));
-                    return;
-                }
-                tracks.forEach(function(track) {
-                    searchResults.append(window.createTrackCard(track, {
-                        filenameFallback: 'By ' + track.artistAlias,
-                        includeArtistInDownloadLabel: true,
-                        showArtist: true
-                    }));
-                });
-            })
-            .catch(function(error) {
-                $('#search-status').text(error.message);
-                searchResults.empty();
-                searchPagination.attr('hidden', true);
-            });
-    }
-
-    function navigateToSearchPage(page) {
-        var url = new URL(window.location.href);
-        if (page === 1) {
-            url.searchParams.delete('page');
-        } else {
-            url.searchParams.set('page', page);
-        }
-        window.showPage(url, true);
-    }
-
-    function updateSearchButtonState() {
-        var searchExpression = $('#track-search-input').val() || '';
-        var alphanumericCharacters = searchExpression.match(/[\p{L}\p{N}]/gu) || [];
-        $('#track-search-form button[type="submit"]').prop('disabled', alphanumericCharacters.length < 2);
-    }
-
     window.showPage = function(targetUrl, updateHistory) {
         var url = targetUrl instanceof URL ? targetUrl : new URL(targetUrl, window.location.origin);
         var pageId = getPageId(url);
@@ -267,9 +206,9 @@ $(document).ready(async function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-super-saw-page, #about-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-super-saw-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
-        updateSearchButtonState();
+        window.updateSearchButtonState();
         updatePageMetadata(pageId, url);
 
         if (pageId === 'home-page' && window.loadDiscovery) {
@@ -279,7 +218,7 @@ $(document).ready(async function() {
         } else if (pageId === 'my-tracks-page' && window.initializeMyTracks) {
             window.initializeMyTracks();
         } else if (pageId === 'search-page') {
-            loadSearchPage(url);
+            window.loadSearchPage(url);
         }
     };
 
@@ -294,53 +233,6 @@ $(document).ready(async function() {
     $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .tutorial-card, .tutorial-back-link',
         navigateInternalLink);
     $('#my-tracks-link, #tutorials-link, #links-link, #about-link').on('click', navigateInternalLink);
-    $('#track-search-input').on('input', updateSearchButtonState);
-    $('#search-previous-page, #search-next-page').on('click', function() {
-        navigateToSearchPage($(this).data('page'));
-    });
-
-    var tutorialImageSelector = '.tutorial-article-header img, .tutorial-screenshot img';
-    var tutorialImageDialog = document.getElementById('tutorial-image-dialog');
-    var tutorialImageDialogImage = document.getElementById('tutorial-image-dialog-image');
-
-    $(tutorialImageSelector).each(function() {
-        var description = this.alt ? ': ' + this.alt : '';
-        $(this)
-            .attr('role', 'button')
-            .attr('tabindex', '0')
-            .attr('aria-label', 'View larger image' + description);
-    });
-
-    function openTutorialImage(image) {
-        if (!tutorialImageDialog || typeof tutorialImageDialog.showModal !== 'function') {
-            return;
-        }
-        tutorialImageDialogImage.src = image.currentSrc || image.src;
-        tutorialImageDialogImage.alt = image.alt;
-        tutorialImageDialog.showModal();
-    }
-
-    $(document).on('click', tutorialImageSelector, function() {
-        openTutorialImage(this);
-    });
-
-    $(document).on('keydown', tutorialImageSelector, function(event) {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            openTutorialImage(this);
-        }
-    });
-
-    $('#tutorial-image-dialog-close').on('click', function() {
-        tutorialImageDialog.close();
-    });
-
-    $('#tutorial-image-dialog').on('mousedown', function(event) {
-        if (event.target === this) {
-            this.close();
-        }
-    });
-
     window.addEventListener('popstate', function() {
         window.showPage(window.location.href, false);
     });
@@ -383,6 +275,8 @@ $(document).ready(async function() {
     }
 
     var currentUrl = new URL(window.location.href);
+    window.initializeSearchPage();
+    window.initializeTutorialsPage();
     addWebsiteStructuredData();
     window.showPage(currentUrl, false);
 

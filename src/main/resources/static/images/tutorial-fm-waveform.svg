@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Frequency-modulated waveform</title>
+  <desc id="desc">A glowing sine wave whose cycles expand and compress as its frequency is modulated.</desc>
+  <defs>
+    <linearGradient id="fm" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffb23e"/>
+      <stop offset=".52" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+    <filter id="glow" x="-10%" y="-50%" width="120%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 120H620" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+    <path d="M20 120
+             C49 55 78 55 107 120
+             S165 185 194 120
+             C216 70 238 70 260 120
+             S304 170 326 120
+             C342 82 358 82 374 120
+             S406 158 422 120
+             C434 91 446 91 458 120
+             S482 149 494 120
+             C503 98 512 98 521 120
+             S539 142 548 120
+             C555 103 562 103 569 120
+             S583 137 590 120
+             C596 106 602 106 608 120
+             S620 134 626 120"
+          stroke="#ffffff" stroke-opacity=".18" stroke-width="12"/>
+    <path d="M20 120
+             C49 55 78 55 107 120
+             S165 185 194 120
+             C216 70 238 70 260 120
+             S304 170 326 120
+             C342 82 358 82 374 120
+             S406 158 422 120
+             C434 91 446 91 458 120
+             S482 149 494 120
+             C503 98 512 98 521 120
+             S539 142 548 120
+             C555 103 562 103 569 120
+             S583 137 590 120
+             C596 106 602 106 608 120
+             S620 134 626 120"
+          stroke="url(#fm)" stroke-width="6" filter="url(#glow)"/>
+    <path d="M37 207 C112 170 165 206 226 187 S341 154 398 179 S508 211 604 166"
+          stroke="#40a7b2" stroke-opacity=".55" stroke-width="3" stroke-dasharray="7 10"/>
+  </g>
+</svg>

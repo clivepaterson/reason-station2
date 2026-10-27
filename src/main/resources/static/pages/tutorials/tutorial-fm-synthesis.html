@@ -1,0 +1,75 @@
+<section id="tutorial-fm-synthesis-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 08 &middot; Subtractor</span>
+                    <h1>FM synthesis using Subtractor</h1>
+                    <p>How to do some basic FM synthesis using Subtractor and CV routing.</p>
+                </div>
+                <img src="/images/tutorial-fm-waveform.svg"
+                     alt="A sine wave bending and compressing under frequency modulation">
+            </header>
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">Frequency modulation (FM) changes the pitch of one signal, called the carrier, with another signal, called the modulator. Slow modulation makes the pitch wobble; faster modulation creates new harmonics and more complex tones. Subtractor has a built-in FM Amount control and a Ring Mod toggle, but in this beginner example we will use CV routing so you can see and hear the modulation sources separately.</p>
+
+                <p>For more detail on Subtractor's FM and ring modulation controls, see the <a href="https://docs.reasonstudios.com/reason13/subtractor-synthesizer#1003127" target="_blank" rel="noopener noreferrer">Reason Studios documentation</a>.</p>
+
+                <section class="tutorial-section">
+                    <h2>Subtractor 1: the sound synth</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a Subtractor and reset the device.</li>
+                        <li>Set Oscillator 1 to a sine wave.</li>
+                        <li>Open Filter 1 fully so all frequencies pass through.</li>
+                        <li>Set Amp Envelope Sustain to 127 (100%).</li>
+                        <li>Set the Filter Envelope Velocity control to 0 so key velocity does not alter the filter.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>Subtractor 2: the envelope CV generator</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a second Subtractor. Make sure its Audio Output is not connected; this device is only generating a CV signal.</li>
+                        <li>On the Mod Envelope, set Attack to 0, Decay to about 61, and Sustain and Release to 0.</li>
+                        <li>Press <kbd>Tab</kbd> to turn the rack around. Connect Subtractor 2's <strong>Mod Env</strong> Modulation Output to Subtractor 1's <strong>OSC Pitch</strong> Modulation Input.</li>
+                        <li>Play some notes. You should hear the sine wave sweep from a high frequency down to a low frequency each time a note triggers the envelope.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>Combine the CV signals with Spider CV</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a Spider CV Merger &amp; Splitter.</li>
+                        <li>Disconnect Subtractor 2's Mod Env cable from Subtractor 1 and connect it to a Spider <strong>Merge</strong> input instead.</li>
+                        <li>Connect the Spider's merged CV output to Subtractor 1's <strong>OSC Pitch</strong> Modulation Input.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>Thor: the sine-wave CV generator</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a Thor Polysonic Synthesizer. Make sure its Audio Output is not connected; Thor is only generating a sine-wave CV signal.</li>
+                        <li>Set Thor's LFO 2 waveform to sine, turn on Key Sync, turn off Tempo Sync, and set the rate to about 2.14 Hz.</li>
+                        <li>Press <kbd>Tab</kbd> to turn the rack around. Connect Thor's <strong>LFO 2</strong> Modulation Output to another Spider <strong>Merge</strong> input.</li>
+                        <li>Set that Spider merge input to about 2.25 to reduce the CV signal strength.</li>
+                        <li>Play some notes. The pitch should wobble up and down with Thor's sine wave while Subtractor 2's Mod Envelope sweeps the pitch downward with each key trigger.</li>
+                    </ol>
+                </section>
+
+                <div class="tutorial-screenshots">
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-8-fm-settings.png"
+                             alt="Front of the Reason rack showing the carrier Subtractor, Spider CV, envelope Subtractor, and Thor LFO 2 settings">
+                        <figcaption>The front-panel settings for both Subtractors, the Spider CV, and Thor's sine-wave LFO 2.</figcaption>
+                    </figure>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-8-fm-wiring.png"
+                             alt="Back of the Reason rack showing the Subtractor Mod Envelope and Thor LFO 2 merged by Spider CV and routed to oscillator pitch">
+                        <figcaption>The rear-panel CV wiring: Subtractor 2's Mod Env and Thor's LFO 2 are merged, then sent to Subtractor 1's OSC Pitch input.</figcaption>
+                    </figure>
+                </div>
+            </div>
+        </article>
+    </div>
+</section>
