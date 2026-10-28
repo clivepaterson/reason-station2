@@ -25,8 +25,19 @@
       <stop offset=".55" stop-color="#ff8a16"/>
       <stop offset="1" stop-color="#ff6b1a"/>
     </linearGradient>
+    <marker id="orange-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="18" markerHeight="18"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M1 1l10 5-10 5Z" fill="#ff8a16"/>
+    </marker>
+    <marker id="arrow-outline" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="20" markerHeight="20"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M1 1l10 5-10 5Z" fill="#3f474b"/>
+    </marker>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="145%">
       <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#083c47" flood-opacity=".2"/>
+    </filter>
+    <filter id="arrow-shadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#083c47" flood-opacity=".45"/>
     </filter>
     <style>
       .major-key {
@@ -102,6 +113,22 @@
     <path d="M600 263V386" transform="rotate(255 600 600)"/>
     <path d="M600 263V386" transform="rotate(285 600 600)"/>
     <path d="M600 263V386" transform="rotate(315 600 600)"/>
+  </g>
+
+  <g fill="none" stroke="#3f474b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+     marker-end="url(#arrow-outline)" filter="url(#arrow-shadow)" aria-hidden="true">
+    <path d="M280 598H210"/>
+    <path d="M184 565Q193 484 221 425"/>
+    <path d="M263 397Q292 417 322 430"/>
+    <path d="M345 475Q338 527 317 566"/>
+  </g>
+  <g fill="none" stroke="#ff8a16" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"
+     marker-end="url(#orange-arrow)"
+     aria-label="C minor to E-flat major to B-flat major to G minor progression">
+    <path d="M280 598H210"/>
+    <path d="M184 565Q193 484 221 425"/>
+    <path d="M263 397Q292 417 322 430"/>
+    <path d="M345 475Q338 527 317 566"/>
   </g>
 
   <g>
