@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">FM bell sound</title>
+  <desc id="desc">A glowing bell with frequency-modulated sound waves radiating from both sides.</desc>
+  <defs>
+    <linearGradient id="bell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd36a"/>
+      <stop offset=".55" stop-color="#ff9b24"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="170%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40 120 C72 72 104 72 136 120 S200 168 232 120"
+          stroke="#40a7b2" stroke-opacity=".3" stroke-width="12"/>
+    <path d="M40 120 C72 72 104 72 136 120 S200 168 232 120"
+          stroke="#40a7b2" stroke-width="5" filter="url(#glow)"/>
+    <path d="M408 120 C426 88 444 88 462 120 S498 152 516 120 C528 98 540 98 552 120 S576 142 588 120"
+          stroke="#ff9b24" stroke-opacity=".3" stroke-width="12"/>
+    <path d="M408 120 C426 88 444 88 462 120 S498 152 516 120 C528 98 540 98 552 120 S576 142 588 120"
+          stroke="#ff9b24" stroke-width="5" filter="url(#glow)"/>
+    <path d="M320 39 C301 39 286 54 286 73 C286 82 279 90 269 101 C255 117 247 139 247 163 H393 C393 139 385 117 371 101 C361 90 354 82 354 73 C354 54 339 39 320 39Z"
+          fill="url(#bell)" fill-opacity=".22" stroke="url(#bell)" stroke-width="7" filter="url(#glow)"/>
+    <path d="M235 163 H405 C405 177 394 188 380 188 H260 C246 188 235 177 235 163Z"
+          fill="#ff9b24" fill-opacity=".3" stroke="#ffb23e" stroke-width="6"/>
+    <path d="M303 190 C306 211 334 211 337 190" fill="#ffb23e" fill-opacity=".35"
+          stroke="#ffd36a" stroke-width="6"/>
+    <path d="M307 39 C307 22 333 22 333 39" stroke="#ffd36a" stroke-width="7"/>
+  </g>
+</svg>

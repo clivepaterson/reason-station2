@@ -1,0 +1,57 @@
+<section id="tutorial-fm-bell-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 09 &middot; Subtractor</span>
+                    <h1>A nice simple FM bell sound using Subtractor</h1>
+                    <p>How to make a basic FM bell sound using Subtractor.</p>
+                </div>
+                <img src="/images/tutorial-fm-bell.svg"
+                     alt="A bell surrounded by frequency-modulated sound waves">
+            </header>
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">We are going to use Subtractor's FM knob to make this sound. Oscillator 1 will be the sound you hear, while Oscillator 2 rapidly modulates its pitch to create the bell-like harmonics.</p>
+
+                <section class="tutorial-section">
+                    <h2>Subtractor settings</h2>
+                    <ol class="tutorial-steps">
+                        <li>Create a Subtractor synth and reset the device.</li>
+                        <li>Set Oscillator 1 to a sine wave and turn the oscillator mix fully toward Oscillator 1.</li>
+                        <li>Turn on Oscillator 2, set it to a sine wave, and raise it by one octave.</li>
+                        <li>Set the FM knob to about 43. Adjust it to your liking: Oscillator 2 is not heard directly at this mix setting, but it alters Oscillator 1's pitch at a very high rate.</li>
+                        <li>Open Filter 1 fully to let the whole sound through.</li>
+                        <li>Set the Amp Envelope to 0 attack, 50 decay, 0 sustain, and 60 release. This creates a nice plucked bell sound; adjust the release to your liking.</li>
+                    </ol>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>Effects</h2>
+                    <ol class="tutorial-steps">
+                        <li>Add a CF-101 Chorus/Flanger to give the sound an ambient, airy feel.</li>
+                        <li>Add an RV-7 Digital Reverb. Select the Medium Room algorithm, reduce the Size, and set Dry/Wet to about 36.</li>
+                        <li><strong>Optional:</strong> Add a DDL-1 Digital Delay Line. Set Steps to 2 so the echoes land on the beat, and set Dry/Wet below 50% so the initial pluck remains the loudest part of the sound.</li>
+                    </ol>
+                </section>
+
+                <div class="tutorial-screenshots">
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-9-fm-bell-settings.png"
+                             alt="Reason rack showing the Subtractor settings for the FM bell sound">
+                        <figcaption>The Subtractor oscillator, FM, filter, and amp envelope settings.</figcaption>
+                    </figure>
+                </div>
+
+                <section class="tutorial-section">
+                    <h2>Notes / Melody</h2>
+                    <figure class="tutorial-screenshot">
+                        <img src="/images/tutorial-9-fm-bell-melody.png"
+                             alt="Piano-roll notes for an example FM bell melody">
+                        <figcaption>An example melody to play with the FM bell patch.</figcaption>
+                    </figure>
+                </section>
+            </div>
+        </article>
+    </div>
+</section>

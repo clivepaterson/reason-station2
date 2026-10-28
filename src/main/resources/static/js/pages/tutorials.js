@@ -1,5 +1,5 @@
 window.initializeTutorialsPage = function() {
-    var tutorialImageSelector = '.tutorial-article-header img, .tutorial-screenshot img';
+    var tutorialImageSelector = '.tutorial-article-header img, .tutorial-screenshot img, .tutorial-download > img';
     var tutorialImageDialog = document.getElementById('tutorial-image-dialog');
     var tutorialImageDialogImage = document.getElementById('tutorial-image-dialog-image');
 

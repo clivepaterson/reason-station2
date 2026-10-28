@@ -13,6 +13,7 @@ $(document).ready(async function() {
         'tutorials/tutorial-bass.html',
         'tutorials/tutorial-pwm-lead.html',
         'tutorials/tutorial-fm-synthesis.html',
+        'tutorials/tutorial-fm-bell.html',
         'tutorials/tutorial-super-saw.html',
         'about.html'
     ];
@@ -40,7 +41,9 @@ $(document).ready(async function() {
     };
 
     function getPageId(url) {
-        return url.searchParams.get('tutorial') === 'fm-synthesis-using-subtractor'
+        return url.searchParams.get('tutorial') === 'simple-fm-bell-using-subtractor'
+            ? 'tutorial-fm-bell-page'
+            : url.searchParams.get('tutorial') === 'fm-synthesis-using-subtractor'
             ? 'tutorial-fm-synthesis-page'
             : url.searchParams.get('tutorial') === 'creating-a-basic-super-saw'
             ? 'tutorial-super-saw-page'
@@ -118,6 +121,10 @@ $(document).ready(async function() {
                 title: 'FM Synthesis Using Subtractor | Reason Station',
                 description: 'Learn basic FM synthesis by routing envelope and sine-wave CV signals to oscillator pitch in Reason Subtractor.'
             },
+            'tutorial-fm-bell-page': {
+                title: 'A Nice Simple FM Bell Sound Using Subtractor | Reason Station',
+                description: 'Learn how to create a simple FM bell sound with two sine-wave oscillators and Subtractor\'s FM control.'
+            },
             'tutorial-super-saw-page': {
                 title: 'Creating a Basic Super Saw with Subtractor | Reason Station',
                 description: 'Learn how to layer and detune eight sawtooth oscillators with four Reason Subtractors to create a rich super saw sound.'
@@ -140,6 +147,8 @@ $(document).ready(async function() {
 
         if (pageId === 'artist-page' && artistAlias) {
             canonicalUrl.searchParams.set('artistAlias', artistAlias);
+        } else if (pageId === 'tutorial-fm-bell-page') {
+            canonicalUrl.searchParams.set('tutorial', 'simple-fm-bell-using-subtractor');
         } else if (pageId === 'tutorial-fm-synthesis-page') {
             canonicalUrl.searchParams.set('tutorial', 'fm-synthesis-using-subtractor');
         } else if (pageId === 'tutorial-super-saw-page') {
@@ -206,7 +215,7 @@ $(document).ready(async function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-super-saw-page, #about-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-fm-bell-page, #tutorial-super-saw-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         window.updateSearchButtonState();
         updatePageMetadata(pageId, url);
