@@ -124,11 +124,11 @@ public class DiscoveryController {
         String searchTerm = query.trim();
         long alphanumericCharacterCount = searchTerm.codePoints()
                 .filter(Character::isLetterOrDigit)
-                .limit(2)
+                .limit(3)
                 .count();
-        if (alphanumericCharacterCount < 2) {
+        if (alphanumericCharacterCount < 3) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Search terms must contain at least 2 alphanumeric characters."));
+                    .body(Map.of("error", "Search terms must contain at least 3 alphanumeric characters."));
         }
         if (searchTerm.length() > 100) {
             return ResponseEntity.badRequest()

@@ -10,6 +10,12 @@ window.loadSearchPage = function(url) {
         searchPagination.attr('hidden', true);
         return;
     }
+    if (!window.isValidTrackSearchExpression(searchTerm)) {
+        $('#search-status').text('Search terms must contain at least 3 alphanumeric characters.');
+        searchResults.empty();
+        searchPagination.attr('hidden', true);
+        return;
+    }
 
     fetch('/api/discovery/search?query=' + encodeURIComponent(searchTerm) + '&page=' + page)
         .then(function(response) {
@@ -52,10 +58,15 @@ window.loadSearchPage = function(url) {
         });
 };
 
+window.isValidTrackSearchExpression = function(searchExpression) {
+    var alphanumericCharacters = searchExpression.match(/[\p{L}\p{N}]/gu) || [];
+    return alphanumericCharacters.length >= 3;
+};
+
 window.updateSearchButtonState = function() {
     var searchExpression = $('#track-search-input').val() || '';
-    var alphanumericCharacters = searchExpression.match(/[\p{L}\p{N}]/gu) || [];
-    $('#track-search-form button[type="submit"]').prop('disabled', alphanumericCharacters.length < 2);
+    $('#track-search-form button[type="submit"]')
+        .prop('disabled', !window.isValidTrackSearchExpression(searchExpression));
 };
 
 window.initializeSearchPage = function() {

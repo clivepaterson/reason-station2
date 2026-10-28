@@ -189,6 +189,16 @@ public class TrackController {
             @RequestParam("trackName") String trackName,
             @RequestParam("musicStyle") String musicStyle,
             @RequestParam("file") MultipartFile file) throws IOException {
+        var currentUser = findCurrentUser(authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "The authenticated user was not found."));
+        }
+        if (!currentUser.get().isEmailVerified()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Verify your email address before uploading tracks."));
+        }
+
         String trimmedArtistAlias = artistAlias.trim();
         String trimmedTrackName = trackName.trim();
         String trimmedMusicStyle = musicStyle.trim();
@@ -211,24 +221,18 @@ public class TrackController {
                     .body(Map.of("error", "Choose a music style from the provided list."));
         }
 
-        return findCurrentUser(authentication)
-                .<ResponseEntity<?>>map(user -> {
-                    String objectKey = "tracks/" + UUID.randomUUID();
-                    String trackUri;
-                    try {
-                        trackUri = storage.upload(objectKey, file.getBytes(), file.getContentType());
-                    } catch (IOException exception) {
-                        throw new TrackUploadException(exception);
-                    }
+        String objectKey = "tracks/" + UUID.randomUUID();
+        String trackUri;
+        try {
+            trackUri = storage.upload(objectKey, file.getBytes(), file.getContentType());
+        } catch (IOException exception) {
+            throw new TrackUploadException(exception);
+        }
 
-                    Track track = new Track(user.getUserid(), trimmedArtistAlias, trimmedTrackName,
-                            trimmedMusicStyle,
-                            file.getOriginalFilename(), trackUri);
-                    return ResponseEntity.status(HttpStatus.CREATED)
-                            .body(TrackResponse.from(tracks.save(track), 0));
-                })
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "The authenticated user was not found.")));
+        Track track = new Track(currentUser.get().getUserid(), trimmedArtistAlias, trimmedTrackName,
+                trimmedMusicStyle, file.getOriginalFilename(), trackUri);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(TrackResponse.from(tracks.save(track), 0));
     }
 
     private boolean hasAllowedExtension(String filename) {
