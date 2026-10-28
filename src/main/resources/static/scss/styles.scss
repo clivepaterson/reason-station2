@@ -1932,6 +1932,45 @@ body.site-page {
         text-transform: uppercase;
     }
 
+    .tutorials-subnote {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        margin-top: clamp(2rem, 5vw, 3.5rem);
+        color: $station-deep;
+        font-size: clamp(0.9rem, 1.6vw, 1rem);
+        font-weight: 650;
+        line-height: 1.5;
+    }
+
+    .tutorials-subnote-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        color: $station-deep;
+        font-size: 1.1em;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        white-space: nowrap;
+
+        b {
+            background: linear-gradient(110deg, #ffb23e 0%, $station-orange 58%, #ff6b1a 100%);
+            background-clip: text;
+            font-weight: 800;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    }
+
+    .tutorials-subnote-icon {
+        display: inline-block;
+        flex: 0 0 auto;
+        rotate: 45deg;
+        margin-left: -0.1rem;
+        font-size: 0.7em;
+        font-weight: 800;
+    }
+
     .tutorial-list {
         display: grid;
         grid-template-columns: 1fr;
