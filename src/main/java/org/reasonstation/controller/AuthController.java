@@ -4,6 +4,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.reasonstation.entity.User;
 import org.reasonstation.repository.UserRepository;
+import org.reasonstation.service.VerificationEmailService;
+import org.reasonstation.service.VerificationEmailService.VerificationEmailException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -12,9 +14,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.HttpHeaders;
 
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -26,10 +30,13 @@ public class AuthController {
 
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
+    private final VerificationEmailService verificationEmails;
 
-    public AuthController(UserRepository users, PasswordEncoder passwordEncoder) {
+    public AuthController(UserRepository users, PasswordEncoder passwordEncoder,
+                          VerificationEmailService verificationEmails) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
+        this.verificationEmails = verificationEmails;
     }
 
     @GetMapping("/login")
@@ -66,9 +73,16 @@ public class AuthController {
                     .body(Map.of("error", "That email address is already in use."));
         }
 
-        users.save(new User(alias, email, passwordEncoder.encode(password)));
+        User user = users.save(new User(alias, email, passwordEncoder.encode(password)));
+        try {
+            verificationEmails.send(user);
+        } catch (VerificationEmailException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error",
+                            "Account created, but the verification email could not be sent. Sign in and resend it."));
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(Map.of("message", "Account created successfully."));
+                .body(Map.of("message", "Account created. Check your email to verify it."));
     }
 
     public record RegisterRequest(String userid, String email, String password) {
@@ -105,29 +119,73 @@ public class AuthController {
     public record VerifyEmailRequest(String verifyEmailToken) {
     }
 
+    @GetMapping("/api/verify-email")
+    public ResponseEntity<Void> verifyEmailLink(
+            @RequestParam("verifyEmailToken") String verifyEmailToken) {
+        ResponseEntity<Map<String, String>> result =
+                verifyEmail(new VerifyEmailRequest(verifyEmailToken));
+        String location = result.getStatusCode().is2xxSuccessful()
+                ? "/index.html?emailVerified=true"
+                : "/index.html?emailVerification=invalid";
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, location)
+                .build();
+    }
+
+    @PostMapping("/api/resend-verification-email")
+    public ResponseEntity<Map<String, String>> resendVerificationEmail(Authentication authentication) {
+        User user = users.findByAlias(authentication.getName()).orElse(null);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "The authenticated user was not found."));
+        }
+        if (user.isEmailVerified()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "This email address is already verified."));
+        }
+
+        user.setVerifyEmailToken(UUID.randomUUID());
+        users.save(user);
+        try {
+            verificationEmails.send(user);
+        } catch (VerificationEmailException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "The verification email could not be sent. Try again later."));
+        }
+        return ResponseEntity.ok(Map.of("message", "Verification email sent."));
+    }
+
     @GetMapping("/api/me")
     public Map<String, Object> me(Authentication authentication) {
         Object principal = authentication.getPrincipal();
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("authenticated", true);
+        String username;
         if (principal instanceof OidcUser oidcUser) {
-            return Map.of(
-                    "authenticated", true,
-                    "username", oidcUser.getPreferredUsername(),
-                    "email", oidcUser.getEmail(),
-                    "name", oidcUser.getFullName());
+            username = authentication.getName();
+            if (oidcUser.getEmail() != null) {
+                response.put("email", oidcUser.getEmail());
+            }
+            if (oidcUser.getFullName() != null) {
+                response.put("name", oidcUser.getFullName());
+            }
+        } else if (principal instanceof JwtAuthenticationToken token) {
+            username = token.getToken().getClaimAsString("preferred_username");
+            if (username == null || username.isBlank()) {
+                username = authentication.getName();
+            }
+            response.put("subject", token.getToken().getSubject());
+            response.put("scopes", token.getAuthorities().stream().map(Object::toString).toList());
+        } else if (principal instanceof UserDetails user) {
+            username = user.getUsername();
+        } else {
+            username = authentication.getName();
         }
-        if (principal instanceof JwtAuthenticationToken token) {
-            return Map.of(
-                    "authenticated", true,
-                    "username", token.getToken().getClaimAsString("preferred_username"),
-                    "subject", token.getToken().getSubject(),
-                    "scopes", token.getAuthorities().stream().map(Object::toString).toList());
-        }
-        if (principal instanceof UserDetails user) {
-            return Map.of(
-                    "authenticated", true,
-                    "username", user.getUsername());
-        }
-        return Map.of("authenticated", true, "username", principal.toString());
+        response.put("username", username);
+        response.put("emailVerified", users.findByAlias(username)
+                .map(User::isEmailVerified)
+                .orElse(false));
+        return response;
     }
 
     @GetMapping("/api/hello")

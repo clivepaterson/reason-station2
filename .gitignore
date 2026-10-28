@@ -42,4 +42,5 @@ src/main/resources/application.properties
 s3.json
 *.local.properties
 *.local.json
+sql/test_user.sql
 /.idea/vcs.xml

@@ -79,7 +79,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/login", "/api/register",
-                        "/api/verify-email", "/api/tracks/**"))
+                        "/api/verify-email", "/api/resend-verification-email", "/api/tracks/**"))
                 .formLogin(form -> form
                         .loginPage("/index.html?login=true")
                         .loginProcessingUrl("/login")

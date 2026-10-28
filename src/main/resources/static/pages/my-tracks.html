@@ -4,6 +4,11 @@
             <div>
                 <h1>My tracks</h1>
                 <p id="tracks-status" aria-live="polite">Checking your sign-in status...</p>
+                <p id="verification-notice" hidden>
+                    Your email address is not verified.
+                    <a id="resend-verification-email" href="#">Resend the verification email</a>
+                    <span id="verification-email-status" aria-live="polite"></span>
+                </p>
             </div>
             <button class="cta-button" id="upload-track-button" type="button" hidden>Upload Track</button>
         </div>

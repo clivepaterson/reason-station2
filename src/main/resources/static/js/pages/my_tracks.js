@@ -6,6 +6,9 @@ window.initializeMyTracks = function() {
     var tracksStatus = $('#tracks-status');
     var tracksList = $('#tracks-list');
     var uploadSubmitButton = uploadForm.find('button[type="submit"]');
+    var verificationNotice = $('#verification-notice');
+    var resendVerificationLink = $('#resend-verification-email');
+    var verificationEmailStatus = $('#verification-email-status');
     var trackTextPattern = /^[A-Za-z0-9()\[\]_.'+\-]+$/;
     function closeUploadForm() {
         if (!uploadForm.length) {
@@ -63,8 +66,14 @@ window.initializeMyTracks = function() {
             return response.json();
         })
         .then(function(user) {
-            uploadButton.removeAttr('hidden');
             tracksStatus.text('Signed in as ' + user.username + '.');
+            if (user.emailVerified) {
+                uploadButton.removeAttr('hidden');
+                verificationNotice.attr('hidden', true);
+            } else {
+                uploadButton.attr('hidden', true);
+                verificationNotice.removeAttr('hidden');
+            }
             return loadTracks();
         })
         .catch(function(error) {
@@ -73,6 +82,35 @@ window.initializeMyTracks = function() {
             uploadButton.attr('hidden', true);
             closeUploadForm();
         });
+
+    resendVerificationLink.off('click.siteTracks').on('click.siteTracks', function(event) {
+        event.preventDefault();
+        if (resendVerificationLink.attr('aria-disabled') === 'true') {
+            return;
+        }
+        resendVerificationLink.attr('aria-disabled', 'true');
+        verificationEmailStatus.removeClass('error success').text(' Sending...');
+        fetch('/api/resend-verification-email', {method: 'POST'})
+            .then(function(response) {
+                return response.json().then(function(body) {
+                    if (!response.ok) {
+                        throw new Error(body.error || 'Unable to send the verification email.');
+                    }
+                    return body;
+                });
+            })
+            .then(function(body) {
+                verificationEmailStatus.removeClass('error').addClass('success')
+                    .text(' ' + body.message);
+            })
+            .catch(function(error) {
+                verificationEmailStatus.removeClass('success').addClass('error')
+                    .text(' ' + error.message);
+            })
+            .finally(function() {
+                resendVerificationLink.removeAttr('aria-disabled');
+            });
+    });
 
     uploadButton.off('click.siteTracks').on('click.siteTracks', function() {
             uploadForm[0].reset();
