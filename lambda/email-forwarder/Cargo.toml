@@ -1,0 +1,20 @@
+[package]
+name = "reasonstation-email-forwarder"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aws-config = "1"
+aws-sdk-s3 = "1"
+aws-sdk-sesv2 = "1"
+base64 = "0.22"
+lambda_runtime = "0.14"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = "symbols"

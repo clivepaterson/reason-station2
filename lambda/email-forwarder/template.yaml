@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Forwards inbound reasonstation2.net email from S3 to a verified destination.
+
+Parameters:
+  EmailBucket:
+    Type: String
+    Default: reasonstation2-incoming-email-898858623030-ap-southeast-1
+  ForwardFrom:
+    Type: String
+    Default: forwarder@reasonstation2.net
+  ForwardTo:
+    Type: String
+    Default: clive.paterson@gmail.com
+
+Resources:
+  EmailForwarderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: reasonstation2-email-forwarder
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EmailForwarderAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadAndTagIncomingEmail
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectTagging
+                  - s3:PutObjectTagging
+                Resource: !Sub arn:${AWS::Partition}:s3:::${EmailBucket}/incoming/*
+              - Sid: SendForwardedEmail
+                Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/reasonstation2.net
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/clive.paterson@gmail.com
+              - Sid: WriteFunctionLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/reasonstation2-email-forwarder:*
+
+  EmailForwarderFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: reasonstation2-email-forwarder
+      Description: Forwards all inbound reasonstation2.net email to the configured destination.
+      Architectures:
+        - x86_64
+      Runtime: provided.al2023
+      Handler: bootstrap
+      Role: !GetAtt EmailForwarderRole.Arn
+      Code: ./target/lambda/reasonstation-email-forwarder/bootstrap.zip
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          EMAIL_BUCKET: !Ref EmailBucket
+          EMAIL_OBJECT_PREFIX: incoming/
+          FORWARD_FROM: !Ref ForwardFrom
+          FORWARD_TO: !Ref ForwardTo
+          RUST_LOG: info
+      Tags:
+        - Key: Domain
+          Value: reasonstation2.net
+        - Key: Purpose
+          Value: InboundEmailForwarding
+
+  EmailForwarderLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/reasonstation2-email-forwarder
+      RetentionInDays: 30
+
+  AllowSesInvocation:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EmailForwarderFunction
+      Action: lambda:InvokeFunction
+      Principal: ses.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/reasonstation2-inbound:receipt-rule/reasonstation2-net-to-s3
+
+Outputs:
+  FunctionArn:
+    Value: !GetAtt EmailForwarderFunction.Arn
