@@ -10,7 +10,10 @@
                     <span id="verification-email-status" aria-live="polite"></span>
                 </p>
             </div>
-            <button class="cta-button" id="upload-track-button" type="button" hidden>Upload Track</button>
+            <div class="tracks-header-actions">
+                <button class="cta-button" id="upload-track-button" type="button" hidden>Upload Track</button>
+                <button class="cta-button" id="upload-patch-button" type="button" hidden>Upload Patch</button>
+            </div>
         </div>
 
         <div id="upload-dialog-backdrop" class="upload-dialog-backdrop" hidden></div>
@@ -93,6 +96,31 @@
             <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason" multiple required>
             <button class="cta-button" type="submit">Upload</button>
             <p id="upload-status" class="form-message" aria-live="polite"></p>
+        </form>
+
+        <form id="upload-patch-form" class="track-form" hidden>
+            <h2>Upload a patch</h2>
+            <label for="patch-artist-alias">
+                Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
+            </label>
+            <input id="patch-artist-alias" name="artistAlias" type="text" required maxlength="255"
+                   pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
+                   title="Use only letters, numbers, and ()[]_.'+-">
+            <label for="patch-name">Patch name</label>
+            <input id="patch-name" name="patchName" type="text" required maxlength="255"
+                   pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
+                   title="Use only letters, numbers, spaces, and ()[]_.'+-">
+            <label for="patch-description">Description <span class="privacy-note">(optional)</span></label>
+            <textarea id="patch-description" name="description" maxlength="200"
+                      title="Use only letters, numbers, spaces, Enter, and ()[]_.'+-"
+                      aria-describedby="patch-description-count"></textarea>
+            <small id="patch-description-count" class="character-count" aria-live="polite">0 / 200</small>
+            <label for="patch-file">Patch file</label>
+            <input id="patch-file" name="file" type="file"
+                   accept=".sxt,.xwv,.smp,.drex,.drum,.rv7,.sm4,.echo,.pulver,.gator,.cmb,.thor,.kong,.drp,.zyp,.patch,.repatch,.sf2,.rx2,.rcy,.rex"
+                   required>
+            <button class="cta-button" type="submit">Upload</button>
+            <p id="patch-upload-status" class="form-message" aria-live="polite"></p>
         </form>
 
         <section>

@@ -19,9 +19,31 @@ CREATE TABLE IF NOT EXISTS tracks (
     track_name VARCHAR(255) NOT NULL,
     music_style VARCHAR(100) NOT NULL DEFAULT 'Other',
     filename VARCHAR(255) NOT NULL,
+    filesize BIGINT,
     track_uri VARCHAR(1024),
     date_uploaded TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS filesize BIGINT;
+
+CREATE TABLE IF NOT EXISTS patches (
+    patchid SERIAL PRIMARY KEY,
+    userid INTEGER NOT NULL REFERENCES "user"(userid) ON DELETE CASCADE,
+    artist_alias VARCHAR(255) NOT NULL,
+    patch_name VARCHAR(255) NOT NULL,
+    description VARCHAR(200),
+    filename VARCHAR(255) NOT NULL,
+    ext VARCHAR(16),
+    filesize BIGINT,
+    patch_uri VARCHAR(1024),
+    date_uploaded TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE patches ADD COLUMN IF NOT EXISTS ext VARCHAR(16);
+ALTER TABLE patches ADD COLUMN IF NOT EXISTS description VARCHAR(200);
+UPDATE patches
+SET ext = LOWER(SUBSTRING(filename FROM '\.[^.]+$'))
+WHERE ext IS NULL;
 
 CREATE TABLE IF NOT EXISTS track_downloads (
     trackid INTEGER NOT NULL REFERENCES tracks(trackid) ON DELETE CASCADE,
@@ -39,6 +61,8 @@ CREATE TABLE IF NOT EXISTS track_ratings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tracks_userid ON tracks(userid);
+CREATE INDEX IF NOT EXISTS idx_patches_userid ON patches(userid);
+CREATE INDEX IF NOT EXISTS idx_patches_ext ON patches(ext);
 CREATE INDEX IF NOT EXISTS idx_tracks_artist_alias ON tracks(artist_alias);
 CREATE INDEX IF NOT EXISTS idx_tracks_artist_alias_trgm
     ON tracks USING GIN (artist_alias gin_trgm_ops);

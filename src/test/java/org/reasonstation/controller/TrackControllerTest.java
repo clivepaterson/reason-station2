@@ -4,8 +4,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.entity.User;
+import org.reasonstation.entity.Track;
 import org.reasonstation.repository.TrackDownloadRepository;
 import org.reasonstation.repository.TrackRatingRepository;
 import org.reasonstation.repository.TrackRepository;
@@ -69,11 +71,16 @@ class TrackControllerTest {
         when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/upload");
         when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", trackFile());
+        var response = controller.uploadTrack(
+                authentication, "Artist Name", "Track Name", "Rock", trackFile());
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(storage).upload(any(), any(), any());
-        verify(tracks).save(any());
+        ArgumentCaptor<Track> savedTrack = ArgumentCaptor.forClass(Track.class);
+        verify(tracks).save(savedTrack.capture());
+        assertEquals("Artist Name", savedTrack.getValue().getArtistAlias());
+        assertEquals("Track Name", savedTrack.getValue().getTrackName());
+        assertEquals(3L, savedTrack.getValue().getFilesize());
     }
 
     private User user(boolean emailVerified) {

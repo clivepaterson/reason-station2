@@ -25,6 +25,9 @@ public class Track {
     
     @Column("filename")
     private String filename;
+
+    @Column("filesize")
+    private Long filesize;
     
     @Column("track_uri")
     private String trackUri;
@@ -46,8 +49,14 @@ public class Track {
 
     public Track(Long userid, String artistAlias, String trackName, String musicStyle,
                  String filename, String trackUri) {
+        this(userid, artistAlias, trackName, musicStyle, filename, null, trackUri);
+    }
+
+    public Track(Long userid, String artistAlias, String trackName, String musicStyle,
+                 String filename, Long filesize, String trackUri) {
         this(userid, artistAlias, trackName, filename, trackUri);
         this.musicStyle = musicStyle;
+        this.filesize = filesize;
     }
 
     public Track(Long trackid, Long userid, String artistAlias, String trackName, String filename, String trackUri) {
@@ -106,6 +115,14 @@ public class Track {
 
     public void setFilename(String filename) {
         this.filename = filename;
+    }
+
+    public Long getFilesize() {
+        return filesize;
+    }
+
+    public void setFilesize(Long filesize) {
+        this.filesize = filesize;
     }
 
     public String getTrackUri() {

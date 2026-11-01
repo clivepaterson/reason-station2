@@ -1,7 +1,14 @@
 window.initializeMyTracks = function() {
     var allowedExtensions = ['.rps', '.rns', '.reason'];
+    var allowedPatchExtensions = [
+        '.sxt', '.xwv', '.smp', '.drex', '.drum', '.rv7', '.sm4', '.echo',
+        '.pulver', '.gator', '.cmb', '.thor', '.kong', '.drp', '.zyp', '.patch',
+        '.repatch', '.sf2', '.rx2', '.rcy', '.rex'
+    ];
     var uploadButton = $('#upload-track-button');
     var uploadForm = $('#upload-track-form');
+    var uploadPatchButton = $('#upload-patch-button');
+    var uploadPatchForm = $('#upload-patch-form');
     var uploadDialogBackdrop = $('#upload-dialog-backdrop');
     var tracksStatus = $('#tracks-status');
     var tracksList = $('#tracks-list');
@@ -10,6 +17,8 @@ window.initializeMyTracks = function() {
     var resendVerificationLink = $('#resend-verification-email');
     var verificationEmailStatus = $('#verification-email-status');
     var trackTextPattern = /^[A-Za-z0-9()\[\]_.'+\-]+$/;
+    var patchNamePattern = /^[A-Za-z0-9()\[\]_.'+\- ]+$/;
+    var descriptionInvalidCharacters = /[^A-Za-z0-9()\[\]_.'+\- \r\n]/g;
     function closeUploadForm() {
         if (!uploadForm.length) {
             return;
@@ -18,6 +27,13 @@ window.initializeMyTracks = function() {
         uploadSubmitButton.prop('disabled', false);
         $('#upload-status').removeClass('error success').text('');
         uploadForm.attr('hidden', true);
+        if (uploadPatchForm.length) {
+            uploadPatchForm[0].reset();
+        }
+        uploadPatchForm.find('button[type="submit"]').prop('disabled', false);
+        $('#patch-upload-status').removeClass('error success').text('');
+        $('#patch-description-count').text('0 / 200');
+        uploadPatchForm.attr('hidden', true);
         uploadDialogBackdrop.attr('hidden', true);
     }
 
@@ -69,9 +85,11 @@ window.initializeMyTracks = function() {
             tracksStatus.text('Signed in as ' + user.username + '.');
             if (user.emailVerified) {
                 uploadButton.removeAttr('hidden');
+                uploadPatchButton.removeAttr('hidden');
                 verificationNotice.attr('hidden', true);
             } else {
                 uploadButton.attr('hidden', true);
+                uploadPatchButton.attr('hidden', true);
                 verificationNotice.removeAttr('hidden');
             }
             return loadTracks();
@@ -80,6 +98,7 @@ window.initializeMyTracks = function() {
             tracksStatus.text(error.message);
             tracksList.empty();
             uploadButton.attr('hidden', true);
+            uploadPatchButton.attr('hidden', true);
             closeUploadForm();
         });
 
@@ -113,12 +132,38 @@ window.initializeMyTracks = function() {
     });
 
     uploadButton.off('click.siteTracks').on('click.siteTracks', function() {
+            closeUploadForm();
             uploadForm[0].reset();
             uploadSubmitButton.prop('disabled', false);
             $('#upload-status').removeClass('error success').text('');
             uploadForm.removeAttr('hidden');
             uploadDialogBackdrop.removeAttr('hidden');
             $('#artist-alias').trigger('focus');
+    });
+
+    uploadPatchButton.off('click.siteTracks').on('click.siteTracks', function() {
+        closeUploadForm();
+        uploadPatchForm[0].reset();
+        uploadPatchForm.find('button[type="submit"]').prop('disabled', false);
+        $('#patch-upload-status').removeClass('error success').text('');
+        uploadPatchForm.removeAttr('hidden');
+        uploadDialogBackdrop.removeAttr('hidden');
+        $('#patch-artist-alias').trigger('focus');
+    });
+
+    $('#patch-description').off('input.siteTracks').on('input.siteTracks', function() {
+        var input = this;
+        var value = input.value;
+        var selectionStart = input.selectionStart;
+        var sanitizedValue = value.replace(descriptionInvalidCharacters, '');
+
+        if (sanitizedValue !== value) {
+            var sanitizedSelectionStart = value.substring(0, selectionStart)
+                .replace(descriptionInvalidCharacters, '').length;
+            input.value = sanitizedValue;
+            input.setSelectionRange(sanitizedSelectionStart, sanitizedSelectionStart);
+        }
+        $('#patch-description-count').text(input.value.length + ' / 200');
     });
 
     tracksList.off('click.siteTracks', '.delete-track-button').on('click.siteTracks', '.delete-track-button', function() {
@@ -160,7 +205,8 @@ window.initializeMyTracks = function() {
     });
 
     $(document).off('mousedown.siteTracks').on('mousedown.siteTracks', function(event) {
-        if (!$(event.target).closest('#upload-track-form, #upload-track-button').length) {
+        if (!$(event.target).closest(
+                '#upload-track-form, #upload-track-button, #upload-patch-form, #upload-patch-button').length) {
             closeUploadForm();
         }
     });
@@ -195,7 +241,13 @@ window.initializeMyTracks = function() {
             value: 0,
             'aria-label': 'Upload progress for ' + file.name
         });
+        var cancelButton = $('<button>').addClass('upload-cancel-button').attr({
+            type: 'button',
+            'aria-label': 'Cancel upload for ' + file.name,
+            title: 'Cancel upload'
+        }).html('&times;');
         item.append($('<h3>').text(file.name));
+        item.append(cancelButton);
         item.append(progress);
         item.append(status);
         uploadingItems.append(item);
@@ -203,6 +255,11 @@ window.initializeMyTracks = function() {
         return new Promise(function(resolve) {
             var request = new XMLHttpRequest();
             request.open('POST', '/api/tracks');
+            cancelButton.on('click', function() {
+                cancelButton.prop('disabled', true);
+                status.text('Cancelling...');
+                request.abort();
+            });
             request.upload.addEventListener('progress', function(event) {
                 if (!event.lengthComputable) {
                     status.text('Uploading...');
@@ -214,6 +271,7 @@ window.initializeMyTracks = function() {
             });
             request.addEventListener('load', function() {
                 activeUploads--;
+                cancelButton.remove();
                 if (request.status >= 200 && request.status < 300) {
                     progress.val(100);
                     status.text('Complete');
@@ -235,6 +293,7 @@ window.initializeMyTracks = function() {
             });
             request.addEventListener('error', function() {
                 activeUploads--;
+                cancelButton.remove();
                 var errorMessage = 'Unable to upload "' + file.name + '".';
                 status.text(errorMessage);
                 item.addClass('error');
@@ -243,6 +302,7 @@ window.initializeMyTracks = function() {
             });
             request.addEventListener('abort', function() {
                 activeUploads--;
+                cancelButton.remove();
                 var errorMessage = 'Upload cancelled for "' + file.name + '".';
                 status.text(errorMessage);
                 item.addClass('error');
@@ -252,6 +312,145 @@ window.initializeMyTracks = function() {
             request.send(formData);
         });
     }
+
+    function uploadPatch(file, artistAlias, patchName, description) {
+        var formData = new FormData();
+        formData.append('artistAlias', artistAlias);
+        formData.append('patchName', patchName);
+        formData.append('description', description);
+        formData.append('file', file);
+
+        if (activeUploads === 0) {
+            uploadingItems.empty();
+        }
+        activeUploads++;
+        uploadingList.removeAttr('hidden');
+
+        var item = $('<article>').addClass('upload-item');
+        var status = $('<p>').addClass('upload-item-status').text('Starting...');
+        var progress = $('<progress>').attr({
+            max: 100,
+            value: 0,
+            'aria-label': 'Upload progress for ' + file.name
+        });
+        var cancelButton = $('<button>').addClass('upload-cancel-button').attr({
+            type: 'button',
+            'aria-label': 'Cancel upload for ' + file.name,
+            title: 'Cancel upload'
+        }).html('&times;');
+        item.append($('<h3>').text(file.name));
+        item.append(cancelButton);
+        item.append(progress);
+        item.append(status);
+        uploadingItems.append(item);
+
+        return new Promise(function(resolve) {
+            var request = new XMLHttpRequest();
+            request.open('POST', '/api/patches');
+            cancelButton.on('click', function() {
+                cancelButton.prop('disabled', true);
+                status.text('Cancelling...');
+                request.abort();
+            });
+            request.upload.addEventListener('progress', function(event) {
+                if (!event.lengthComputable) {
+                    status.text('Uploading...');
+                    return;
+                }
+                var percentage = Math.round((event.loaded / event.total) * 100);
+                progress.val(percentage);
+                status.text('Uploading... ' + percentage + '%');
+            });
+            request.addEventListener('load', function() {
+                activeUploads--;
+                cancelButton.remove();
+                if (request.status >= 200 && request.status < 300) {
+                    progress.val(100);
+                    status.text('Complete');
+                    resolve({success: true});
+                } else {
+                    var errorMessage = 'Unable to upload "' + file.name + '".';
+                    try {
+                        var error = JSON.parse(request.responseText);
+                        errorMessage = error.error || errorMessage;
+                    } catch (parseError) {
+                        // Use the generic message when the server does not return JSON.
+                    }
+                    status.text(errorMessage);
+                    item.addClass('error');
+                    resolve({success: false, message: errorMessage});
+                }
+                hideUploadingListWhenComplete();
+            });
+            request.addEventListener('error', function() {
+                activeUploads--;
+                cancelButton.remove();
+                var errorMessage = 'Unable to upload "' + file.name + '".';
+                status.text(errorMessage);
+                item.addClass('error');
+                resolve({success: false, message: errorMessage});
+                hideUploadingListWhenComplete();
+            });
+            request.addEventListener('abort', function() {
+                activeUploads--;
+                cancelButton.remove();
+                var errorMessage = 'Upload cancelled for "' + file.name + '".';
+                status.text(errorMessage);
+                item.addClass('error');
+                resolve({success: false, message: errorMessage});
+                hideUploadingListWhenComplete();
+            });
+            request.send(formData);
+        });
+    }
+
+    uploadPatchForm.off('submit.siteTracks').on('submit.siteTracks', function(event) {
+        event.preventDefault();
+        var file = $('#patch-file')[0].files[0];
+        var artistAlias = $('#patch-artist-alias').val().trim();
+        var patchName = $('#patch-name').val().trim();
+        var description = $('#patch-description').val();
+        var patchUploadStatus = $('#patch-upload-status');
+        var submitButton = uploadPatchForm.find('button[type="submit"]');
+        var filename = file ? file.name.toLowerCase() : '';
+        var hasAllowedExtension = allowedPatchExtensions.some(function(extension) {
+            return filename.endsWith(extension);
+        });
+
+        if (!artistAlias || !patchName || !trackTextPattern.test(artistAlias)
+                || !patchNamePattern.test(patchName)) {
+            patchUploadStatus.removeClass('success').addClass('error')
+                .text("Artist alias and patch name are required; patch names may also contain spaces.");
+            return;
+        }
+        if (!file || !hasAllowedExtension) {
+            patchUploadStatus.removeClass('success').addClass('error')
+                .text('Choose a supported Reason patch file.');
+            return;
+        }
+
+        submitButton.prop('disabled', true);
+        patchUploadStatus.removeClass('error success').text('Uploading...');
+        uploadPatchForm.attr('hidden', true);
+        uploadDialogBackdrop.attr('hidden', true);
+
+        uploadPatch(file, artistAlias, patchName, description.replace(/\r\n|\r|\n/g, ' '))
+            .then(function(result) {
+                if (!result.success) {
+                    throw new Error(result.message);
+                }
+                uploadPatchForm[0].reset();
+                $('#patch-description-count').text('0 / 200');
+                patchUploadStatus.removeClass('error').addClass('success')
+                    .text('Patch upload complete.');
+            })
+            .catch(function(error) {
+                patchUploadStatus.removeClass('success').addClass('error').text(error.message);
+            })
+            .finally(function() {
+                submitButton.prop('disabled', false);
+            });
+    });
 
     uploadForm.off('submit.siteTracks').on('submit.siteTracks', function(event) {
         event.preventDefault();

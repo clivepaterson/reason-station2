@@ -9,6 +9,7 @@ public record TrackWithRating(
         String trackName,
         String musicStyle,
         String filename,
+        Long filesize,
         String trackUri,
         Instant dateUploaded,
         Double averageTrackRating,

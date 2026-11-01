@@ -20,6 +20,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_name,
                    t.music_style,
                    t.filename,
+                   t.filesize,
                    t.track_uri,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
@@ -33,6 +34,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.track_name,
                      t.music_style,
                      t.filename,
+                     t.filesize,
                      t.track_uri,
                      t.date_uploaded
             ORDER BY RANDOM()
@@ -142,6 +144,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_name,
                    t.music_style,
                    t.filename,
+                   t.filesize,
                    t.track_uri,
                    t.date_uploaded,
                    (SELECT AVG(r.rating)
@@ -174,6 +177,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_name,
                    t.music_style,
                    t.filename,
+                   t.filesize,
                    t.track_uri,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
@@ -188,6 +192,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.track_name,
                      t.music_style,
                      t.filename,
+                     t.filesize,
                      t.track_uri,
                      t.date_uploaded
             ORDER BY t.date_uploaded DESC
@@ -210,6 +215,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_name,
                    t.music_style,
                    t.filename,
+                   t.filesize,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(*) AS download_count
@@ -223,6 +229,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.track_name,
                      t.music_style,
                      t.filename,
+                     t.filesize,
                      t.date_uploaded
             ORDER BY t.artist_alias,
                      t.track_name,

@@ -1,7 +1,14 @@
 -- Development/test data for the ReasonStation PostgreSQL database.
--- Each run creates any missing seed users and tracks without duplicating them.
+-- Each run creates seed users, tracks, and patches without duplicating them.
 
 BEGIN;
+
+DELETE FROM patches
+WHERE userid IN (
+    SELECT userid
+    FROM "user"
+    WHERE email LIKE 'testuser%@example.test'
+);
 
 DELETE FROM tracks
 WHERE userid IN (
@@ -64,6 +71,41 @@ ON CONFLICT DO NOTHING;
 UPDATE "user"
 SET date_created = CURRENT_TIMESTAMP - random() * INTERVAL '10 years'
 WHERE email LIKE 'testuser%@example.test';
+
+-- Seed five patches for each test user.
+WITH patch_seed AS (
+    SELECT
+        users.userid,
+        users.alias AS artist_alias,
+        patch_number,
+        (ARRAY['.thor', '.kong', '.repatch', '.sf2', '.rx2'])[patch_number] AS ext,
+        SUBSTRING(users.email FROM 'testuser([0-9]+)') AS user_number
+    FROM "user" users
+    CROSS JOIN generate_series(1, 5) AS patch_number
+    WHERE users.email LIKE 'testuser%@example.test'
+)
+INSERT INTO patches (
+    userid,
+    artist_alias,
+    patch_name,
+    description,
+    filename,
+    ext,
+    filesize,
+    patch_uri,
+    date_uploaded
+)
+SELECT
+    userid,
+    artist_alias,
+    'Patch ' || patch_number,
+    'Test_patch_' || patch_number,
+    'test-patch-' || user_number || '-' || patch_number || ext,
+    ext,
+    1024 + (patch_number * 512),
+    's3://tracks/patches/test-patch-' || user_number || '-' || patch_number || ext,
+    CURRENT_TIMESTAMP - random() * INTERVAL '10 years'
+FROM patch_seed;
 
 -- Seed each track with an individual INSERT statement.
 INSERT INTO tracks (userid, artist_alias, track_name, music_style, filename, track_uri, date_uploaded) SELECT userid, 'Ada Lovelace', 'Amber Afterglow', 'Rock', 'test-track-1-1.mp3', 's3://tracks/tracks/deb9bdd7-36d8-4d19-840c-896f555118b6', CURRENT_TIMESTAMP - random() * INTERVAL '10 years' FROM "user" WHERE alias = 'Ada Lovelace' AND NOT EXISTS (SELECT 1 FROM tracks WHERE userid = "user".userid AND filename = 'test-track-1-1.mp3');
@@ -815,7 +857,8 @@ INSERT INTO tracks (userid, artist_alias, track_name, music_style, filename, tra
 
 UPDATE tracks
 SET
-    date_uploaded = CURRENT_TIMESTAMP - random() * INTERVAL '10 years'
+    date_uploaded = CURRENT_TIMESTAMP - random() * INTERVAL '10 years',
+    filesize = (1048576 + floor(random() * 103809024))::bigint
 WHERE filename LIKE 'test-track-%';
 
 DELETE FROM track_downloads

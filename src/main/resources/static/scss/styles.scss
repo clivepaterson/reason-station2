@@ -540,6 +540,13 @@ body {
     margin-bottom: 2rem;
 }
 
+.tracks-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
 .track-form {
     position: fixed;
     top: 50%;
@@ -566,7 +573,7 @@ body {
         font-weight: bold;
     }
 
-    input {
+    input, textarea {
         width: 100%;
         padding: 0.7rem;
         border: 1px solid $accent-color;
@@ -577,6 +584,11 @@ body {
             outline: 2px solid $secondary-color;
             border-color: $secondary-color;
         }
+    }
+
+    textarea {
+        min-height: 6rem;
+        resize: vertical;
     }
 
     button {
@@ -622,6 +634,7 @@ body {
 }
 
 .upload-item {
+    position: relative;
     padding: 0.75rem 0;
     border-top: 1px solid $light-bg;
 
@@ -631,6 +644,7 @@ body {
     }
 
     h3 {
+        padding-right: 2rem;
         color: $secondary-color;
         font-size: 1rem;
     }
@@ -646,6 +660,29 @@ body {
         height: 0.65rem;
         margin: 0.5rem 0 0.25rem;
         accent-color: $primary-color;
+    }
+}
+
+.upload-cancel-button {
+    position: absolute;
+    top: 0.45rem;
+    right: 0;
+    padding: 0.15rem 0.4rem;
+    border: 0;
+    background: transparent;
+    color: $primary-color;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+        color: $secondary-color;
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.5;
     }
 }
 
@@ -744,10 +781,19 @@ body {
 }
 
 .track-card-meta {
-    display: flex;
+    display: grid;
+    grid-template-areas:
+        "style size"
+        "downloads rating";
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem 1.25rem;
     align-items: center;
     color: #376e78;
     font-size: 0.9rem;
+}
+
+.track-style-meta {
+    grid-area: style;
 }
 
 .track-style-meta::before {
@@ -758,10 +804,14 @@ body {
     font-weight: 700;
 }
 
-.track-downloads-meta {
-    margin-left: 1.25rem;
+.track-filesize-meta {
+    grid-area: size;
     padding-left: 1.25rem;
     border-left: 1px solid #9ebdc1;
+}
+
+.track-downloads-meta {
+    grid-area: downloads;
 
     &::before {
         margin-right: 0.5rem;
@@ -773,10 +823,10 @@ body {
 }
 
 .track-rating-meta {
+    grid-area: rating;
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    margin-left: 1.25rem;
     padding-left: 1.25rem;
     border-left: 1px solid #9ebdc1;
 }
@@ -1036,23 +1086,6 @@ body {
     .download-track-link {
         grid-column: 1 / -1;
         width: 100%;
-    }
-
-    .track-card-meta {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .track-downloads-meta {
-        margin-left: 0;
-        padding-left: 0;
-        border-left: 0;
-    }
-
-    .track-rating-meta {
-        margin-left: 0;
-        padding-left: 0;
-        border-left: 0;
     }
 
     .track-card-actions {
@@ -2053,15 +2086,20 @@ body.site-page {
     }
 
     .tutorial-card-arrow {
-        display: grid;
+        display: block;
+        box-sizing: border-box;
         flex: 0 0 48px;
         width: 48px;
         height: 48px;
-        place-items: center;
+        padding: 13px;
         color: white;
         background: $station-orange;
         border-radius: 50%;
-        font-size: 1.6rem;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
         transition: transform 0.25s ease;
     }
 
@@ -2528,15 +2566,20 @@ body.site-page {
     }
 
     .featured-link-arrow {
-        display: grid;
+        display: block;
+        box-sizing: border-box;
         flex: 0 0 52px;
         width: 52px;
         height: 52px;
-        place-items: center;
+        padding: 14px;
         color: white;
         background: $station-orange;
         border-radius: 50%;
-        font-size: 1.8rem;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
         transition: transform 0.25s ease;
     }
 

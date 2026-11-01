@@ -83,7 +83,7 @@ public class TrackController {
             "Minimal", "Acoustic", "Live", "Instrumental", "Vocal",
             "Female Vocal", "Male Vocal", "Other");
     private static final Pattern TRACK_TEXT_PATTERN =
-            Pattern.compile("[A-Za-z0-9()\\[\\]_.'+\\-]+");
+            Pattern.compile("[A-Za-z0-9 ()\\[\\]_.'+\\-]+");
 
     private final TrackRepository tracks;
     private final TrackDownloadRepository downloads;
@@ -210,7 +210,7 @@ public class TrackController {
         if (!TRACK_TEXT_PATTERN.matcher(artistAlias).matches()
                 || !TRACK_TEXT_PATTERN.matcher(trackName).matches()) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Artist alias and track name may contain only letters, numbers, and ()[]_.'+-."));
+                    .body(Map.of("error", "Artist alias and track name may contain only letters, numbers, spaces, and ()[]_.'+-."));
         }
         if (!hasAllowedExtension(file.getOriginalFilename())) {
             return ResponseEntity.badRequest()
@@ -230,7 +230,7 @@ public class TrackController {
         }
 
         Track track = new Track(currentUser.get().getUserid(), trimmedArtistAlias, trimmedTrackName,
-                trimmedMusicStyle, file.getOriginalFilename(), trackUri);
+                trimmedMusicStyle, file.getOriginalFilename(), file.getSize(), trackUri);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(TrackResponse.from(tracks.save(track), 0));
     }
@@ -250,18 +250,18 @@ public class TrackController {
     }
 
     private record TrackResponse(Long trackid, String artistAlias, String trackName, String musicStyle,
-                                 String filename, long downloadCount, Double averageTrackRating,
+                                 String filename, Long filesize, long downloadCount, Double averageTrackRating,
                                  java.time.Instant dateUploaded) {
         private static TrackResponse from(TrackWithRating track) {
             return new TrackResponse(track.trackid(), track.artistAlias(), track.trackName(),
-                    track.musicStyle(), track.filename(), track.downloadCount(),
+                    track.musicStyle(), track.filename(), track.filesize(), track.downloadCount(),
                     track.averageTrackRating(), track.dateUploaded());
         }
 
         private static TrackResponse from(Track track, int downloadCount) {
             return new TrackResponse(track.getTrackid(), track.getArtistAlias(),
-                    track.getTrackName(), track.getMusicStyle(), track.getFilename(), downloadCount,
-                    null, track.getDateUploaded());
+                    track.getTrackName(), track.getMusicStyle(), track.getFilename(),
+                    track.getFilesize(), downloadCount, null, track.getDateUploaded());
         }
     }
 
