@@ -16,6 +16,7 @@ import org.reasonstation.service.S3StorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.IOException;
 import java.util.Map;
@@ -23,9 +24,14 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 @ExtendWith(MockitoExtension.class)
 class TrackControllerTest {
@@ -47,12 +53,12 @@ class TrackControllerTest {
     @BeforeEach
     void setUp() {
         controller = new TrackController(tracks, downloads, ratings, users, storage);
-        when(authentication.getName()).thenReturn("listener");
     }
 
     @Test
     void rejectsTrackUploadWhenEmailIsNotVerified() throws IOException {
         User user = user(false);
+        when(authentication.getName()).thenReturn("listener");
         when(users.findByAlias("listener")).thenReturn(Optional.of(user));
 
         var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", trackFile());
@@ -67,6 +73,7 @@ class TrackControllerTest {
     @Test
     void uploadsTrackWhenEmailIsVerified() throws IOException {
         User user = user(true);
+        when(authentication.getName()).thenReturn("listener");
         when(users.findByAlias("listener")).thenReturn(Optional.of(user));
         when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/upload");
         when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -81,6 +88,38 @@ class TrackControllerTest {
         assertEquals("Artist Name", savedTrack.getValue().getArtistAlias());
         assertEquals("Track Name", savedTrack.getValue().getTrackName());
         assertEquals(3L, savedTrack.getValue().getFilesize());
+    }
+
+    @Test
+    void acceptsTrackRatingOfTen() throws Exception {
+        when(tracks.findById(3L)).thenReturn(Optional.of(new Track()));
+        MockMvc mockMvc = standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/tracks/3/rating")
+                        .contentType("application/json")
+                        .content("{\"rating\":10}")
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.1");
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rating").value(10));
+
+        verify(ratings).recordRating(3L, "192.0.2.1", (short) 10);
+    }
+
+    @Test
+    void rejectsTrackRatingAboveTen() throws Exception {
+        MockMvc mockMvc = standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/tracks/3/rating")
+                        .contentType("application/json")
+                        .content("{\"rating\":11}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error")
+                        .value("Rating must be an integer between 1 and 10."));
+
+        verifyNoInteractions(ratings);
     }
 
     private User user(boolean emailVerified) {

@@ -12,5 +12,33 @@
         </div>
         <div id="artist-tracks" class="tracks-list" hidden>
         </div>
+        <div class="tracks-header artist-patches-header">
+            <div>
+                <h2>Patches</h2>
+                <p>Patches uploaded by this artist</p>
+            </div>
+        </div>
+        <div id="artist-patches-loading" class="loading-indicator" role="status">
+            <span class="loading-spinner" aria-hidden="true"></span>
+            <span>Loading patches...</span>
+        </div>
+        <div id="artist-patches" hidden>
+            <p id="artist-patches-message" hidden></p>
+            <div id="artist-patches-table" class="catalog-table-wrapper">
+                <table class="catalog-table">
+                    <thead>
+                    <tr>
+                        <th>Patch name</th>
+                        <th>Description</th>
+                        <th>Filename</th>
+                        <th>Extension</th>
+                        <th>Date uploaded</th>
+                        <th><span class="visually-hidden">Download</span></th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </section>

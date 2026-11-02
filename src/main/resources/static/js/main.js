@@ -4,6 +4,7 @@ $(document).ready(async function() {
         'my-tracks.html',
         'artist.html',
         'search.html',
+        'catalog.html',
         'links.html',
         'tutorials.html',
         'tutorials/tutorial-oscillators.html',
@@ -70,6 +71,12 @@ $(document).ready(async function() {
             ? 'links-page'
             : url.searchParams.get('view') === 'my-tracks'
             ? 'my-tracks-page'
+            : url.searchParams.get('view') === 'artists'
+            ? 'artists-page'
+            : url.searchParams.get('view') === 'tracks'
+            ? 'tracks-catalog-page'
+            : url.searchParams.get('view') === 'patches'
+            ? 'patches-page'
             : url.searchParams.has('artistAlias') ? 'artist-page'
             : url.searchParams.has('search') ? 'search-page' : 'home-page';
     }
@@ -85,8 +92,8 @@ $(document).ready(async function() {
             'artist-page': {
                 title: (artistAlias || 'Artist') + ' | Reason Station',
                 description: artistAlias
-                    ? 'Explore Reason music projects and tracks shared by ' + artistAlias + ' on Reason Station.'
-                    : 'Explore artist tracks and Reason music projects shared on Reason Station.'
+                    ? 'Explore Reason music projects, tracks, and patches shared by ' + artistAlias + ' on Reason Station.'
+                    : 'Explore artist tracks, patches, and Reason music projects shared on Reason Station.'
             },
             'links-page': {
                 title: 'Reason Resources & Tutorials | Reason Station',
@@ -147,6 +154,18 @@ $(document).ready(async function() {
             'my-tracks-page': {
                 title: 'My Tracks | Reason Station',
                 description: 'Manage your Reason Station tracks and project uploads.'
+            },
+            'artists-page': {
+                title: 'Artists | Reason Station',
+                description: 'Browse artists sharing Reason music projects on Reason Station.'
+            },
+            'tracks-catalog-page': {
+                title: 'Tracks | Reason Station',
+                description: 'Browse Reason music projects shared by the Reason Station community.'
+            },
+            'patches-page': {
+                title: 'Patches | Reason Station',
+                description: 'Browse Reason instrument and effect patches shared by the community.'
             }
         }[pageId] || defaultMetadata;
         var shouldIndex = pageId !== 'search-page' && pageId !== 'my-tracks-page';
@@ -180,6 +199,12 @@ $(document).ready(async function() {
             canonicalUrl.searchParams.set('view', 'links');
         } else if (pageId === 'about-page') {
             canonicalUrl.searchParams.set('view', 'about');
+        } else if (pageId === 'artists-page') {
+            canonicalUrl.searchParams.set('view', 'artists');
+        } else if (pageId === 'tracks-catalog-page') {
+            canonicalUrl.searchParams.set('view', 'tracks');
+        } else if (pageId === 'patches-page') {
+            canonicalUrl.searchParams.set('view', 'patches');
         }
 
         document.title = pageMetadata.title;
@@ -224,7 +249,7 @@ $(document).ready(async function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-oscillators-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-fm-bell-page, #tutorial-super-saw-page, #about-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-oscillators-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-fm-bell-page, #tutorial-super-saw-page, #about-page, #artists-page, #tracks-catalog-page, #patches-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         window.updateSearchButtonState();
         updatePageMetadata(pageId, url);
@@ -237,6 +262,12 @@ $(document).ready(async function() {
             window.initializeMyTracks();
         } else if (pageId === 'search-page') {
             window.loadSearchPage(url);
+        } else if (pageId === 'artists-page') {
+            window.loadCatalogPage('artists', url);
+        } else if (pageId === 'tracks-catalog-page') {
+            window.loadCatalogPage('tracks', url);
+        } else if (pageId === 'patches-page') {
+            window.loadCatalogPage('patches', url);
         }
     };
 
@@ -251,9 +282,10 @@ $(document).ready(async function() {
         }
     }
 
-    $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .tutorial-card, .tutorial-back-link',
+    $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .catalog-table a:not(.catalog-download-link), .tutorial-card, .tutorial-back-link',
         navigateInternalLink);
-    $('#my-tracks-link, #tutorials-link, #links-link, #about-link').on('click', navigateInternalLink);
+    $('#my-tracks-link, #tutorials-link, #links-link, #about-link, #artists-link, #tracks-link, #patches-link')
+        .on('click', navigateInternalLink);
     window.addEventListener('popstate', function() {
         window.showPage(window.location.href, false);
     });
@@ -298,6 +330,7 @@ $(document).ready(async function() {
     var currentUrl = new URL(window.location.href);
     window.initializeSearchPage();
     window.initializeTutorialsPage();
+    window.initializeCatalogPages();
     addWebsiteStructuredData();
     window.showPage(currentUrl, false);
 

@@ -1,6 +1,7 @@
 package org.reasonstation.controller;
 
 import org.reasonstation.entity.Track;
+import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,9 +17,11 @@ public class DiscoveryController {
     private static final int SEARCH_PAGE_SIZE = 20;
 
     private final TrackRepository tracks;
+    private final PatchRepository patches;
 
-    public DiscoveryController(TrackRepository tracks) {
+    public DiscoveryController(TrackRepository tracks, PatchRepository patches) {
         this.tracks = tracks;
+        this.patches = patches;
     }
 
     @GetMapping("/artists")
@@ -119,6 +122,21 @@ public class DiscoveryController {
                 .toList());
     }
 
+    @GetMapping("/artist-patches")
+    public ResponseEntity<?> artistPatches(@RequestParam("artistAlias") String artistAlias) {
+        return ResponseEntity.ok(patches.findByArtistAliasOrderByDateUploadedDesc(artistAlias).stream()
+                .map(patch -> new PatchDiscoveryResponse(
+                        patch.getPatchid(),
+                        patch.getArtistAlias(),
+                        patch.getPatchName(),
+                        patch.getDescription(),
+                        patch.getFilename(),
+                        patch.getExt(),
+                        patch.getFilesize(),
+                        patch.getDateUploaded()))
+                .toList());
+    }
+
     @GetMapping("/search")
     public ResponseEntity<?> searchTracks(
             @RequestParam("query") String query,
@@ -182,6 +200,17 @@ public class DiscoveryController {
             Long filesize,
             long downloadCount,
             Double averageTrackRating,
+            java.time.Instant dateUploaded) {
+    }
+
+    private record PatchDiscoveryResponse(
+            Long patchid,
+            String artistAlias,
+            String patchName,
+            String description,
+            String filename,
+            String ext,
+            Long filesize,
             java.time.Instant dateUploaded) {
     }
 }

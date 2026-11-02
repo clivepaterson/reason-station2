@@ -5,10 +5,14 @@ import org.reasonstation.entity.User;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -45,6 +49,25 @@ public class PatchController {
         this.patches = patches;
         this.users = users;
         this.storage = storage;
+    }
+
+    @GetMapping("/{patchid}/download")
+    public ResponseEntity<?> downloadPatch(@PathVariable Long patchid) {
+        Optional<Patch> patch = patches.findById(patchid);
+        if (patch.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Patch not found."));
+        }
+
+        byte[] content = storage.download(patch.get().getPatchUri());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(patch.get().getFilename())
+                .build());
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(content);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

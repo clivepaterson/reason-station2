@@ -1,0 +1,81 @@
+<section id="artists-page" class="catalog-page" hidden>
+    <div class="container">
+        <h1>Artists</h1>
+        <p id="artists-status" class="catalog-status" aria-live="polite"></p>
+        <div class="catalog-table-wrapper">
+            <table id="artists-table" class="catalog-table">
+                <thead>
+                <tr>
+                    <th><button type="button" data-sort="artistAlias">Artist alias</button></th>
+                    <th><button type="button" data-sort="dateCreated">Date created</button></th>
+                    <th>Tracks submitted</th>
+                    <th>Patches submitted</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <nav id="artists-pagination" class="catalog-pagination" aria-label="Artist pages" hidden>
+            <button class="catalog-previous-page" type="button">Previous</button>
+            <span class="catalog-page-status"></span>
+            <button class="catalog-next-page" type="button">Next</button>
+        </nav>
+    </div>
+</section>
+
+<section id="tracks-catalog-page" class="catalog-page" hidden>
+    <div class="container">
+        <h1>Tracks</h1>
+        <p id="tracks-catalog-status" class="catalog-status" aria-live="polite"></p>
+        <div class="catalog-table-wrapper">
+            <table id="tracks-catalog-table" class="catalog-table">
+                <thead>
+                <tr>
+                    <th><button type="button" data-sort="artistAlias">Artist alias</button></th>
+                    <th><button type="button" data-sort="trackName">Track name</button></th>
+                    <th><button type="button" data-sort="musicStyle">Music style</button></th>
+                    <th><button type="button" data-sort="filename">Filename</button></th>
+                    <th>Filesize</th>
+                    <th><button type="button" data-sort="dateUploaded">Date uploaded</button></th>
+                    <th>Average rating</th>
+                    <th><span class="visually-hidden">Download</span></th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <nav id="tracks-catalog-pagination" class="catalog-pagination" aria-label="Track pages" hidden>
+            <button class="catalog-previous-page" type="button">Previous</button>
+            <span class="catalog-page-status"></span>
+            <button class="catalog-next-page" type="button">Next</button>
+        </nav>
+    </div>
+</section>
+
+<section id="patches-page" class="catalog-page" hidden>
+    <div class="container">
+        <h1>Patches</h1>
+        <p id="patches-status" class="catalog-status" aria-live="polite"></p>
+        <div class="catalog-table-wrapper">
+            <table id="patches-table" class="catalog-table">
+                <thead>
+                <tr>
+                    <th><button type="button" data-sort="artistAlias">Artist alias</button></th>
+                    <th><button type="button" data-sort="patchName">Patch name</button></th>
+                    <th>Description</th>
+                    <th><button type="button" data-sort="filename">Filename</button></th>
+                    <th><button type="button" data-sort="ext">Extension</button></th>
+                    <th><button type="button" data-sort="dateUploaded">Date uploaded</button></th>
+                    <th><span class="visually-hidden">Download</span></th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <nav id="patches-pagination" class="catalog-pagination" aria-label="Patch pages" hidden>
+            <button class="catalog-previous-page" type="button">Previous</button>
+            <span class="catalog-page-status"></span>
+            <button class="catalog-next-page" type="button">Next</button>
+        </nav>
+    </div>
+</section>

@@ -164,7 +164,7 @@ window.loadDiscovery = function() {
         return createSidebarTrackItem(track, {
             meta: function(item) {
                 return item.artistAlias + ' \u00b7 ' + Number(item.averageTrackRating).toFixed(1)
-                        + '/5 (' + item.ratingCount
+                        + '/10 (' + item.ratingCount
                         + (item.ratingCount === 1 ? ' rating)' : ' ratings)');
             }
         });

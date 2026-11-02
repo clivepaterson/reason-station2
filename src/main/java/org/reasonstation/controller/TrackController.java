@@ -159,9 +159,9 @@ public class TrackController {
                     .body(Map.of("error", "Track ID must be a positive integer."));
         }
         if (request == null || request.rating() == null
-                || request.rating() < 1 || request.rating() > 5) {
+                || request.rating() < 1 || request.rating() > 10) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Rating must be an integer between 1 and 5."));
+                    .body(Map.of("error", "Rating must be an integer between 1 and 10."));
         }
         if (tracks.findById(trackid).isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

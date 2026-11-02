@@ -11,6 +11,8 @@ $card-border-color: #cee0e2;
 $card-shadow: 0 3px 10px rgba(15, 75, 88, 0.08);
 $card-hover-shadow: 0 5px 14px rgba(15, 75, 88, 0.12);
 $navbar-min-height: 84px;
+$catalog-navbar-height: 46px;
+$header-min-height: $navbar-min-height + $catalog-navbar-height;
 $footer-min-height: 150px;
 
 * {
@@ -540,6 +542,10 @@ body {
     margin-bottom: 2rem;
 }
 
+.artist-patches-header {
+    margin-top: 4rem;
+}
+
 .tracks-header-actions {
     display: flex;
     flex-wrap: wrap;
@@ -841,7 +847,7 @@ body {
     line-height: 1;
 
     &::after {
-        content: "\2605\2605\2605\2605\2605";
+        content: "\2605\2605\2605\2605\2605\2605\2605\2605\2605\2605";
     }
 
     &::before {
@@ -851,14 +857,14 @@ body {
         width: var(--rating-percent);
         overflow: hidden;
         color: #f3a31b;
-        content: "\2605\2605\2605\2605\2605";
+        content: "\2605\2605\2605\2605\2605\2605\2605\2605\2605\2605";
         text-shadow: 0 1px 1px rgba(139, 83, 0, 0.18);
         white-space: nowrap;
     }
 }
 
 .track-rating-value {
-    min-width: 2rem;
+    min-width: 3.2rem;
     color: #176678;
     font-size: 0.82rem;
     font-weight: 700;
@@ -919,7 +925,7 @@ body {
     position: fixed;
     top: 50%;
     left: 50%;
-    width: min(92vw, 430px);
+    width: min(96vw, 520px);
     margin: 0;
     padding: 0;
     border: 0;
@@ -980,7 +986,7 @@ body {
     label {
         color: #b7c8ca;
         cursor: pointer;
-        font-size: 2.6rem;
+        font-size: clamp(1.7rem, 7vw, 2.6rem);
         line-height: 1;
 
         &::before {
@@ -1181,7 +1187,7 @@ body.site-page {
     }
 
     #site-content {
-        padding-top: $navbar-min-height;
+        padding-top: $header-min-height;
         padding-bottom: $footer-min-height;
     }
 
@@ -1270,6 +1276,188 @@ body.site-page {
             background: $station-orange;
             border-radius: 0 8px 8px 0;
             font-size: 1rem;
+        }
+    }
+
+    .catalog-nav {
+        min-height: $catalog-navbar-height;
+        background: #176a76;
+        box-shadow: 0 3px 10px rgba(3, 34, 42, 0.18);
+
+        .container {
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            width: min(100% - 2rem, 1180px);
+            min-height: $catalog-navbar-height;
+        }
+
+        a {
+            display: flex;
+            align-items: center;
+            padding: 0 2rem;
+            color: white;
+            border-right: 1px solid rgba(255, 255, 255, 0.16);
+            font-weight: 700;
+
+            &:first-child {
+                border-left: 1px solid rgba(255, 255, 255, 0.16);
+            }
+
+            &:hover,
+            &:focus-visible {
+                color: $station-deep;
+                background: $station-orange;
+                outline: none;
+            }
+        }
+    }
+
+    .catalog-page {
+        min-height: calc(100vh - #{$header-min-height} - #{$footer-min-height});
+        padding: 3rem 1rem;
+
+        .container {
+            width: min(100%, 1180px);
+        }
+
+        h1 {
+            color: $station-ink;
+            font-size: clamp(2rem, 4vw, 3rem);
+        }
+    }
+
+    .catalog-status {
+        min-height: 1.6rem;
+        margin: 0.25rem 0 1.25rem;
+    }
+
+    .catalog-table-wrapper {
+        overflow-x: auto;
+        background: white;
+        border: 1px solid #cee0e2;
+        border-radius: 12px;
+        box-shadow: $station-shadow;
+    }
+
+    .catalog-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+
+        th,
+        td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid #d8e8e9;
+            vertical-align: top;
+        }
+
+        th {
+            color: white;
+            background: $station-teal;
+            white-space: nowrap;
+        }
+
+        th button {
+            padding: 0;
+            color: inherit;
+            background: transparent;
+            border: 0;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+
+        th button:hover,
+        th button:focus-visible {
+            color: $station-orange;
+            outline: none;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f3fafa;
+        }
+
+        tbody tr:hover {
+            background: #e2f1f2;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        a {
+            color: #0d6675;
+            font-weight: 700;
+        }
+
+        .catalog-download-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: $station-teal;
+            cursor: pointer;
+
+            img {
+                width: 1.4rem;
+                height: 1.4rem;
+            }
+
+            &:hover,
+            &:focus-visible {
+                color: $station-orange;
+            }
+        }
+    }
+
+    .catalog-empty {
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .catalog-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 1.5rem;
+
+        &[hidden] {
+            display: none;
+        }
+
+        button {
+            padding: 0.6rem 1rem;
+            color: white;
+            background: $station-teal;
+            border: 0;
+            border-radius: 8px;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+
+            &:disabled {
+                cursor: not-allowed;
+                opacity: 0.5;
+            }
+        }
+    }
+
+    @media (max-width: 700px) {
+        .catalog-nav a {
+            flex: 1;
+            justify-content: center;
+            padding: 0 0.75rem;
+        }
+
+        .catalog-page {
+            padding-right: 0.75rem;
+            padding-left: 0.75rem;
+        }
+
+        .catalog-table th,
+        .catalog-table td {
+            padding: 0.7rem 0.8rem;
         }
     }
 

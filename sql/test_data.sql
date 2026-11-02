@@ -923,7 +923,7 @@ INSERT INTO track_ratings (
 SELECT
     trackid,
     userid,
-    (1 + ((trackid + rating_rank) % 5))::smallint,
+    (1 + ((trackid + rating_rank) % 10))::smallint,
     CURRENT_TIMESTAMP - random() * INTERVAL '1 month'
 FROM ranked_ratings
 WHERE rating_rank <= 3 + ((trackid - 1) % 5);

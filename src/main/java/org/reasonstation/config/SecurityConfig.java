@@ -73,7 +73,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**", "/login", "/register", "/api/register",
                                 "/oauth2/**", "/login/oauth2/**",
                                 "/api/verify-email",
-                                "/index.html", "/api/discovery/**", "/api/tracks/*/download",
+                                "/index.html", "/api/discovery/**", "/api/catalog/**",
+                                "/api/tracks/*/download", "/api/patches/*/download",
                                 "/api/tracks/*/rating",
                                 "/error", "/hello").permitAll()
                         .requestMatchers("/api/**").authenticated()

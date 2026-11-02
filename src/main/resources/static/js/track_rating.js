@@ -4,6 +4,21 @@
     var status;
     var title;
     var activeTrack;
+    var maxRating = 10;
+
+    function createRatingOptions() {
+        var options = '';
+        for (var rating = maxRating; rating >= 1; rating--) {
+            var label = rating === 1 ? '1 star' : rating + ' stars';
+            options +=
+                '<input id="track-rating-' + rating + '" name="rating" type="radio" value="' + rating + '"' +
+                    (rating === maxRating ? ' required' : '') + '>' +
+                '<label for="track-rating-' + rating + '" title="' + label + '">' +
+                    '<span class="sr-only">' + label + '</span>' +
+                '</label>';
+        }
+        return options;
+    }
 
     function ensureDialog() {
         if (dialog) {
@@ -20,16 +35,7 @@
                 '<p class="rating-track-name"></p>' +
                 '<fieldset class="star-rating">' +
                     '<legend>Choose a rating</legend>' +
-                    '<input id="track-rating-5" name="rating" type="radio" value="5" required>' +
-                    '<label for="track-rating-5" title="5 stars"><span class="sr-only">5 stars</span></label>' +
-                    '<input id="track-rating-4" name="rating" type="radio" value="4">' +
-                    '<label for="track-rating-4" title="4 stars"><span class="sr-only">4 stars</span></label>' +
-                    '<input id="track-rating-3" name="rating" type="radio" value="3">' +
-                    '<label for="track-rating-3" title="3 stars"><span class="sr-only">3 stars</span></label>' +
-                    '<input id="track-rating-2" name="rating" type="radio" value="2">' +
-                    '<label for="track-rating-2" title="2 stars"><span class="sr-only">2 stars</span></label>' +
-                    '<input id="track-rating-1" name="rating" type="radio" value="1">' +
-                    '<label for="track-rating-1" title="1 star"><span class="sr-only">1 star</span></label>' +
+                    createRatingOptions() +
                 '</fieldset>' +
                 '<button class="cta-button rating-submit" type="submit">Save rating</button>' +
                 '<p class="form-message rating-status" aria-live="polite"></p>' +
@@ -56,7 +62,7 @@
         var selected = form.querySelector('input[name="rating"]:checked');
         if (!selected || !activeTrack) {
             status.className = 'form-message rating-status error';
-            status.textContent = 'Choose a rating from 1 to 5 stars.';
+            status.textContent = 'Choose a rating from 1 to ' + maxRating + ' stars.';
             return;
         }
 
@@ -101,21 +107,21 @@
         if (track.averageTrackRating === null || track.averageTrackRating === undefined) {
             return;
         }
-        var average = Math.max(0, Math.min(5, Number(track.averageTrackRating)));
+        var average = Math.max(0, Math.min(maxRating, Number(track.averageTrackRating)));
         var rating = document.createElement('span');
         rating.className = 'track-rating-meta';
-        rating.setAttribute('aria-label', 'Average rating: ' + average.toFixed(1) + ' out of 5 stars');
+        rating.setAttribute('aria-label', 'Average rating: ' + average.toFixed(1) + ' out of ' + maxRating + ' stars');
 
         var stars = document.createElement('span');
         stars.className = 'track-rating-stars';
         stars.setAttribute('aria-hidden', 'true');
-        stars.style.setProperty('--rating-percent', (average / 5 * 100) + '%');
+        stars.style.setProperty('--rating-percent', (average / maxRating * 100) + '%');
         rating.appendChild(stars);
 
         var value = document.createElement('span');
         value.className = 'track-rating-value';
         value.setAttribute('aria-hidden', 'true');
-        value.textContent = average.toFixed(1);
+        value.textContent = average.toFixed(1) + '/' + maxRating;
         rating.appendChild(value);
         metadata.appendChild(rating);
     };

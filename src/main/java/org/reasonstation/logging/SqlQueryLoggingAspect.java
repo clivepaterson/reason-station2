@@ -25,19 +25,46 @@ public class SqlQueryLoggingAspect {
 
     @Around("execution(* org.reasonstation.repository..*(..))")
     public Object logSqlQuery(ProceedingJoinPoint joinPoint) throws Throwable {
-        Method method = ((MethodSignature) joinPoint.getSignature()).getMethod();
-        Query query = method.getAnnotation(Query.class);
-
-        if (logger.isDebugEnabled()) {
-            String sql = query == null ? "<derived query>" : query.value();
-            logger.debug("{}({}) called by {} SQL: \n{}",
-                    method.getName(),
-                    formatParameters(method, joinPoint.getArgs()),
-                    findCallingMethod(),
-                    sql);
+        if (!logger.isDebugEnabled()) {
+            return joinPoint.proceed();
         }
 
-        return joinPoint.proceed();
+        Method method = ((MethodSignature) joinPoint.getSignature()).getMethod();
+        Query query = method.getAnnotation(Query.class);
+        String sql = findSql(method, query, joinPoint.getArgs());
+        String parameters = formatParameters(method, joinPoint.getArgs());
+        String caller = findCallingMethod();
+        long startedAt = System.nanoTime();
+
+        try {
+            return joinPoint.proceed();
+        } finally {
+            double elapsedMilliseconds = (System.nanoTime() - startedAt) / 1_000_000.0;
+            logger.debug("{}({}) called by {} completed in {} ms SQL: \n{}",
+                    method.getName(),
+                    parameters,
+                    caller,
+                    String.format(java.util.Locale.ROOT, "%.3f", elapsedMilliseconds),
+                    sql);
+        }
+    }
+
+    private String findSql(Method method, Query query, Object[] arguments) {
+        if (query != null) {
+            return query.value();
+        }
+
+        if (method.getAnnotation(RawSqlQuery.class) == null) {
+            return "<derived query>";
+        }
+
+        return IntStream.range(0, arguments.length)
+                .mapToObj(index -> arguments[index])
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .filter(argument -> !argument.isBlank())
+                .findFirst()
+                .orElse("<derived query>");
     }
 
     private String findCallingMethod() {
