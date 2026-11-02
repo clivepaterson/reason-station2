@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
@@ -66,10 +67,17 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     SecurityFilterChain applicationSecurityFilterChain(
-            HttpSecurity http, SocialAccountService socialAccountService) throws Exception {
-        http.authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/", "/css/**", "/js/**", "/pages/**", "/scalar/**",
-                                "/scalar-ui", "/swagger-ui.html", "/swagger-ui/**",
+            HttpSecurity http,
+            SocialAccountService socialAccountService,
+            @Value("${app.scalar-ui.enabled:true}") boolean scalarUiEnabled) throws Exception {
+        http.authorizeHttpRequests(authorize -> {
+                    if (scalarUiEnabled) {
+                        authorize.requestMatchers("/scalar/**", "/scalar-ui").permitAll();
+                    } else {
+                        authorize.requestMatchers("/scalar/**", "/scalar-ui").denyAll();
+                    }
+                    authorize.requestMatchers("/", "/css/**", "/js/**", "/pages/**",
+                                "/swagger-ui.html", "/swagger-ui/**",
                                 "/v3/api-docs/**", "/login", "/register", "/api/register",
                                 "/oauth2/**", "/login/oauth2/**",
                                 "/api/verify-email",
@@ -78,7 +86,8 @@ public class SecurityConfig {
                                 "/api/tracks/*/rating",
                                 "/error", "/hello").permitAll()
                         .requestMatchers("/api/**").authenticated()
-                        .anyRequest().permitAll())
+                        .anyRequest().permitAll();
+                })
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/login", "/api/register",
                         "/api/verify-email", "/api/resend-verification-email",
                         "/api/tracks/**", "/api/patches/**"))

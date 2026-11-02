@@ -19,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
@@ -88,6 +89,25 @@ class TrackControllerTest {
         assertEquals("Artist Name", savedTrack.getValue().getArtistAlias());
         assertEquals("Track Name", savedTrack.getValue().getTrackName());
         assertEquals(3L, savedTrack.getValue().getFilesize());
+    }
+
+    @Test
+    void redirectsTrackDownloadToObjectStorageAndRecordsIt() {
+        Track track = new Track(
+                7L, "Artist", "Track", "Rock", "song.reason", 3L,
+                "s3://tracks/song");
+        when(tracks.findById(4L)).thenReturn(Optional.of(track));
+        URI downloadUrl = URI.create("https://storage.example/tracks/song?signature=test");
+        when(storage.createDownloadUrl("s3://tracks/song", "song.reason")).thenReturn(downloadUrl);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setRemoteAddr("192.0.2.1");
+
+        var response = controller.downloadTrack(4L, request);
+
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertEquals(downloadUrl, response.getHeaders().getLocation());
+        assertEquals(null, response.getBody());
+        verify(downloads).recordDownload(4L, "192.0.2.1");
     }
 
     @Test

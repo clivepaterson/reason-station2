@@ -5,8 +5,6 @@ import org.reasonstation.entity.User;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -59,15 +57,11 @@ public class PatchController {
                     .body(Map.of("error", "Patch not found."));
         }
 
-        byte[] content = storage.download(patch.get().getPatchUri());
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDisposition(ContentDisposition.attachment()
-                .filename(patch.get().getFilename())
-                .build());
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(content);
+        var downloadUrl = storage.createDownloadUrl(
+                patch.get().getPatchUri(), patch.get().getFilename());
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(downloadUrl)
+                .build();
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -8,6 +8,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 
@@ -21,6 +22,23 @@ public class S3Config {
             @Value("${app.storage.s3.secret-key}") String secretKey) {
         return S3Client.builder()
                 .endpointOverride(URI.create(endpoint))
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(true)
+                        .build())
+                .build();
+    }
+
+    @Bean
+    S3Presigner s3Presigner(
+            @Value("${app.storage.s3.public-endpoint}") String publicEndpoint,
+            @Value("${app.storage.s3.region}") String region,
+            @Value("${app.storage.s3.access-key}") String accessKey,
+            @Value("${app.storage.s3.secret-key}") String secretKey) {
+        return S3Presigner.builder()
+                .endpointOverride(URI.create(publicEndpoint))
                 .region(Region.of(region))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKey, secretKey)))

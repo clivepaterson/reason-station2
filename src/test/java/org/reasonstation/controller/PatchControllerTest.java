@@ -11,12 +11,12 @@ import org.reasonstation.entity.User;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,18 +46,18 @@ class PatchControllerTest {
     }
 
     @Test
-    void downloadsPatchAsAnAttachment() {
+    void redirectsPatchDownloadToObjectStorage() {
         Patch patch = new Patch(
                 7L, "Artist", "Bass", null, "bass.thor", ".thor", 3L, "s3://patches/bass");
         when(patches.findById(4L)).thenReturn(Optional.of(patch));
-        when(storage.download("s3://patches/bass")).thenReturn(new byte[]{1, 2, 3});
+        URI downloadUrl = URI.create("https://storage.example/patches/bass?signature=test");
+        when(storage.createDownloadUrl("s3://patches/bass", "bass.thor")).thenReturn(downloadUrl);
 
         var response = controller.downloadPatch(4L);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("attachment; filename=\"bass.thor\"",
-                response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION));
-        assertEquals(3, ((byte[]) response.getBody()).length);
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertEquals(downloadUrl, response.getHeaders().getLocation());
+        assertEquals(null, response.getBody());
     }
 
     @Test
@@ -67,7 +67,7 @@ class PatchControllerTest {
         var response = controller.downloadPatch(4L);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        verify(storage, never()).download(any());
+        verify(storage, never()).createDownloadUrl(any(), any());
     }
 
     @Test

@@ -10,9 +10,7 @@ import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ContentDisposition;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -139,16 +137,12 @@ public class TrackController {
                     .body(Map.of("error", "Track not found."));
         }
 
-        byte[] content = storage.download(track.get().getTrackUri());
+        var downloadUrl = storage.createDownloadUrl(
+                track.get().getTrackUri(), track.get().getFilename());
         downloads.recordDownload(trackid, request.getRemoteAddr());
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDisposition(ContentDisposition.attachment()
-                .filename(track.get().getFilename())
-                .build());
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(content);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(downloadUrl)
+                .build();
     }
 
     @PostMapping(value = "/{trackid}/rating", consumes = MediaType.APPLICATION_JSON_VALUE)
