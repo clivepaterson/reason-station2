@@ -1,0 +1,229 @@
+<section id="tutorial-oscillators-page" class="tutorial-detail-page" hidden>
+    <div class="container">
+        <a class="tutorial-back-link" href="/index.html?view=tutorials">&larr; All tutorials</a>
+        <article class="tutorial-article">
+            <header class="tutorial-article-header">
+                <div>
+                    <span class="tutorials-eyebrow">Tutorial 00 &middot; Oscillator basics</span>
+                    <h1>The Oscillators</h1>
+                    <p>A description of the four basic oscillators: sine, square, triangle, and sawtooth, and how they are generated.</p>
+                </div>
+                <img src="/images/tutorial-oscillators.svg"
+                     alt="Sine, triangle, square, and sawtooth oscillator waveforms">
+            </header>
+
+            <div class="tutorial-content" aria-label="Tutorial content">
+                <p class="tutorial-introduction">An oscillator creates a repeating waveform. The waveform determines which frequencies are present, while the oscillator frequency determines the note we hear. Sine waves are the building blocks: summing sine waves at whole-number multiples of a note's fundamental frequency creates the other basic waveforms.</p>
+
+                <section class="tutorial-section">
+                    <h2>The sine wave</h2>
+                    <ul class="oscillator-information">
+                        <li>This is the most basic oscillator. It is a single sine wave at the frequency of the note, also known as the fundamental frequency (<em>f</em>).</li>
+                        <li>Each note on a keyboard has a frequency. For example: C2 is 65.41 Hz, C3 is 130.81 Hz, C4 (middle C) is 261.63 Hz, G4 is 392.00 Hz, and A4 is 440.00 Hz.</li>
+                        <li>
+                            <div class="oscillator-table-wrapper">
+                                <table class="oscillator-harmonics">
+                                    <caption>Sine wave harmonic recipe</caption>
+                                    <thead>
+                                        <tr><th scope="col">Harmonic</th><th scope="col">Frequency</th><th scope="col">Relative amplitude</th><th scope="col">Phase</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><th scope="row">1st</th><td><em>f</em></td><td>1</td><td>0&deg;</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </li>
+                    </ul>
+
+                    <figure class="oscillator-figure">
+                        <svg viewBox="0 0 640 200" role="img" aria-labelledby="sine-wave-title">
+                            <title id="sine-wave-title">Sine waveform</title>
+                            <path d="M30 100H610" stroke="#fff" stroke-opacity=".18"/>
+                            <path d="M30 100 C78 20 126 20 174 100 S270 180 318 100 S414 20 462 100 S558 180 606 100" fill="none" stroke="#ff9b25" stroke-width="6" stroke-linecap="round"/>
+                        </svg>
+                        <figcaption>A sine wave contains only its fundamental frequency.</figcaption>
+                    </figure>
+
+                    <figure class="oscillator-figure">
+                        <svg viewBox="0 0 640 260" role="img" aria-labelledby="sine-spectrum-title">
+                            <title id="sine-spectrum-title">Spectrum of an A4 sine wave</title>
+                            <g fill="none" stroke="#fff" stroke-opacity=".18"><path d="M58 25V220H615"/><path d="M58 170H615M58 120H615M58 70H615"/></g>
+                            <path d="M155 220V50" stroke="#ff9b25" stroke-width="12"/>
+                            <g fill="#c9e5e8" font-family="sans-serif" font-size="13">
+                                <text x="145" y="240">440 Hz</text><text x="255" y="240">880 Hz</text><text x="358" y="240">1320 Hz</text><text x="467" y="240">1760 Hz</text>
+                                <text x="72" y="43">Amplitude</text>
+                            </g>
+                        </svg>
+                        <figcaption>The spectrum of an A4 sine oscillator has one peak at 440 Hz.</figcaption>
+                    </figure>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The square wave</h2>
+                    <ul class="oscillator-information">
+                        <li>A square wave is created by summing multiple sine waves. In fact, all of the basic oscillators in this tutorial can be created by adding sine waves together.</li>
+                        <li>Add the odd harmonics of the fundamental frequency. The relative amplitude of each harmonic is the inverse of its harmonic number.</li>
+                        <li>
+                            <div class="oscillator-table-wrapper">
+                                <table class="oscillator-harmonics">
+                                    <caption>Square wave harmonic recipe</caption>
+                                    <thead>
+                                        <tr><th scope="col">Harmonic</th><th scope="col">Frequency</th><th scope="col">Relative amplitude</th><th scope="col">Phase</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><th scope="row">1st</th><td><em>f</em></td><td>1</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">3rd</th><td>3<em>f</em></td><td>1/3</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">5th</th><td>5<em>f</em></td><td>1/5</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">7th</th><td>7<em>f</em></td><td>1/7</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">9th</th><td>9<em>f</em></td><td>1/9</td><td>0&deg;</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </li>
+                    </ul>
+                    <figure class="oscillator-figure">
+                        <svg viewBox="0 0 640 200" role="img" aria-labelledby="square-wave-title">
+                            <title id="square-wave-title">Square waveform</title>
+                            <path d="M30 100H610" stroke="#fff" stroke-opacity=".18"/>
+                            <path d="M30 150V50H175V150H320V50H465V150H610" fill="none" stroke="#ff9b25" stroke-width="6" stroke-linejoin="round"/>
+                        </svg>
+                        <figcaption>An ideal square wave switches immediately between high and low levels.</figcaption>
+                    </figure>
+
+                    <h3>Building the square wave</h3>
+                    <div class="oscillator-progressions">
+                        <figure class="oscillator-figure">
+                            <svg viewBox="0 0 640 180" role="img" aria-labelledby="square-sum-1"><title id="square-sum-1">Square wave progression with the fundamental</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 55 70 37 Q95 30 120 37 Q145 55 170 80 Q195 105 220 123 Q245 130 270 123 Q295 105 320 80 Q345 55 370 37 Q395 30 420 37 Q445 55 470 80 Q495 105 520 123 Q545 130 570 123 Q595 105 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg>
+                            <figcaption>1. Fundamental only: <em>f</em></figcaption>
+                        </figure>
+                        <figure class="oscillator-figure">
+                            <svg viewBox="0 0 640 180" role="img" aria-labelledby="square-sum-2"><title id="square-sum-2">Square wave progression through the third harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 38 70 37 Q95 47 120 37 Q145 38 170 80 Q195 122 220 123 Q245 113 270 123 Q295 122 320 80 Q345 38 370 37 Q395 47 420 37 Q445 38 470 80 Q495 122 520 123 Q545 113 570 123 Q595 122 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg>
+                            <figcaption>2. Add 3<em>f</em> at 1/3 amplitude</figcaption>
+                        </figure>
+                        <figure class="oscillator-figure">
+                            <svg viewBox="0 0 640 180" role="img" aria-labelledby="square-sum-3"><title id="square-sum-3">Square wave progression through the fifth harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 33 70 45 Q95 37 120 45 Q145 33 170 80 Q195 127 220 115 Q245 123 270 115 Q295 127 320 80 Q345 33 370 45 Q395 37 420 45 Q445 33 470 80 Q495 127 520 115 Q545 123 570 115 Q595 127 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg>
+                            <figcaption>3. Add 5<em>f</em> at 1/5 amplitude</figcaption>
+                        </figure>
+                        <figure class="oscillator-figure">
+                            <svg viewBox="0 0 640 180" role="img" aria-labelledby="square-sum-4"><title id="square-sum-4">Square wave progression through the seventh harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 37 70 39 Q95 44 120 39 Q145 37 170 80 Q195 123 220 121 Q245 116 270 121 Q295 123 320 80 Q345 37 370 39 Q395 44 420 39 Q445 37 470 80 Q495 123 520 121 Q545 116 570 121 Q595 123 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg>
+                            <figcaption>4. Add 7<em>f</em> at 1/7 amplitude</figcaption>
+                        </figure>
+                    </div>
+
+                    <figure class="oscillator-figure">
+                        <svg viewBox="0 0 640 260" role="img" aria-labelledby="square-spectrum-title">
+                            <title id="square-spectrum-title">Spectrum of an A4 square wave</title>
+                            <path d="M58 25V220H615" fill="none" stroke="#fff" stroke-opacity=".2"/>
+                            <g stroke="#ff9b25" stroke-width="10"><path d="M120 220V40"/><path d="M245 220V160"/><path d="M370 220V184"/><path d="M495 220V194"/><path d="M590 220V200"/></g>
+                            <g fill="#c9e5e8" font-family="sans-serif" font-size="12" text-anchor="middle"><text x="120" y="240">440 Hz</text><text x="245" y="240">1320 Hz</text><text x="370" y="240">2200 Hz</text><text x="495" y="240">3080 Hz</text><text x="590" y="240">3960 Hz</text></g>
+                        </svg>
+                        <figcaption>An A4 square wave contains odd harmonics with steadily decreasing amplitudes.</figcaption>
+                    </figure>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The triangle wave</h2>
+                    <ul class="oscillator-information">
+                        <li>A triangle wave uses odd harmonics of the fundamental frequency.</li>
+                        <li>Each harmonic's relative amplitude is the inverse square of its harmonic number. The phase alternates by 180 degrees, which means every second included harmonic is inverted.</li>
+                        <li>
+                            <div class="oscillator-table-wrapper">
+                                <table class="oscillator-harmonics">
+                                    <caption>Triangle wave harmonic recipe</caption>
+                                    <thead>
+                                        <tr><th scope="col">Harmonic</th><th scope="col">Frequency</th><th scope="col">Relative amplitude</th><th scope="col">Phase</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><th scope="row">1st</th><td><em>f</em></td><td>1</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">3rd</th><td>3<em>f</em></td><td>1/3&sup2;</td><td>180&deg;</td></tr>
+                                        <tr><th scope="row">5th</th><td>5<em>f</em></td><td>1/5&sup2;</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">7th</th><td>7<em>f</em></td><td>1/7&sup2;</td><td>180&deg;</td></tr>
+                                        <tr><th scope="row">9th</th><td>9<em>f</em></td><td>1/9&sup2;</td><td>0&deg;</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </li>
+                    </ul>
+                    <figure class="oscillator-figure">
+                        <svg viewBox="0 0 640 200" role="img" aria-labelledby="triangle-wave-title">
+                            <title id="triangle-wave-title">Triangle waveform</title>
+                            <path d="M30 100H610" stroke="#fff" stroke-opacity=".18"/>
+                            <path d="M30 100L102 40L247 160L392 40L537 160L610 100" fill="none" stroke="#ff9b25" stroke-width="6" stroke-linejoin="round"/>
+                        </svg>
+                        <figcaption>A triangle wave rises and falls at a constant rate.</figcaption>
+                    </figure>
+
+                    <h3>Building the triangle wave</h3>
+                    <div class="oscillator-progressions">
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="triangle-sum-1"><title id="triangle-sum-1">Triangle wave progression with the fundamental</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 55 70 37 Q95 30 120 37 Q145 55 170 80 Q195 105 220 123 Q245 130 270 123 Q295 105 320 80 Q345 55 370 37 Q395 30 420 37 Q445 55 470 80 Q495 105 520 123 Q545 130 570 123 Q595 105 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>1. Fundamental only: <em>f</em></figcaption></figure>
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="triangle-sum-2"><title id="triangle-sum-2">Triangle wave progression through the inverted third harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 61 70 37 Q95 24 120 37 Q145 61 170 80 Q195 99 220 123 Q245 136 270 123 Q295 99 320 80 Q345 61 370 37 Q395 24 420 37 Q445 61 470 80 Q495 99 520 123 Q545 136 570 123 Q595 99 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>2. Add inverted 3<em>f</em> at 1/3&sup2; amplitude</figcaption></figure>
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="triangle-sum-3"><title id="triangle-sum-3">Triangle wave progression through the fifth harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 60 70 38 Q95 22 120 38 Q145 60 170 80 Q195 100 220 122 Q245 138 270 122 Q295 100 320 80 Q345 60 370 38 Q395 22 420 38 Q445 60 470 80 Q495 100 520 122 Q545 138 570 122 Q595 100 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>3. Add 5<em>f</em> at 1/5&sup2; amplitude</figcaption></figure>
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="triangle-sum-4"><title id="triangle-sum-4">Triangle wave progression through the inverted seventh harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 59 70 39 Q95 21 120 39 Q145 59 170 80 Q195 101 220 121 Q245 139 270 121 Q295 101 320 80 Q345 59 370 39 Q395 21 420 39 Q445 59 470 80 Q495 101 520 121 Q545 139 570 121 Q595 101 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>4. Add inverted 7<em>f</em> at 1/7&sup2; amplitude</figcaption></figure>
+                    </div>
+
+                    <figure class="oscillator-figure">
+                        <svg viewBox="0 0 640 260" role="img" aria-labelledby="triangle-spectrum-title">
+                            <title id="triangle-spectrum-title">Spectrum of an A4 triangle wave</title><path d="M58 25V220H615" fill="none" stroke="#fff" stroke-opacity=".2"/>
+                            <g stroke="#ff9b25" stroke-width="10"><path d="M120 220V40"/><path d="M245 220V200"/><path d="M370 220V213"/><path d="M495 220V216"/><path d="M590 220V218"/></g>
+                            <g fill="#c9e5e8" font-family="sans-serif" font-size="12" text-anchor="middle"><text x="120" y="240">440 Hz</text><text x="245" y="240">1320 Hz</text><text x="370" y="240">2200 Hz</text><text x="495" y="240">3080 Hz</text><text x="590" y="240">3960 Hz</text></g>
+                        </svg>
+                        <figcaption>An A4 triangle wave contains odd harmonics that fall away much faster than a square wave's harmonics.</figcaption>
+                    </figure>
+                </section>
+
+                <section class="tutorial-section">
+                    <h2>The sawtooth wave</h2>
+                    <ul class="oscillator-information">
+                        <li>A sawtooth wave is created by summing every harmonic of the fundamental frequency.</li>
+                        <li>Each harmonic's relative amplitude is the inverse of its harmonic number. For the orientation shown here, the phase alternates by 180 degrees, so the even harmonics are inverted.</li>
+                        <li>
+                            <div class="oscillator-table-wrapper">
+                                <table class="oscillator-harmonics">
+                                    <caption>Sawtooth wave harmonic recipe</caption>
+                                    <thead>
+                                        <tr><th scope="col">Harmonic</th><th scope="col">Frequency</th><th scope="col">Relative amplitude</th><th scope="col">Phase</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><th scope="row">1st</th><td><em>f</em></td><td>1</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">2nd</th><td>2<em>f</em></td><td>1/2</td><td>180&deg;</td></tr>
+                                        <tr><th scope="row">3rd</th><td>3<em>f</em></td><td>1/3</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">4th</th><td>4<em>f</em></td><td>1/4</td><td>180&deg;</td></tr>
+                                        <tr><th scope="row">5th</th><td>5<em>f</em></td><td>1/5</td><td>0&deg;</td></tr>
+                                        <tr><th scope="row">6th</th><td>6<em>f</em></td><td>1/6</td><td>180&deg;</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </li>
+                    </ul>
+                    <figure class="oscillator-figure">
+                        <svg viewBox="0 0 640 200" role="img" aria-labelledby="saw-wave-title">
+                            <title id="saw-wave-title">Sawtooth waveform</title>
+                            <path d="M30 100H610" stroke="#fff" stroke-opacity=".18"/>
+                            <path d="M30 160L175 40V160L320 40V160L465 40V160L610 40" fill="none" stroke="#ff9b25" stroke-width="6" stroke-linejoin="round"/>
+                        </svg>
+                        <figcaption>A sawtooth wave ramps in one direction and then resets abruptly.</figcaption>
+                    </figure>
+
+                    <h3>Building the sawtooth wave</h3>
+                    <div class="oscillator-progressions">
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="saw-sum-1"><title id="saw-sum-1">Sawtooth wave progression with the fundamental</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 55 70 37 Q95 30 120 37 Q145 55 170 80 Q195 105 220 123 Q245 130 270 123 Q295 105 320 80 Q345 55 370 37 Q395 30 420 37 Q445 55 470 80 Q495 105 520 123 Q545 130 570 123 Q595 105 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>1. Fundamental only: <em>f</em></figcaption></figure>
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="saw-sum-2"><title id="saw-sum-2">Sawtooth wave progression through the inverted second harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 77 70 58 Q95 30 120 15 Q145 33 170 80 Q195 127 220 145 Q245 130 270 102 Q295 83 320 80 Q345 77 370 58 Q395 30 420 15 Q445 33 470 80 Q495 127 520 145 Q545 130 570 102 Q595 83 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>2. Add inverted 2<em>f</em> at 1/2 amplitude</figcaption></figure>
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="saw-sum-3"><title id="saw-sum-3">Sawtooth wave progression through the third harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 60 70 58 Q95 47 120 15 Q145 17 170 80 Q195 143 220 145 Q245 113 270 102 Q295 100 320 80 Q345 60 370 58 Q395 47 420 15 Q445 17 470 80 Q495 143 520 145 Q545 113 570 102 Q595 100 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>3. Add 3<em>f</em> at 1/3 amplitude</figcaption></figure>
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="saw-sum-4"><title id="saw-sum-4">Sawtooth wave progression through the inverted fourth harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80 Q45 71 70 48 Q95 47 120 26 Q145 6 170 80 Q195 154 220 134 Q245 113 270 112 Q295 89 320 80 Q345 71 370 48 Q395 47 420 26 Q445 6 470 80 Q495 154 520 134 Q545 113 570 112 Q595 89 620 80" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>4. Add inverted 4<em>f</em> at 1/4 amplitude</figcaption></figure>
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="saw-sum-5"><title id="saw-sum-5">Sawtooth wave progression through the fifth harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80H620" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>5. Add 5<em>f</em> at 1/5 amplitude</figcaption></figure>
+                        <figure class="oscillator-figure"><svg viewBox="0 0 640 180" role="img" aria-labelledby="saw-sum-6"><title id="saw-sum-6">Sawtooth wave progression through the inverted sixth harmonic</title><path d="M20 80H620" stroke="#fff" stroke-opacity=".15"/><path d="M20 80H620" fill="none" stroke="#ff9b25" stroke-width="5"/></svg><figcaption>6. Add inverted 6<em>f</em> at 1/6 amplitude</figcaption></figure>
+                    </div>
+
+                    <figure class="oscillator-figure">
+                        <svg viewBox="0 0 640 260" role="img" aria-labelledby="saw-spectrum-title">
+                            <title id="saw-spectrum-title">Spectrum of an A4 sawtooth wave</title><path d="M58 25V220H615" fill="none" stroke="#fff" stroke-opacity=".2"/>
+                            <g stroke="#ff9b25" stroke-width="9"><path d="M105 220V40"/><path d="M200 220V130"/><path d="M295 220V160"/><path d="M390 220V175"/><path d="M485 220V184"/><path d="M580 220V190"/></g>
+                            <g fill="#c9e5e8" font-family="sans-serif" font-size="12" text-anchor="middle"><text x="105" y="240">440 Hz</text><text x="200" y="240">880 Hz</text><text x="295" y="240">1320 Hz</text><text x="390" y="240">1760 Hz</text><text x="485" y="240">2200 Hz</text><text x="580" y="240">2640 Hz</text></g>
+                        </svg>
+                        <figcaption>An A4 sawtooth wave contains every harmonic, beginning at 440 Hz.</figcaption>
+                    </figure>
+                </section>
+            </div>
+        </article>
+    </div>
+</section>

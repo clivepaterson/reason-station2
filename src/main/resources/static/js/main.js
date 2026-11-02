@@ -6,6 +6,7 @@ $(document).ready(async function() {
         'search.html',
         'links.html',
         'tutorials.html',
+        'tutorials/tutorial-oscillators.html',
         'tutorials/tutorial-kick-drum.html',
         'tutorials/tutorial-hi-hat.html',
         'tutorials/tutorial-open-hi-hat.html',
@@ -41,7 +42,9 @@ $(document).ready(async function() {
     };
 
     function getPageId(url) {
-        return url.searchParams.get('tutorial') === 'simple-fm-bell-using-subtractor'
+        return url.searchParams.get('tutorial') === 'the-oscillators'
+            ? 'tutorial-oscillators-page'
+            : url.searchParams.get('tutorial') === 'simple-fm-bell-using-subtractor'
             ? 'tutorial-fm-bell-page'
             : url.searchParams.get('tutorial') === 'fm-synthesis-using-subtractor'
             ? 'tutorial-fm-synthesis-page'
@@ -92,6 +95,10 @@ $(document).ready(async function() {
             'tutorials-page': {
                 title: 'Beginner Synthesis Tutorials | Reason Station',
                 description: 'Learn synthesis from the ground up with beginner tutorials using Reason Subtractor and effects.'
+            },
+            'tutorial-oscillators-page': {
+                title: 'The Oscillators | Reason Station',
+                description: 'Learn how sine, square, triangle, and sawtooth oscillators are built from fundamental frequencies and harmonics.'
             },
             'tutorial-detail-page': {
                 title: 'Creating a Kick Drum with Subtractor | Reason Station',
@@ -147,6 +154,8 @@ $(document).ready(async function() {
 
         if (pageId === 'artist-page' && artistAlias) {
             canonicalUrl.searchParams.set('artistAlias', artistAlias);
+        } else if (pageId === 'tutorial-oscillators-page') {
+            canonicalUrl.searchParams.set('tutorial', 'the-oscillators');
         } else if (pageId === 'tutorial-fm-bell-page') {
             canonicalUrl.searchParams.set('tutorial', 'simple-fm-bell-using-subtractor');
         } else if (pageId === 'tutorial-fm-synthesis-page') {
@@ -215,7 +224,7 @@ $(document).ready(async function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-fm-bell-page, #tutorial-super-saw-page, #about-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-oscillators-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-fm-bell-page, #tutorial-super-saw-page, #about-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
         window.updateSearchButtonState();
         updatePageMetadata(pageId, url);
@@ -237,6 +246,9 @@ $(document).ready(async function() {
         }
         event.preventDefault();
         window.showPage(this.href, true);
+        if (this.matches('.tutorial-card')) {
+            window.scrollTo(0, 0);
+        }
     }
 
     $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .tutorial-card, .tutorial-back-link',

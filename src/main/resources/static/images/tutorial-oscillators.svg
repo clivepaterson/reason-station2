@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240" role="img" aria-labelledby="title desc">
+  <title id="title">The four basic oscillator waveforms</title>
+  <desc id="desc">Sine, triangle, square, and sawtooth waveforms arranged from left to right.</desc>
+  <defs>
+    <linearGradient id="wave" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffb23e"/>
+      <stop offset=".55" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#40a7b2"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="240" rx="18" fill="#f5fafb"/>
+  <g fill="none" stroke="url(#wave)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M25 126 C40 80 55 80 70 126 S100 172 115 126 S145 80 160 126"/>
+    <path d="M205 126 L237 80 L302 172 L335 126"/>
+    <path d="M385 126 V80 H450 V172 H515 V126"/>
+    <path d="M565 172 L630 80 V172 L695 80"/>
+  </g>
+</svg>
