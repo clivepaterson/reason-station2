@@ -34,17 +34,23 @@ public class CatalogRepository {
     }
 
     public PagedResult<ArtistListItem> findArtists(
-            int page, int pageSize, String sort, SortDirection direction) {
+            int page, int pageSize, String sort, SortDirection direction, String filter) {
         String orderBy = sortColumn(ARTIST_SORT_COLUMNS, sort);
-        var parameters = paginationParameters(page, pageSize);
+        var parameters = paginationParameters(page, pageSize)
+                .addValue("filter", filter);
+        String filterClause = """
+                WHERE :filter = ''
+                   OR t.artist_alias ILIKE '%' || :filter || '%'
+                """;
         long totalElements = queryCount("""
                 SELECT COUNT(*)
                 FROM (
                     SELECT t.userid, t.artist_alias
                     FROM tracks t
+                    %s
                     GROUP BY t.userid, t.artist_alias
                 ) artists
-                """);
+                """.formatted(filterClause), Map.of("filter", filter));
         var items = queries.query("""
                 SELECT t.artist_alias,
                        u.date_created,
@@ -61,11 +67,12 @@ public class CatalogRepository {
                 ) patch_counts
                   ON patch_counts.userid = t.userid
                  AND patch_counts.artist_alias = t.artist_alias
+                %s
                 GROUP BY t.userid, t.artist_alias, u.date_created
                 ORDER BY %s %s, t.artist_alias ASC, t.userid ASC
                 LIMIT :limit
                 OFFSET :offset
-                """.formatted(orderBy, direction.sql()), parameters,
+                """.formatted(filterClause, orderBy, direction.sql()), parameters,
                 (resultSet, rowNumber) -> new ArtistListItem(
                         resultSet.getString("artist_alias"),
                         toInstant(resultSet.getTimestamp("date_created")),
@@ -75,10 +82,21 @@ public class CatalogRepository {
     }
 
     public PagedResult<TrackListItem> findTracks(
-            int page, int pageSize, String sort, SortDirection direction) {
+            int page, int pageSize, String sort, SortDirection direction, String filter) {
         String orderBy = sortColumn(TRACK_SORT_COLUMNS, sort);
-        var parameters = paginationParameters(page, pageSize);
-        long totalElements = queryCount("SELECT COUNT(*) FROM tracks");
+        var parameters = paginationParameters(page, pageSize)
+                .addValue("filter", filter);
+        String filterClause = """
+                WHERE :filter = ''
+                   OR (t.artist_alias || ' ' || t.track_name || ' ' || t.filename)
+                      ILIKE '%' || :filter || '%'
+                """;
+        long totalElements = queryCount(
+                """
+                SELECT COUNT(*)
+                FROM tracks t
+                """ + filterClause,
+                Map.of("filter", filter));
         var items = queries.query("""
                 SELECT t.trackid,
                        t.artist_alias,
@@ -90,11 +108,12 @@ public class CatalogRepository {
                        AVG(r.rating) AS average_rating
                 FROM tracks t
                 LEFT JOIN track_ratings r ON r.trackid = t.trackid
+                %s
                 GROUP BY t.trackid
                 ORDER BY %s %s, t.trackid ASC
                 LIMIT :limit
                 OFFSET :offset
-                """.formatted(orderBy, direction.sql()), parameters,
+                """.formatted(filterClause, orderBy, direction.sql()), parameters,
                 (resultSet, rowNumber) -> new TrackListItem(
                         resultSet.getLong("trackid"),
                         resultSet.getString("artist_alias"),
@@ -108,10 +127,18 @@ public class CatalogRepository {
     }
 
     public PagedResult<PatchListItem> findPatches(
-            int page, int pageSize, String sort, SortDirection direction) {
+            int page, int pageSize, String sort, SortDirection direction, String filter) {
         String orderBy = sortColumn(PATCH_SORT_COLUMNS, sort);
-        var parameters = paginationParameters(page, pageSize);
-        long totalElements = queryCount("SELECT COUNT(*) FROM patches");
+        var parameters = paginationParameters(page, pageSize)
+                .addValue("filter", filter);
+        String filterClause = """
+                WHERE :filter = ''
+                   OR (patch_name || ' ' || COALESCE(description, '') || ' ' || filename)
+                      ILIKE '%' || :filter || '%'
+                """;
+        long totalElements = queryCount(
+                "SELECT COUNT(*) FROM patches " + filterClause,
+                Map.of("filter", filter));
         var items = queries.query("""
                 SELECT patchid,
                        artist_alias,
@@ -121,10 +148,11 @@ public class CatalogRepository {
                        ext,
                        date_uploaded
                 FROM patches
+                %s
                 ORDER BY %s %s, patchid ASC
                 LIMIT :limit
                 OFFSET :offset
-                """.formatted(orderBy, direction.sql()), parameters,
+                """.formatted(filterClause, orderBy, direction.sql()), parameters,
                 (resultSet, rowNumber) -> new PatchListItem(
                         resultSet.getLong("patchid"),
                         resultSet.getString("artist_alias"),
@@ -143,7 +171,11 @@ public class CatalogRepository {
     }
 
     private long queryCount(String sql) {
-        Long count = queries.queryForObject(sql, Map.of(), Long.class);
+        return queryCount(sql, Map.of());
+    }
+
+    private long queryCount(String sql, Map<String, ?> parameters) {
+        Long count = queries.queryForObject(sql, parameters, Long.class);
         return count == null ? 0 : count;
     }
 

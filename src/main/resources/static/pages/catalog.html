@@ -1,7 +1,19 @@
 <section id="artists-page" class="catalog-page" hidden>
     <div class="container">
         <h1>Artists</h1>
-        <p id="artists-status" class="catalog-status" aria-live="polite"></p>
+        <div class="catalog-toolbar">
+            <p id="artists-status" class="catalog-status" aria-live="polite"></p>
+            <form id="artists-filter-form" class="catalog-filter" role="search">
+                <label for="artists-filter-input">Filter artists</label>
+                <div>
+                    <input id="artists-filter-input" name="filter" type="text"
+                           pattern="[A-Za-z0-9.]+" maxlength="100"
+                           title="Use only letters, numbers, and periods."
+                           placeholder="Artist alias">
+                    <button type="submit">Filter</button>
+                </div>
+            </form>
+        </div>
         <div class="catalog-table-wrapper">
             <table id="artists-table" class="catalog-table">
                 <thead>
@@ -26,7 +38,19 @@
 <section id="tracks-catalog-page" class="catalog-page" hidden>
     <div class="container">
         <h1>Tracks</h1>
-        <p id="tracks-catalog-status" class="catalog-status" aria-live="polite"></p>
+        <div class="catalog-toolbar">
+            <p id="tracks-catalog-status" class="catalog-status" aria-live="polite"></p>
+            <form id="tracks-catalog-filter-form" class="catalog-filter" role="search">
+                <label for="tracks-catalog-filter-input">Filter tracks</label>
+                <div>
+                    <input id="tracks-catalog-filter-input" name="filter" type="text"
+                           pattern="[A-Za-z0-9.]+" maxlength="100"
+                           title="Use only letters, numbers, and periods."
+                           placeholder="Artist alias, track name, or filename">
+                    <button type="submit">Filter</button>
+                </div>
+            </form>
+        </div>
         <div class="catalog-table-wrapper">
             <table id="tracks-catalog-table" class="catalog-table">
                 <thead>
@@ -55,7 +79,19 @@
 <section id="patches-page" class="catalog-page" hidden>
     <div class="container">
         <h1>Patches</h1>
-        <p id="patches-status" class="catalog-status" aria-live="polite"></p>
+        <div class="catalog-toolbar">
+            <p id="patches-status" class="catalog-status" aria-live="polite"></p>
+            <form id="patches-filter-form" class="catalog-filter" role="search">
+                <label for="patches-filter-input">Filter patches</label>
+                <div>
+                    <input id="patches-filter-input" name="filter" type="text"
+                           pattern="[A-Za-z0-9.]+" maxlength="100"
+                           title="Use only letters, numbers, and periods."
+                           placeholder="Patch name, description, or filename">
+                    <button type="submit">Filter</button>
+                </div>
+            </form>
+        </div>
         <div class="catalog-table-wrapper">
             <table id="patches-table" class="catalog-table">
                 <thead>

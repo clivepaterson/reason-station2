@@ -1332,6 +1332,60 @@ body.site-page {
         margin: 0.25rem 0 1.25rem;
     }
 
+    .catalog-toolbar {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin: 0.75rem 0 1.25rem;
+
+        .catalog-status {
+            flex: 1;
+            margin: 0;
+        }
+
+        .catalog-filter {
+            flex: 0 1 560px;
+            margin: 0;
+        }
+    }
+
+    .catalog-filter {
+        max-width: 560px;
+        margin: 0.75rem 0 1rem auto;
+
+        label {
+            display: block;
+            margin-bottom: 0.4rem;
+            color: $station-ink;
+            font-weight: 700;
+        }
+
+        div {
+            display: flex;
+        }
+
+        input {
+            min-width: 0;
+            flex: 1;
+            padding: 0.7rem 0.85rem;
+            border: 1px solid #9bbfc3;
+            border-radius: 8px 0 0 8px;
+            font: inherit;
+        }
+
+        button {
+            padding: 0.7rem 1rem;
+            color: white;
+            background: $station-teal;
+            border: 0;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+    }
+
     .catalog-table-wrapper {
         overflow-x: auto;
         background: white;

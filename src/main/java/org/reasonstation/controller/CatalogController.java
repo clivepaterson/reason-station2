@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/catalog")
@@ -22,6 +23,7 @@ public class CatalogController {
             Set.of("artistAlias", "trackName", "musicStyle", "filename", "dateUploaded");
     private static final Set<String> PATCH_SORTS =
             Set.of("artistAlias", "patchName", "filename", "ext", "dateUploaded");
+    private static final Pattern CATALOG_FILTER_PATTERN = Pattern.compile("[A-Za-z0-9.]+");
 
     private final CatalogRepository catalog;
 
@@ -33,27 +35,48 @@ public class CatalogController {
     public Object artists(
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "sort", defaultValue = "dateCreated") String sort,
-            @RequestParam(value = "direction", defaultValue = "desc") String direction) {
+            @RequestParam(value = "direction", defaultValue = "desc") String direction,
+            @RequestParam(value = "filter", defaultValue = "") String filter) {
         validate(page, sort, ARTIST_SORTS);
-        return catalog.findArtists(page, PAGE_SIZE, sort, parseDirection(direction));
+        String normalizedFilter = normalizeFilter(filter);
+        return catalog.findArtists(
+                page, PAGE_SIZE, sort, parseDirection(direction), normalizedFilter);
     }
 
     @GetMapping("/tracks")
     public Object tracks(
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "sort", defaultValue = "dateUploaded") String sort,
-            @RequestParam(value = "direction", defaultValue = "desc") String direction) {
+            @RequestParam(value = "direction", defaultValue = "desc") String direction,
+            @RequestParam(value = "filter", defaultValue = "") String filter) {
         validate(page, sort, TRACK_SORTS);
-        return catalog.findTracks(page, PAGE_SIZE, sort, parseDirection(direction));
+        String normalizedFilter = normalizeFilter(filter);
+        return catalog.findTracks(
+                page, PAGE_SIZE, sort, parseDirection(direction), normalizedFilter);
     }
 
     @GetMapping("/patches")
     public Object patches(
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "sort", defaultValue = "dateUploaded") String sort,
-            @RequestParam(value = "direction", defaultValue = "desc") String direction) {
+            @RequestParam(value = "direction", defaultValue = "desc") String direction,
+            @RequestParam(value = "filter", defaultValue = "") String filter) {
         validate(page, sort, PATCH_SORTS);
-        return catalog.findPatches(page, PAGE_SIZE, sort, parseDirection(direction));
+        String normalizedFilter = normalizeFilter(filter);
+        return catalog.findPatches(
+                page, PAGE_SIZE, sort, parseDirection(direction), normalizedFilter);
+    }
+
+    private String normalizeFilter(String filter) {
+        String normalizedFilter = filter.trim();
+        if (normalizedFilter.length() > 100
+                || (!normalizedFilter.isEmpty()
+                && !CATALOG_FILTER_PATTERN.matcher(normalizedFilter).matches())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Catalog filters must be 100 characters or fewer and may contain only letters, numbers, and periods.");
+        }
+        return normalizedFilter;
     }
 
     private void validate(int page, String sort, Set<String> allowedSorts) {

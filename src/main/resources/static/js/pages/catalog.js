@@ -8,6 +8,8 @@
             paginationId: 'artists-pagination',
             defaultSort: 'dateCreated',
             label: 'artist',
+            filterFormId: 'artists-filter-form',
+            filterInputId: 'artists-filter-input',
             cells: function(item) {
                 return [
                     $('<a>').attr('href', '/index.html?artistAlias='
@@ -26,6 +28,8 @@
             paginationId: 'tracks-catalog-pagination',
             defaultSort: 'dateUploaded',
             label: 'track',
+            filterFormId: 'tracks-catalog-filter-form',
+            filterInputId: 'tracks-catalog-filter-input',
             cells: function(item) {
                 return [
                     artistLink(item.artistAlias),
@@ -48,6 +52,8 @@
             paginationId: 'patches-pagination',
             defaultSort: 'dateUploaded',
             label: 'patch',
+            filterFormId: 'patches-filter-form',
+            filterInputId: 'patches-filter-input',
             cells: function(item) {
                 return [
                     artistLink(item.artistAlias),
@@ -133,7 +139,8 @@
         return {
             page: Number.isInteger(page) && page > 0 ? page : 1,
             sort: sort,
-            direction: direction === 'desc' ? 'desc' : 'asc'
+            direction: direction === 'desc' ? 'desc' : 'asc',
+            filter: config.filterInputId ? (url.searchParams.get('filter') || '') : ''
         };
     }
 
@@ -161,12 +168,18 @@
         tableBody.empty();
         pagination.attr('hidden', true);
         updateSortHeaders(config, state);
+        if (config.filterInputId) {
+            $('#' + config.filterInputId).val(state.filter);
+        }
 
         var query = new URLSearchParams({
             page: state.page,
             sort: state.sort,
             direction: state.direction
         });
+        if (state.filter) {
+            query.set('filter', state.filter);
+        }
         fetch(config.endpoint + '?' + query.toString())
             .then(function(response) {
                 return response.json().then(function(body) {
@@ -236,6 +249,33 @@
                     }
                     window.showPage(url, true);
                 });
+            if (config.filterFormId) {
+                $('#' + config.filterInputId)
+                    .on('beforeinput', function(event) {
+                        var inputEvent = event.originalEvent;
+                        if (inputEvent.data
+                                && !/^[A-Za-z0-9.]+$/.test(inputEvent.data)) {
+                            event.preventDefault();
+                        }
+                    })
+                    .on('input', function() {
+                        this.value = this.value
+                            .replace(/[^A-Za-z0-9.]/g, '')
+                            .slice(0, 100);
+                    });
+                $('#' + config.filterFormId).on('submit', function(event) {
+                    event.preventDefault();
+                    var url = new URL(window.location.href);
+                    var filter = $('#' + config.filterInputId).val().trim();
+                    if (filter) {
+                        url.searchParams.set('filter', filter);
+                    } else {
+                        url.searchParams.delete('filter');
+                    }
+                    url.searchParams.delete('page');
+                    window.showPage(url, true);
+                });
+            }
         });
     };
 }());
