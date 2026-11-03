@@ -1,0 +1,167 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Runs the Reason Station PostgreSQL database privately on a small Single-AZ
+  RDS instance - generated credentials and scoped ECS ingress avoid public access.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: private ECS tasks -> dedicated DB security group -> Single-AZ RDS PostgreSQL
+    must:
+      - Database subnets must not route directly from an internet gateway
+      - PostgreSQL ingress must remain scoped to the ECS service security group
+      - Master credentials stay managed by RDS in Secrets Manager
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC containing the ECS service and private database subnets.
+  DatabaseSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: >-
+      Private subnet IDs in at least two Availability Zones. RDS requires a DB
+      subnet group to span at least two AZs even though this instance is Single-AZ.
+  EcsServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group attached to the Reason Station ECS service tasks.
+  DatabaseName:
+    Type: String
+    Default: reasonstation
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: "^[A-Za-z][A-Za-z0-9_]*$"
+    ConstraintDescription: Must begin with a letter and contain only letters, numbers, or underscores.
+    Description: Initial PostgreSQL database created with the instance.
+  MasterUsername:
+    Type: String
+    Default: reasonstation_admin
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: "^[A-Za-z][A-Za-z0-9_]*$"
+    ConstraintDescription: Must begin with a letter and contain only letters, numbers, or underscores.
+    Description: Master database username; RDS generates and manages its password.
+
+Resources:
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: keeps the database on caller-selected private subnets while permitting Single-AZ compute
+        must:
+          - Include subnets from at least two Availability Zones
+        mutable: change-with-constraints
+    Properties:
+      DBSubnetGroupDescription: Private subnets for the Reason Station PostgreSQL database.
+      SubnetIds: !Ref DatabaseSubnetIds
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: isolates database traffic from all sources except Reason Station ECS tasks
+        must:
+          - Never replace source security-group ingress with a public CIDR
+        mutable: change-with-constraints
+    Properties:
+      GroupDescription: !Sub "PostgreSQL access for ${AWS::StackName}"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: PostgreSQL from Reason Station ECS tasks
+          IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref EcsServiceSecurityGroupId
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-database"
+        - Key: Application
+          Value: reasonstation
+
+  DatabaseParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: rejects unencrypted PostgreSQL sessions without requiring application-specific server changes
+        must:
+          - Keep rds.force_ssl enabled
+          - Family must match the selected PostgreSQL major version
+        mutable: change-with-constraints
+    Properties:
+      Description: TLS enforcement for Reason Station PostgreSQL 18.
+      Family: postgres18
+      Parameters:
+        rds.force_ssl: "1"
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: smallest managed Graviton PostgreSQL instance for low steady-state cost; Single-AZ accepts downtime risk
+        must:
+          - Keep public access disabled
+          - Keep storage encrypted
+          - Keep Multi-AZ disabled unless availability requirements change
+          - Keep Performance Insights disabled unless diagnostics justify its cost
+        mutable: review-required
+        mutability:
+          AllocatedStorage: change-with-constraints
+          DBInstanceClass: change-with-constraints
+    Properties:
+      Engine: postgres
+      EngineVersion: "18.3"
+      EngineLifecycleSupport: open-source-rds-extended-support-disabled
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: "20"
+      StorageType: gp3
+      StorageEncrypted: true
+      MultiAZ: false
+      PubliclyAccessible: false
+      NetworkType: IPV4
+      EnablePerformanceInsights: false
+      MonitoringInterval: 0
+      AutoMinorVersionUpgrade: true
+      BackupRetentionPeriod: 7
+      CopyTagsToSnapshot: true
+      DeletionProtection: true
+      DBName: !Ref DatabaseName
+      MasterUsername: !Ref MasterUsername
+      ManageMasterUserPassword: true
+      DBParameterGroupName: !Ref DatabaseParameterGroup
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups:
+        - !GetAtt DatabaseSecurityGroup.GroupId
+      Tags:
+        - Key: Application
+          Value: reasonstation
+        - Key: Environment
+          Value: production
+        - Key: created_by
+          Value: rds-oss-skill
+        - Key: generation_model
+          Value: gpt-5.6-sol
+
+Outputs:
+  DatabaseEndpoint:
+    Description: PostgreSQL hostname used in the application JDBC URL.
+    Value: !GetAtt Database.Endpoint.Address
+  DatabasePort:
+    Description: PostgreSQL listener port.
+    Value: !GetAtt Database.Endpoint.Port
+  DatabaseName:
+    Description: Initial PostgreSQL database name.
+    Value: !Ref DatabaseName
+  DatabaseMasterSecretArn:
+    Description: ARN of the RDS-managed Secrets Manager secret containing the master credentials.
+    Value: !GetAtt Database.MasterUserSecret.SecretArn
+  DatabaseSecurityGroupId:
+    Description: Security group attached exclusively to the database.
+    Value: !GetAtt DatabaseSecurityGroup.GroupId

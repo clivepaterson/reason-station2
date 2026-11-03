@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Routes ECS traffic to Reason Station - readiness checks and a two-minute
+  deregistration delay preserve in-flight uploads during rolling deployments.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: ALB -> readiness-gated ECS Fargate targets
+    must:
+      - Deregistration delay and ECS stop timeout stay aligned at 120 seconds
+      - Health checks use readiness, not liveness
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC containing the ECS service.
+
+Resources:
+  ApplicationTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: removes unready tasks from traffic and drains active requests before ECS stops them
+        must:
+          - Target type must remain ip for Fargate awsvpc tasks
+          - Deregistration delay must not exceed the container stop timeout
+        mutable: change-with-constraints
+    Properties:
+      VpcId: !Ref VpcId
+      Port: 8080
+      Protocol: HTTP
+      ProtocolVersion: HTTP1
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: /actuator/health/readiness
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "120"
+
+Outputs:
+  TargetGroupArn:
+    Description: Target group ARN supplied to the ECS service load-balancer configuration.
+    Value: !Ref ApplicationTargetGroup

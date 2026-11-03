@@ -1,0 +1,54 @@
+{
+  "family": "reasonstation",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "EXECUTION_ROLE_ARN",
+  "taskRoleArn": "TASK_ROLE_ARN",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "reasonstation",
+      "image": "ECR_IMAGE_URI_WITH_COMMIT_SHA",
+      "essential": true,
+      "stopTimeout": 120,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SPRING_PROFILES_ACTIVE",
+          "value": "prod"
+        }
+      ],
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget -q -T 5 -O /dev/null http://127.0.0.1:8080/actuator/health/liveness || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/reasonstation",
+          "awslogs-region": "AWS_REGION",
+          "awslogs-stream-prefix": "app"
+        }
+      }
+    }
+  ]
+}

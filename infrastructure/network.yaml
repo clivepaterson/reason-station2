@@ -1,0 +1,256 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Provides a low-cost Reason Station VPC - public ECS subnets avoid NAT Gateway
+  charges while isolated database subnets keep PostgreSQL off the internet.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: internet -> public ALB -> public-IP ECS tasks -> isolated RDS subnets
+    must:
+      - ECS tasks must receive public IPs because this VPC has no NAT gateway
+      - ECS ingress must remain limited to the ALB security group
+      - Database subnets must remain isolated from the internet gateway
+
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedPattern: "^(10|172|192)\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$"
+    ConstraintDescription: Must be a valid private IPv4 CIDR.
+    Description: IPv4 CIDR allocated to the Reason Station VPC.
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: dedicated network boundary for the application and database
+        must:
+          - DNS support and hostnames stay enabled for ECS and RDS service discovery
+        mutable: review-required
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: vpc-reasonstation
+        - Key: Application
+          Value: reasonstation
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-igw"
+        - Key: Application
+          Value: reasonstation
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: hosts internet-facing ALB nodes and public-IP ECS tasks without NAT charges
+        must:
+          - ECS tasks require AssignPublicIp ENABLED when launched here
+        mutable: change-with-constraints
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-public-a"
+        - Key: Application
+          Value: reasonstation
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: second-AZ placement for the ALB and ECS scheduler
+        must:
+          - ECS tasks require AssignPublicIp ENABLED when launched here
+        mutable: change-with-constraints
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-public-b"
+        - Key: Application
+          Value: reasonstation
+
+  DatabaseSubnetA:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: first isolated subnet for the RDS subnet group
+        must:
+          - Never associate with a route table containing an internet or NAT default route
+        mutable: change-with-constraints
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 10.0.10.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-database-a"
+        - Key: Application
+          Value: reasonstation
+
+  DatabaseSubnetB:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: second-AZ subnet required by an RDS DB subnet group
+        must:
+          - Never associate with a route table containing an internet or NAT default route
+        mutable: change-with-constraints
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: 10.0.11.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-database-b"
+        - Key: Application
+          Value: reasonstation
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-public"
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetB
+
+  DatabaseRouteTable:
+    Type: AWS::EC2::RouteTable
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: intentionally contains only the implicit VPC-local route
+        must:
+          - Do not add internet gateway or NAT routes
+        mutable: review-required
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-database"
+
+  DatabaseSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DatabaseRouteTable
+      SubnetId: !Ref DatabaseSubnetA
+
+  DatabaseSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DatabaseRouteTable
+      SubnetId: !Ref DatabaseSubnetB
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: public web entry point; app traffic is forwarded to ECS on its private container port
+        must:
+          - Public ingress stays limited to HTTP and HTTPS
+        mutable: change-with-constraints
+    Properties:
+      GroupDescription: Public HTTP and HTTPS access to the Reason Station ALB.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - Description: Public HTTP
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: Public HTTPS
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-alb"
+        - Key: Application
+          Value: reasonstation
+
+  EcsServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: accepts application traffic only from the ALB while permitting required outbound calls
+        must:
+          - Container port ingress remains scoped to LoadBalancerSecurityGroup
+          - Never add public ingress to ECS tasks
+        mutable: change-with-constraints
+    Properties:
+      GroupDescription: Reason Station ECS service tasks.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - Description: Application traffic from the ALB
+          IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !GetAtt LoadBalancerSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-ecs-service"
+        - Key: Application
+          Value: reasonstation
+
+Outputs:
+  VpcId:
+    Description: VPC used by Reason Station resources.
+    Value: !Ref Vpc
+  PublicSubnetIds:
+    Description: Public subnets for the ALB and public-IP ECS tasks.
+    Value: !Join [",", [!Ref PublicSubnetA, !Ref PublicSubnetB]]
+  DatabaseSubnetIds:
+    Description: Isolated subnets used by the RDS DB subnet group.
+    Value: !Join [",", [!Ref DatabaseSubnetA, !Ref DatabaseSubnetB]]
+  LoadBalancerSecurityGroupId:
+    Description: Security group to attach to the public ALB.
+    Value: !GetAtt LoadBalancerSecurityGroup.GroupId
+  EcsServiceSecurityGroupId:
+    Description: Security group to attach to Reason Station ECS tasks.
+    Value: !GetAtt EcsServiceSecurityGroup.GroupId

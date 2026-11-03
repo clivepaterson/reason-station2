@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Stores Reason Station application images - immutable commit tags prevent
+  deployed revisions from changing in place.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: GitHub Actions -> private ECR -> ECS
+    must:
+      - CI tags each image with the full Git commit SHA
+
+Parameters:
+  RepositoryName:
+    Type: String
+    Default: reasonstation
+    AllowedPattern: "^[a-z0-9]+(?:[._/-][a-z0-9]+)*$"
+    ConstraintDescription: Must be a valid private ECR repository name.
+
+Resources:
+  ApplicationRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: private app image store; immutable tags make commit SHA deployments reproducible
+        must:
+          - Keep tags immutable; CI must fail rather than overwrite a published commit
+          - Retain repository on stack deletion or replacement
+        mutable: change-with-constraints
+        mutability:
+          RepositoryName: must-never-change
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      ImageTagMutability: IMMUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: >-
+          {"rules":[{"rulePriority":1,"description":"Remove untagged build
+          remnants after seven days","selection":{"tagStatus":"untagged",
+          "countType":"sinceImagePushed","countUnit":"days","countNumber":7},
+          "action":{"type":"expire"}}]}
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyNonTlsTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "ecr:*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+Outputs:
+  RepositoryArn:
+    Description: ARN used to scope the CI push role and ECS pull permissions.
+    Value: !GetAtt ApplicationRepository.Arn
+  RepositoryUri:
+    Description: URI supplied to the image publishing workflow and ECS task definition.
+    Value: !GetAtt ApplicationRepository.RepositoryUri

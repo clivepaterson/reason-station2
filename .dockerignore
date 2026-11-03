@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.mvn
+infrastructure
+lambda
+sql
+target
+*.iml
+*.log
+docker-compose.yml
+s3.json

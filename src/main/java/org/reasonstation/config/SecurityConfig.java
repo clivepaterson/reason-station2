@@ -77,6 +77,7 @@ public class SecurityConfig {
                         authorize.requestMatchers("/scalar/**", "/scalar-ui").denyAll();
                     }
                     authorize.requestMatchers("/", "/css/**", "/js/**", "/pages/**",
+                                "/actuator/health/liveness", "/actuator/health/readiness",
                                 "/swagger-ui.html", "/swagger-ui/**",
                                 "/v3/api-docs/**", "/login", "/register", "/api/register",
                                 "/oauth2/**", "/login/oauth2/**",
