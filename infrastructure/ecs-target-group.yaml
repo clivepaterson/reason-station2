@@ -1,14 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  Routes ECS traffic to Reason Station - readiness checks and a two-minute
-  deregistration delay preserve in-flight uploads during rolling deployments.
+  Routes public traffic to Reason Station - one ALB and two target groups enable
+  native ECS blue/green deployments without CodeDeploy.
 
 Metadata:
   AWSToolsMetrics:
     AWSAgentToolkit: aws-cloudformation@3
   com.aws.cloudformation.Context:
-    arch: ALB -> readiness-gated ECS Fargate targets
+    arch: public ALB -> production rule -> active blue/green ECS target group
     must:
+      - Both target groups must use identical health and draining settings
       - Deregistration delay and ECS stop timeout stay aligned at 120 seconds
       - Health checks use readiness, not liveness
 
@@ -16,8 +17,39 @@ Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: VPC containing the ECS service.
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnets in at least two Availability Zones for the ALB.
+  LoadBalancerSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group allowing public HTTP traffic to the ALB.
 
 Resources:
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: single shared public entry point; ALB is required for managed blue/green traffic switching
+        must:
+          - Remain internet-facing while this is the public web entry point
+          - Span at least two Availability Zones
+        mutable: change-with-constraints
+    Properties:
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroupId
+      Subnets: !Ref PublicSubnetIds
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: "false"
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: "true"
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
   ApplicationTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Metadata:
@@ -47,7 +79,84 @@ Resources:
         - Key: deregistration_delay.timeout_seconds
           Value: "120"
 
+  AlternateTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: receives the green service revision before ECS atomically switches production traffic
+        must:
+          - Configuration must stay aligned with ApplicationTargetGroup
+          - Target type must remain ip for Fargate awsvpc tasks
+        mutable: change-with-constraints
+    Properties:
+      VpcId: !Ref VpcId
+      Port: 8080
+      Protocol: HTTP
+      ProtocolVersion: HTTP1
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: /actuator/health/readiness
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "120"
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: accepts public HTTP; default response prevents traffic bypassing the ECS-managed production rule
+        must:
+          - Production traffic must flow through ProductionListenerRule
+        mutable: change-with-constraints
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody: Not found
+            StatusCode: "404"
+
+  ProductionListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: ECS rewrites this rule to switch all production traffic between blue and green target groups
+        must:
+          - Forward to exactly one of the two service target groups
+          - Keep the catch-all path while this ALB serves only Reason Station
+        mutable: change-with-constraints
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 1
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApplicationTargetGroup
+
 Outputs:
   TargetGroupArn:
-    Description: Target group ARN supplied to the ECS service load-balancer configuration.
+    Description: Primary target group ARN supplied to the ECS service.
     Value: !Ref ApplicationTargetGroup
+  AlternateTargetGroupArn:
+    Description: Alternate target group ARN used for the green service revision.
+    Value: !Ref AlternateTargetGroup
+  ProductionListenerRuleArn:
+    Description: Listener rule that ECS updates when shifting production traffic.
+    Value: !Ref ProductionListenerRule
+  LoadBalancerDnsName:
+    Description: Public DNS name of the application load balancer.
+    Value: !GetAtt ApplicationLoadBalancer.DNSName

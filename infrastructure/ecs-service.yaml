@@ -1,0 +1,292 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Runs Reason Station on one low-cost Fargate Spot task - native ECS blue/green
+  deployments provide zero-downtime releases without CodeDeploy.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: ECR ARM64 image -> Fargate Spot service -> two ALB target groups
+    must:
+      - Public subnets require AssignPublicIp ENABLED because the VPC has no NAT gateway
+      - Blue and green revisions may run together only during deployment and bake time
+      - Image tags must be immutable and unique per deployment
+
+Parameters:
+  ImageUri:
+    Type: String
+    MinLength: 1
+    Description: Full immutable ECR image URI, including its unique tag.
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnets used by Fargate tasks.
+  EcsServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group accepting port 8080 only from the ALB.
+  TargetGroupArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:elasticloadbalancing:[^:]+:[0-9]{12}:targetgroup/.+$"
+    Description: Primary target group ARN.
+  AlternateTargetGroupArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:elasticloadbalancing:[^:]+:[0-9]{12}:targetgroup/.+$"
+    Description: Alternate target group ARN for green revisions.
+  ProductionListenerRuleArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:elasticloadbalancing:[^:]+:[0-9]{12}:listener-rule/.+$"
+    Description: ALB listener rule ECS updates to switch production traffic.
+  ApplicationSecretArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:secretsmanager:[^:]+:[0-9]{12}:secret:.+$"
+    Description: Existing Secrets Manager secret imported by the production Spring profile.
+  DesiredCount:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 10
+    Description: Steady-state task count; one is cheapest but is not highly available.
+  CapacityProvider:
+    Type: String
+    Default: FARGATE_SPOT
+    AllowedValues:
+      - FARGATE_SPOT
+      - FARGATE
+    Description: Fargate Spot is cheaper but tasks can be interrupted.
+  BakeTimeInMinutes:
+    Type: Number
+    Default: 1
+    MinValue: 0
+    MaxValue: 60
+    Description: Time both revisions remain running after the production traffic switch.
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: serverless container control plane with both regular and discounted Spot capacity available
+        must:
+          - Keep FARGATE available as an operator-selected fallback when Spot capacity is unsuitable
+        mutable: free-to-tune
+    Properties:
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      ClusterSettings:
+        - Name: containerInsights
+          Value: disabled
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: short retention controls CloudWatch storage cost while preserving recent deployment diagnostics
+        must:
+          - Retention must remain finite
+        mutable: free-to-tune
+    Properties:
+      RetentionInDays: 7
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: lets the Fargate runtime pull the private image and publish container logs
+        must:
+          - Do not add application data-plane permissions; those belong on TaskRole
+        mutable: change-with-constraints
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: application runtime identity; currently limited to reading its one production secret
+        must:
+          - Keep secret access scoped to ApplicationSecretArn
+          - Do not move image-pull or logging permissions here
+        mutable: change-with-constraints
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: read-application-secret
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref ApplicationSecretArn
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  LoadBalancerInfrastructureRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: lets native ECS blue/green deployments register targets and atomically rewrite the production ALB rule
+        must:
+          - Trust only ecs.amazonaws.com
+          - Keep the AWS-managed load-balancer infrastructure policy attached
+        mutable: change-with-constraints
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonECSInfrastructureRolePolicyForLoadBalancers"
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: smallest practical ARM64 task; Graviton pricing is lower than equivalent x86 Fargate
+        must:
+          - Stop timeout must stay aligned with target-group deregistration delay
+          - Liveness must not include external dependencies
+          - Image URI must use an immutable unique tag
+        mutable: change-with-constraints
+    Properties:
+      Family: reasonstation
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: "512"
+      Memory: "1024"
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: reasonstation
+          Image: !Ref ImageUri
+          Essential: true
+          StopTimeout: 120
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+              AppProtocol: http
+          Environment:
+            - Name: SPRING_PROFILES_ACTIVE
+              Value: prod
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -q -T 5 -O /dev/null http://127.0.0.1:8080/actuator/health/liveness || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: app
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - LoadBalancerInfrastructureRole
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: one Spot task minimizes steady-state cost; native blue/green adds a second task only for health validation and the short bake window
+        must:
+          - Deployment controller stays ECS when Strategy is BLUE_GREEN
+          - AssignPublicIp stays enabled while no NAT gateway or VPC endpoints exist
+          - Both target groups and the production listener rule must belong to the same ALB
+        mutable: change-with-constraints
+        mutability:
+          DesiredCount: free-to-tune
+          CapacityProviderStrategy: review-required
+    Properties:
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: !Ref DesiredCount
+      SchedulingStrategy: REPLICA
+      CapacityProviderStrategy:
+        - CapacityProvider: !Ref CapacityProvider
+          Base: 0
+          Weight: 1
+      PlatformVersion: "1.4.0"
+      AvailabilityZoneRebalancing: ENABLED
+      DeploymentController:
+        Type: ECS
+      DeploymentConfiguration:
+        Strategy: BLUE_GREEN
+        BakeTimeInMinutes: !Ref BakeTimeInMinutes
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      HealthCheckGracePeriodSeconds: 180
+      LoadBalancers:
+        - ContainerName: reasonstation
+          ContainerPort: 8080
+          TargetGroupArn: !Ref TargetGroupArn
+          AdvancedConfiguration:
+            AlternateTargetGroupArn: !Ref AlternateTargetGroupArn
+            ProductionListenerRule: !Ref ProductionListenerRuleArn
+            RoleArn: !GetAtt LoadBalancerInfrastructureRole.Arn
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref EcsServiceSecurityGroupId
+          Subnets: !Ref PublicSubnetIds
+      EnableECSManagedTags: true
+      EnableExecuteCommand: false
+      PropagateTags: SERVICE
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+Outputs:
+  ClusterName:
+    Description: ECS cluster name used for operational commands.
+    Value: !Ref Cluster
+  ServiceArn:
+    Description: ARN of the blue/green ECS service.
+    Value: !Ref Service
+  TaskRoleName:
+    Description: Runtime role name for attaching narrowly scoped application permissions.
+    Value: !Ref TaskRole
+  TaskDefinitionArn:
+    Description: Task definition revision created for the deployed image.
+    Value: !Ref TaskDefinition

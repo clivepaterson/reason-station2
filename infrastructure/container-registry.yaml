@@ -7,9 +7,10 @@ Metadata:
   AWSToolsMetrics:
     AWSAgentToolkit: aws-cloudformation@3
   com.aws.cloudformation.Context:
-    arch: GitHub Actions -> private ECR -> ECS
+    arch: local deploy-blue-green.ps1 -> private ECR -> ECS
     must:
-      - CI tags each image with the full Git commit SHA
+      - Every image tag must be unique and derived from its Git commit
+      - Retain only a bounded set of deployable images to control storage cost
 
 Parameters:
   RepositoryName:
@@ -28,6 +29,7 @@ Resources:
         why: private app image store; immutable tags make commit SHA deployments reproducible
         must:
           - Keep tags immutable; CI must fail rather than overwrite a published commit
+          - Keep the ten newest tagged releases for rollback and expire older releases
           - Retain repository on stack deletion or replacement
         mutable: change-with-constraints
         mutability:
@@ -44,7 +46,10 @@ Resources:
           {"rules":[{"rulePriority":1,"description":"Remove untagged build
           remnants after seven days","selection":{"tagStatus":"untagged",
           "countType":"sinceImagePushed","countUnit":"days","countNumber":7},
-          "action":{"type":"expire"}}]}
+          "action":{"type":"expire"}},{"rulePriority":2,"description":"Keep only
+          the ten newest immutable releases","selection":{"tagStatus":"tagged",
+          "tagPatternList":["*"],"countType":"imageCountMoreThan",
+          "countNumber":10},"action":{"type":"expire"}}]}
       RepositoryPolicyText:
         Version: "2012-10-17"
         Statement:
