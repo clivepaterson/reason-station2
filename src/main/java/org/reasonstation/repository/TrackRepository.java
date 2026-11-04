@@ -23,6 +23,27 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.filesize,
                    t.track_uri,
                    t.date_uploaded,
+                   (SELECT AVG(r.rating)
+                    FROM track_ratings r
+                    WHERE r.trackid = t.trackid) AS average_track_rating,
+                   (SELECT COUNT(*)
+                    FROM track_downloads d
+                    WHERE d.trackid = t.trackid) AS download_count
+            FROM tracks t
+            WHERE t.trackid = :trackid
+            """)
+    Optional<TrackWithRating> findWithRatingById(@Param("trackid") Long trackid);
+
+    @Query("""
+            SELECT t.trackid,
+                   t.userid,
+                   t.artist_alias,
+                   t.track_name,
+                   t.music_style,
+                   t.filename,
+                   t.filesize,
+                   t.track_uri,
+                   t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(d.ip_address) AS download_count
             FROM tracks t

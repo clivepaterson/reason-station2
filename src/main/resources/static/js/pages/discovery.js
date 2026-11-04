@@ -43,7 +43,9 @@ function createSidebarTrackItem(track, options) {
     details.className = 'sidebar-item-details';
     item.appendChild(details);
 
-    var title = document.createElement('strong');
+    var title = document.createElement('a');
+    title.className = 'sidebar-track-link';
+    title.href = '/tracks/' + encodeURIComponent(track.trackid);
     title.textContent = track.trackName;
     details.appendChild(title);
 

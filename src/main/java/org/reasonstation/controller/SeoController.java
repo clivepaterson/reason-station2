@@ -1,0 +1,262 @@
+package org.reasonstation.controller;
+
+import org.reasonstation.entity.Track;
+import org.reasonstation.repository.TrackRepository;
+import org.reasonstation.repository.TrackWithRating;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.util.HtmlUtils;
+import org.springframework.web.util.UriUtils;
+
+import java.nio.charset.StandardCharsets;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.StreamSupport;
+
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+
+@Controller
+public class SeoController {
+    private static final String SITE_DESCRIPTION =
+            "Discover, share, and download Reason music projects while learning sound synthesis techniques from other artists.";
+
+    private final TrackRepository tracks;
+    private final ObjectMapper objectMapper;
+    private final String baseUrl;
+
+    public SeoController(TrackRepository tracks, ObjectMapper objectMapper,
+                         @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
+        this.tracks = tracks;
+        this.objectMapper = objectMapper;
+        this.baseUrl = baseUrl.replaceAll("/+$", "");
+    }
+
+    @GetMapping(value = "/tracks/{trackid}", produces = MediaType.TEXT_HTML_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> trackPage(@PathVariable Long trackid) {
+        return tracks.findWithRatingById(trackid)
+                .map(track -> ResponseEntity.ok(trackHtml(track)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(notFoundHtml()));
+    }
+
+    @GetMapping(value = "/sitemap.xml", produces = MediaType.APPLICATION_XML_VALUE)
+    @ResponseBody
+    public String sitemap() {
+        StringBuilder xml = new StringBuilder("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+                """);
+        List.of(
+                "/index.html", "/index.html?view=artists", "/index.html?view=tracks",
+                "/index.html?view=patches", "/index.html?view=tutorials",
+                "/index.html?view=links", "/index.html?view=about"
+        ).forEach(path -> appendSitemapUrl(xml, baseUrl + path, null));
+
+        StreamSupport.stream(tracks.findAll().spliterator(), false)
+                .forEach(track -> appendSitemapUrl(
+                        xml,
+                        baseUrl + "/tracks/" + track.getTrackid(),
+                        track.getDateUploaded() == null
+                                ? null
+                                : DateTimeFormatter.ISO_LOCAL_DATE
+                                        .withZone(java.time.ZoneOffset.UTC)
+                                        .format(track.getDateUploaded())));
+        return xml.append("</urlset>\n").toString();
+    }
+
+    @GetMapping(value = "/robots.txt", produces = MediaType.TEXT_PLAIN_VALUE)
+    @ResponseBody
+    public String robots() {
+        return """
+                User-agent: *
+                Allow: /
+                Disallow: /api/
+                Disallow: /oauth2/
+                Disallow: /login
+                Disallow: /logout
+                Disallow: /scalar/
+                Disallow: /swagger-ui/
+                Disallow: /*?view=my-tracks
+                Sitemap: %s/sitemap.xml
+                """.formatted(baseUrl);
+    }
+
+    private String trackHtml(TrackWithRating track) {
+        String trackName = escape(track.trackName());
+        String artistAlias = escape(track.artistAlias());
+        String musicStyle = escape(track.musicStyle());
+        String filename = escape(track.filename());
+        String canonicalUrl = baseUrl + "/tracks/" + track.trackid();
+        String imageUrl = baseUrl + "/images/logo_by_chatgpt.jpg";
+        String description = "Download " + track.trackName() + " by " + track.artistAlias()
+                + ", a " + track.musicStyle() + " Reason music project shared on Reason Station.";
+        String escapedDescription = escape(description);
+        String title = escape(track.trackName() + " by " + track.artistAlias() + " | Reason Station");
+        String artistUrl = "/index.html?artistAlias="
+                + UriUtils.encodeQueryParam(track.artistAlias(), StandardCharsets.UTF_8);
+        String dateUploaded = track.dateUploaded() == null
+                ? ""
+                : DateTimeFormatter.ISO_INSTANT.format(track.dateUploaded());
+        String visibleDate = track.dateUploaded() == null
+                ? ""
+                : DateTimeFormatter.ofPattern("MMMM d, uuuu")
+                        .withZone(java.time.ZoneOffset.UTC)
+                        .format(track.dateUploaded());
+
+        Map<String, Object> structuredData = new LinkedHashMap<>();
+        structuredData.put("@context", "https://schema.org");
+        structuredData.put("@type", "MusicRecording");
+        structuredData.put("name", track.trackName());
+        structuredData.put("url", canonicalUrl);
+        structuredData.put("description", description);
+        structuredData.put("genre", track.musicStyle());
+        structuredData.put("byArtist", Map.of(
+                "@type", "MusicGroup",
+                "name", track.artistAlias(),
+                "url", baseUrl + artistUrl));
+        if (!dateUploaded.isEmpty()) {
+            structuredData.put("datePublished", dateUploaded);
+        }
+        structuredData.put("encoding", Map.of(
+                "@type", "MediaObject",
+                "name", track.filename(),
+                "contentUrl", baseUrl + "/api/tracks/" + track.trackid() + "/download"));
+        String ratingTrackData = toJson(Map.of(
+                "trackid", track.trackid(),
+                "trackName", track.trackName(),
+                "artistAlias", track.artistAlias()));
+
+        return """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>%s</title>
+                    <meta name="description" content="%s">
+                    <meta name="author" content="%s">
+                    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+                    <meta name="theme-color" content="#111827">
+                    <link rel="canonical" href="%s">
+                    <link rel="icon" href="/images/logo_by_chatgpt.jpg" type="image/jpeg">
+                    <meta property="og:type" content="music.song">
+                    <meta property="og:site_name" content="Reason Station">
+                    <meta property="og:title" content="%s">
+                    <meta property="og:description" content="%s">
+                    <meta property="og:url" content="%s">
+                    <meta property="og:image" content="%s">
+                    <meta property="og:image:alt" content="Reason Station logo">
+                    <meta property="music:musician" content="%s">
+                    <meta name="twitter:card" content="summary">
+                    <meta name="twitter:title" content="%s">
+                    <meta name="twitter:description" content="%s">
+                    <meta name="twitter:image" content="%s">
+                    <script type="application/ld+json">%s</script>
+                    <link rel="stylesheet" href="/css/styles.css">
+                </head>
+                <body class="site-page track-detail-page">
+                    <header class="navbar track-detail-header">
+                        <div class="container">
+                            <a class="logo-title" href="/index.html" aria-label="Reason Station home">
+                                <img src="/images/logo_by_chatgpt.jpg" alt="">
+                                <span>Reason <b>Station</b></span><span id="header-rs-2">2</span>
+                            </a>
+                        </div>
+                    </header>
+                    <main class="container track-detail-main">
+                        <nav class="track-detail-breadcrumb" aria-label="Breadcrumb">
+                            <a href="/index.html">Home</a><span aria-hidden="true">/</span>
+                            <a href="/index.html?view=tracks">Tracks</a>
+                        </nav>
+                        <article class="track-card track-detail-card">
+                            <div class="track-card-content">
+                                <h1>%s</h1>
+                                <a class="track-artist-link" href="%s">by %s</a>
+                                <span class="track-style-badge">%s</span>
+                                <p class="track-file-meta">%s</p>
+                                <div class="track-card-meta">
+                                    <span>Style: %s</span>
+                                    <span>Downloads: %d</span>
+                                    %s
+                                    %s
+                                </div>
+                            </div>
+                            <div class="track-card-actions">
+                                <a class="download-track-link" href="/api/tracks/%d/download"
+                                   aria-label="Download %s by %s">Download track</a>
+                                <div id="track-rating-action" class="track-rating-action"></div>
+                            </div>
+                        </article>
+                    </main>
+                    <script id="track-rating-data" type="application/json">%s</script>
+                    <script src="/js/track_rating.js"></script>
+                    <script>
+                        document.getElementById('track-rating-action').appendChild(
+                            window.createRateTrackButton(JSON.parse(
+                                document.getElementById('track-rating-data').textContent)));
+                    </script>
+                </body>
+                </html>
+                """.formatted(
+                title, escapedDescription, artistAlias, canonicalUrl,
+                title, escapedDescription, canonicalUrl, imageUrl, artistAlias,
+                title, escapedDescription, imageUrl, toJson(structuredData),
+                trackName, artistUrl, artistAlias, musicStyle, filename, musicStyle,
+                track.downloadCount(),
+                track.averageTrackRating() == null ? "" : "<span>Rating: %.1f/10</span>"
+                        .formatted(track.averageTrackRating()),
+                visibleDate.isEmpty() ? "" : "<span>Uploaded: " + escape(visibleDate) + "</span>",
+                track.trackid(), trackName, artistAlias, ratingTrackData);
+    }
+
+    private String notFoundHtml() {
+        return """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Track not found | Reason Station</title>
+                    <meta name="robots" content="noindex, follow">
+                    <link rel="stylesheet" href="/css/styles.css">
+                </head>
+                <body class="account-page">
+                    <main class="account-card">
+                        <h1>Track not found</h1>
+                        <p>This track may have been removed.</p>
+                        <a class="cta-button" href="/index.html?view=tracks">Browse tracks</a>
+                    </main>
+                </body>
+                </html>
+                """;
+    }
+
+    private void appendSitemapUrl(StringBuilder xml, String location, String lastModified) {
+        xml.append("  <url><loc>").append(escape(location)).append("</loc>");
+        if (lastModified != null) {
+            xml.append("<lastmod>").append(lastModified).append("</lastmod>");
+        }
+        xml.append("</url>\n");
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value).replace("</", "<\\/");
+        } catch (JacksonException exception) {
+            throw new IllegalStateException("Unable to create track structured data.", exception);
+        }
+    }
+
+    private String escape(String value) {
+        return HtmlUtils.htmlEscape(value == null ? "" : value);
+    }
+}

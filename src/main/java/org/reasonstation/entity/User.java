@@ -28,7 +28,7 @@ public class User {
     private UUID verifyEmailToken;
 
     @Column("date_created")
-    private Instant dateCreated;
+    private Instant dateCreated = Instant.now();
 
     // Constructors
     public User() {

@@ -90,7 +90,8 @@
             .then(function() {
                 dialog.close();
                 var artistPage = document.getElementById('artist-page');
-                if (artistPage && !artistPage.hidden) {
+                var isTrackPage = /^\/tracks\/\d+\/?$/.test(window.location.pathname);
+                if ((artistPage && !artistPage.hidden) || isTrackPage) {
                     window.location.reload();
                 }
             })

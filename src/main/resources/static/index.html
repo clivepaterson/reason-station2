@@ -82,10 +82,10 @@
         <p class="social-signup-divider"><span>or use email</span></p>
 
         <form action="/login" method="post">
-            <label for="username">User ID <span class="privacy-note">(public)</span></label>
-            <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+            <label for="login-email">Email address
+            <input id="login-email" name="username" type="email" autocomplete="email" required autofocus>
 
-            <label for="login-password">Password <span class="privacy-note">(private)</span></label>
+            <label for="login-password">Password
             <input id="login-password" name="password" type="password" autocomplete="current-password" required>
 
             <button class="cta-button account-submit" type="submit">Sign in</button>
@@ -124,6 +124,10 @@
             <input id="register-password" name="password" type="password" minlength="8"
                    autocomplete="new-password" required>
             <small>Use at least 8 characters.</small>
+
+            <label for="register-confirm-password">Confirm password <span class="privacy-note">(private)</span></label>
+            <input id="register-confirm-password" name="confirmPassword" type="password" minlength="8"
+                   autocomplete="new-password" required>
 
             <button class="cta-button account-submit" type="submit">Create account</button>
             <p id="registration-message" class="form-message" aria-live="polite"></p>

@@ -40,6 +40,18 @@ Parameters:
     Type: String
     AllowedPattern: "^arn:[^:]+:secretsmanager:[^:]+:[0-9]{12}:secret:.+$"
     Description: Existing Secrets Manager secret imported by the production Spring profile.
+  ApplicationConfigVersion:
+    Type: String
+    MinLength: 1
+    Description: Secrets Manager version ID used to restart tasks after configuration changes.
+  FileStorageBucketArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:s3:::[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+    Description: ARN of the existing S3 bucket used for uploaded files.
+  SesIdentityArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:ses:[^:]+:[0-9]{12}:identity/.+$"
+    Description: ARN of the verified SES identity used to send verification email.
   DesiredCount:
     Type: Number
     Default: 1
@@ -122,9 +134,11 @@ Resources:
     Type: AWS::IAM::Role
     Metadata:
       com.aws.cloudformation.Context:
-        why: application runtime identity; currently limited to reading its one production secret
+        why: application runtime identity scoped to its secret, existing file bucket, and verified email identity
         must:
           - Keep secret access scoped to ApplicationSecretArn
+          - Keep object access scoped to FileStorageBucketArn
+          - Keep email sending scoped to SesIdentityArn
           - Do not move image-pull or logging permissions here
         mutable: change-with-constraints
     Properties:
@@ -143,6 +157,31 @@ Resources:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref ApplicationSecretArn
+        - PolicyName: access-file-storage
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InspectFileStorageBucket
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: !Ref FileStorageBucketArn
+              - Sid: ManageFileStorageObjects
+                Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${FileStorageBucketArn}/*"
+        - PolicyName: send-verification-email
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: SendFromVerifiedIdentity
+                Effect: Allow
+                Action: ses:SendEmail
+                Resource: !Ref SesIdentityArn
       Tags:
         - Key: Application
           Value: reasonstation
@@ -204,6 +243,8 @@ Resources:
           Environment:
             - Name: SPRING_PROFILES_ACTIVE
               Value: prod
+            - Name: APPLICATION_CONFIG_VERSION
+              Value: !Ref ApplicationConfigVersion
           HealthCheck:
             Command:
               - CMD-SHELL

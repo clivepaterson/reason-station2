@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Manages the existing Reason Station file-storage bucket - retained lifecycle
+  protects uploaded files during stack deletion or resource replacement.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: production application -> private S3 file storage
+    must:
+      - Import the existing bucket rather than attempting to create it
+      - Retain uploaded files on stack deletion or resource replacement
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: reasonstation2-files-898858623030-ap-southeast-1
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]*[a-z0-9]$"
+    ConstraintDescription: Must be a valid S3 bucket name.
+    Description: Name of the existing S3 bucket to import into this stack.
+
+Resources:
+  FileStorageBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: adopts the existing production file store into CloudFormation without risking data deletion
+        must:
+          - Import this resource into the stack before normal stack updates
+          - Retain the bucket and its contents on deletion or replacement
+        mutable: review-required
+        mutability:
+          BucketName: must-never-change
+    Properties:
+      BucketName: !Ref BucketName
+
+Outputs:
+  BucketArn:
+    Description: ARN used to scope application access policies.
+    Value: !GetAtt FileStorageBucket.Arn
+  BucketName:
+    Description: Bucket name supplied to the application through S3_BUCKET.
+    Value: !Ref FileStorageBucket

@@ -703,6 +703,88 @@ body {
     margin-top: 1rem;
 }
 
+.track-detail-header {
+    min-height: $navbar-min-height;
+
+    .container {
+        display: flex;
+        align-items: center;
+        min-height: $navbar-min-height;
+    }
+}
+
+body.site-page .track-detail-main {
+    width: min(100% - 2rem, 1180px);
+    min-height: calc(100vh - #{$navbar-min-height});
+    margin: 0 auto;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+}
+
+.track-detail-breadcrumb {
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 1.25rem;
+    padding: 0.35rem;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid #d5e7e8;
+    border-radius: 999px;
+    box-shadow: 0 4px 12px rgba(15, 75, 88, 0.08);
+
+    a {
+        padding: 0.35rem 0.75rem;
+        color: #176678;
+        border-radius: 999px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: color 0.18s ease, background-color 0.18s ease;
+
+        &:hover,
+        &:focus-visible {
+            color: #083c47;
+            background: #ffb15f;
+        }
+
+        &:focus-visible {
+            outline: 2px solid #176678;
+            outline-offset: 2px;
+        }
+    }
+
+    span {
+        color: #78a0a6;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+}
+
+.track-card.track-detail-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 2rem;
+
+    h1 {
+        margin-bottom: 0.25rem;
+        color: #07495a;
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        line-height: 1.2;
+    }
+
+    .track-card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 1.5rem;
+        margin-top: 0.75rem;
+
+        > span {
+            padding: 0;
+            border: 0;
+        }
+    }
+}
+
 .track-card {
     position: relative;
     display: grid;
@@ -921,6 +1003,10 @@ body {
     }
 }
 
+.track-rating-action .rate-track-button {
+    width: 100%;
+}
+
 .rating-dialog {
     position: fixed;
     top: 50%;
@@ -1097,6 +1183,15 @@ body {
     .track-card-actions {
         grid-column: 1 / -1;
         width: 100%;
+    }
+
+    .track-card.track-detail-card {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 1.25rem;
+
+        .track-card-actions {
+            grid-column: auto;
+        }
     }
 }
 
@@ -1701,6 +1796,7 @@ body.site-page {
         padding-right: 0.4rem;
 
         strong,
+        .sidebar-track-link,
         span {
             display: block;
             overflow: hidden;
@@ -1708,10 +1804,22 @@ body.site-page {
             white-space: nowrap;
         }
 
-        strong {
+        strong,
+        .sidebar-track-link {
             color: $station-deep;
             font-size: 0.78rem;
+            font-weight: 700;
             line-height: 1.25;
+        }
+
+        .sidebar-track-link {
+            text-decoration: none;
+
+            &:hover,
+            &:focus-visible {
+                color: $station-deep;
+                text-decoration: underline;
+            }
         }
 
         span {
@@ -2408,14 +2516,29 @@ body.site-page {
     }
 
     .tutorial-back-link {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
         margin-bottom: 1.5rem;
+        padding: 0.7rem 1.1rem;
         color: $station-teal;
-        font-weight: 750;
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid #d5e7e8;
+        border-radius: 999px;
+        box-shadow: 0 4px 12px rgba(15, 75, 88, 0.08);
+        font-size: 0.88rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: color 0.18s ease, background-color 0.18s ease;
 
         &:hover,
         &:focus-visible {
-            color: $station-orange;
+            color: $station-deep;
+            background: #ffb15f;
+        }
+
+        &:focus-visible {
+            outline: 2px solid $station-teal;
+            outline-offset: 2px;
         }
     }
 

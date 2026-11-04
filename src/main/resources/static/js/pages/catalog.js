@@ -33,9 +33,9 @@
             cells: function(item) {
                 return [
                     artistLink(item.artistAlias),
-                    item.trackName,
+                    trackLink(item, item.trackName),
                     item.musicStyle,
-                    item.filename,
+                    trackLink(item, item.filename),
                     formatFileSize(item.filesize),
                     formatDate(item.dateUploaded),
                     formatRating(item.averageRating),
@@ -73,6 +73,13 @@
         return $('<a>')
             .attr('href', '/index.html?artistAlias=' + encodeURIComponent(alias))
             .text(alias);
+    }
+
+    function trackLink(track, label) {
+        return $('<a>')
+            .addClass('track-detail-link')
+            .attr('href', '/tracks/' + encodeURIComponent(track.trackid))
+            .text(label);
     }
 
     window.createCatalogDownloadLink = function(type, id, name, filename) {

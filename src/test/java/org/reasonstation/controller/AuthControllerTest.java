@@ -3,6 +3,7 @@ package org.reasonstation.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.entity.User;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -84,6 +86,20 @@ class AuthControllerTest {
 
         assertEquals("listener", response.get("username"));
         assertEquals(false, response.get("emailVerified"));
+    }
+
+    @Test
+    void assignsCreationDateWhenRegisteringUser() {
+        when(passwordEncoder.encode("password")).thenReturn("encoded-password");
+        when(users.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = controller.register(new AuthController.RegisterRequest(
+                "listener", "listener@example.com", "password"));
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(users).save(userCaptor.capture());
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(userCaptor.getValue().getDateCreated());
     }
 
     private User unverifiedUser() {

@@ -38,11 +38,10 @@
         item.appendChild(content);
 
         var title = document.createElement('h3');
-        var titleDownload = document.createElement('a');
-        titleDownload.href = downloadUrl;
-        titleDownload.setAttribute('aria-label', downloadLabel);
-        titleDownload.textContent = track.trackName;
-        title.appendChild(titleDownload);
+        var titleLink = document.createElement('a');
+        titleLink.href = '/tracks/' + encodeURIComponent(track.trackid);
+        titleLink.textContent = track.trackName;
+        title.appendChild(titleLink);
         content.appendChild(title);
 
         if (options.showArtist) {

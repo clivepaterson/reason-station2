@@ -1,9 +1,24 @@
 (function () {
     var form = document.getElementById('registration-form');
     var message = document.getElementById('registration-message');
+    var confirmPassword = form.elements.confirmPassword;
+
+    function validatePasswordConfirmation() {
+        var matches = form.password.value === confirmPassword.value;
+        confirmPassword.setCustomValidity(matches ? '' : 'Passwords do not match.');
+        return matches;
+    }
+
+    form.password.addEventListener('input', validatePasswordConfirmation);
+    confirmPassword.addEventListener('input', validatePasswordConfirmation);
 
     form.addEventListener('submit', function (event) {
         event.preventDefault();
+        if (!validatePasswordConfirmation()) {
+            confirmPassword.reportValidity();
+            return;
+        }
+
         message.textContent = 'Creating your account...';
         message.className = 'form-message';
 
