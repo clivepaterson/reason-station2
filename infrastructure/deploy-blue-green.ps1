@@ -13,7 +13,9 @@ param(
     [string]$DomainName = "reasonstation2.net",
     [string]$HostedZoneId,
     [string]$SesIdentity = "reasonstation2.net",
-    [string]$SesFromAddress = "no-reply@reasonstation2.net"
+    [string]$SesFromAddress = "no-reply@reasonstation2.net",
+    [ValidatePattern("^[^\s@]+@[^\s@]+\.[^\s@]+$")]
+    [string]$AlertEmail = "alerts@reasonstation2.net"
 )
 
 $ErrorActionPreference = "Stop"
@@ -325,5 +327,10 @@ Invoke-NativeCommand aws @(
     "BakeTimeInMinutes=$BakeTimeInMinutes",
     "--no-fail-on-empty-changeset"
 )
+
+& (Join-Path $PSScriptRoot "deploy-monitoring.ps1") `
+    -Region $Region `
+    -StackPrefix $StackPrefix `
+    -AlertEmail $AlertEmail
 
 Write-Host "Blue/green deployment completed: https://$DomainName"

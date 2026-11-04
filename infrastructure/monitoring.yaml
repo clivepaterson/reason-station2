@@ -1,0 +1,358 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Emails Reason Station ECS CPU and PostgreSQL capacity and failure alerts -
+  separate monitoring resources avoid restarting workloads.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: native ECS and RDS metrics -> CloudWatch alarms -> encrypted SNS -> email
+    must:
+      - Use native metrics without enabling paid Container Insights or Enhanced Monitoring
+      - Email recipients must confirm their SNS subscription before delivery starts
+      - Monitoring must not modify the ECS service or database
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Default: alerts@reasonstation2.net
+    AllowedPattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+    Description: Recipient must confirm the SNS subscription email after deployment.
+  ClusterName:
+    Type: String
+    MinLength: 1
+    Description: Existing Fargate cluster name.
+  ServiceName:
+    Type: String
+    MinLength: 1
+    Description: Existing ECS service name, not its ARN.
+  DatabaseInstanceIdentifier:
+    Type: String
+    MinLength: 1
+    Description: Existing PostgreSQL DB instance identifier, not its endpoint or ARN.
+  DatabaseConnectionsThreshold:
+    Type: Number
+    Default: 60
+    MinValue: 1
+    Description: Conservative absolute limit; tune after querying SHOW max_connections.
+  DatabaseCpuCreditThreshold:
+    Type: Number
+    Default: 20
+    MinValue: 0
+    Description: Low earned CPU-credit balance for the burstable db.t4g instance.
+
+Resources:
+  AlertKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: service publishers need a customer-managed key to deliver to encrypted SNS
+        must:
+          - Keep CloudWatch and RDS publisher access when rotating or changing this key
+          - Retain the key to avoid making existing encrypted messages unreadable
+    Properties:
+      Description: !Sub "${AWS::StackName} alert notification encryption"
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EnableAccountPermissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: AllowCloudWatchAlarms
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${AWS::StackName}-*"
+          - Sid: AllowDatabaseEvents
+            Effect: Allow
+            Principal:
+              Service: events.rds.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:es:${AWS::StackName}-database-events"
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: one email destination for capacity alarms, recoveries, and database events
+        must:
+          - Keep encryption compatible with both CloudWatch and RDS publishers
+    Properties:
+      KmsMasterKeyId: !GetAtt AlertKey.Arn
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+  AlertTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: permits only this stack's alarms and RDS event subscription to publish as services
+        must:
+          - Preserve account and source ARN restrictions on publisher grants
+    Properties:
+      Topics:
+        - !Ref AlertTopic
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudWatchAlarms
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref AlertTopic
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${AWS::StackName}-*"
+          - Sid: AllowDatabaseEvents
+            Effect: Allow
+            Principal:
+              Service: events.rds.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref AlertTopic
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnEquals:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:es:${AWS::StackName}-database-events"
+
+  AlertEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  EcsCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: sustained service CPU above half its allocated capacity is the agreed early warning
+        must:
+          - Scope native ECS utilization to both cluster and service names
+          - Do not attach scaling or workload-changing actions
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-ecs-cpu-high"
+      AlarmDescription: ECS service average CPU exceeds 50% for three consecutive minutes.
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ClusterName
+        - Name: ServiceName
+          Value: !Ref ServiceName
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 50
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: missing
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  DatabaseCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: sustained high CPU warns of database compute saturation
+        must:
+          - Scope the metric to the existing DB instance identifier
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-database-cpu-high"
+      AlarmDescription: PostgreSQL average CPU exceeds 80% for three consecutive minutes.
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DatabaseInstanceIdentifier
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: missing
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  DatabaseStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: reserves 20 percent headroom on the current fixed 20 GiB volume
+        must:
+          - Revisit the absolute byte threshold if allocated storage changes
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-database-storage-low"
+      AlarmDescription: PostgreSQL free storage stays below 4 GiB for three consecutive minutes.
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DatabaseInstanceIdentifier
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 4294967296
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: missing
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  DatabaseMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: low available memory warns of pressure on the small database instance
+        must:
+          - Use FreeableMemory rather than OS cache-inclusive used memory
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-database-memory-low"
+      AlarmDescription: PostgreSQL freeable memory stays below 128 MiB for three consecutive minutes.
+      Namespace: AWS/RDS
+      MetricName: FreeableMemory
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DatabaseInstanceIdentifier
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 134217728
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: missing
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  DatabaseConnectionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: agreed conservative connection count avoids assuming the effective max_connections formula result
+        must:
+          - Do not describe the absolute count as a verified percentage of max_connections
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-database-connections-high"
+      AlarmDescription: !Sub "PostgreSQL connections exceed ${DatabaseConnectionsThreshold} for three consecutive minutes."
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DatabaseInstanceIdentifier
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: !Ref DatabaseConnectionsThreshold
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: missing
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  DatabaseCpuCreditsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: low earned burst credits warn of surplus-credit charges on the T4g database
+        must:
+          - Credit metrics publish only every five minutes
+          - Revisit this alarm if the database moves to a non-burstable instance class
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-database-cpu-credits-low"
+      AlarmDescription: !Sub "PostgreSQL CPU credit balance stays below ${DatabaseCpuCreditThreshold} for three consecutive five-minute periods."
+      Namespace: AWS/RDS
+      MetricName: CPUCreditBalance
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DatabaseInstanceIdentifier
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: !Ref DatabaseCpuCreditThreshold
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: missing
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  DatabaseEvents:
+    Type: AWS::RDS::EventSubscription
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: failure and availability events complement utilization metrics during outages
+        must:
+          - Keep source IDs restricted to this application's database
+          - Subscription name must match the SNS and KMS policy source ARN
+    Properties:
+      SubscriptionName: !Sub "${AWS::StackName}-database-events"
+      Enabled: true
+      SourceType: db-instance
+      SourceIds:
+        - !Ref DatabaseInstanceIdentifier
+      EventCategories:
+        - failure
+        - low storage
+        - availability
+        - recovery
+        - failover
+      SnsTopicArn: !Ref AlertTopic
+      Tags:
+        - Key: Application
+          Value: reasonstation
+
+Outputs:
+  AlertTopicArn:
+    Description: Encrypted SNS topic for alert and recovery notifications.
+    Value: !Ref AlertTopic
+  SubscriptionNotice:
+    Description: Email delivery requires recipient confirmation.
+    Value: !Sub "Confirm the AWS SNS subscription sent to ${AlertEmail}."
