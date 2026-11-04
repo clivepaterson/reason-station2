@@ -57,9 +57,9 @@
             cells: function(item) {
                 return [
                     artistLink(item.artistAlias),
-                    item.patchName,
+                    patchLink(item, item.patchName),
                     item.description || '',
-                    item.filename,
+                    patchLink(item, item.filename),
                     item.ext || '',
                     formatDate(item.dateUploaded),
                     window.createCatalogDownloadLink(
@@ -82,7 +82,15 @@
             .text(label);
     }
 
+    function patchLink(patch, label) {
+        return $('<a>')
+            .addClass('patch-detail-link')
+            .attr('href', '/patches/' + encodeURIComponent(patch.patchid))
+            .text(label);
+    }
+
     window.createCatalogDownloadLink = function(type, id, name, filename) {
+        var resource = type === 'patch' ? 'patches' : 'tracks';
         var icon = $('<img>')
             .attr({
                 src: '/images/download.svg',
@@ -91,7 +99,7 @@
         return $('<a>')
             .addClass('catalog-download-link')
             .attr({
-                href: '/api/' + type + 's/' + encodeURIComponent(id) + '/download',
+                href: '/api/' + resource + '/' + encodeURIComponent(id) + '/download',
                 'aria-label': 'Download ' + type + ' ' + name,
                 title: 'Download ' + type,
                 download: filename || ''

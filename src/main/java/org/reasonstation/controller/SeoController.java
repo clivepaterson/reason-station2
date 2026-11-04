@@ -1,6 +1,8 @@
 package org.reasonstation.controller;
 
 import org.reasonstation.entity.Track;
+import org.reasonstation.entity.Patch;
+import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,12 +32,14 @@ public class SeoController {
             "Discover, share, and download Reason music projects while learning sound synthesis techniques from other artists.";
 
     private final TrackRepository tracks;
+    private final PatchRepository patches;
     private final ObjectMapper objectMapper;
     private final String baseUrl;
 
-    public SeoController(TrackRepository tracks, ObjectMapper objectMapper,
+    public SeoController(TrackRepository tracks, PatchRepository patches, ObjectMapper objectMapper,
                          @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
         this.tracks = tracks;
+        this.patches = patches;
         this.objectMapper = objectMapper;
         this.baseUrl = baseUrl.replaceAll("/+$", "");
     }
@@ -48,7 +52,19 @@ public class SeoController {
         }
         return tracks.findWithRatingById(trackid)
                 .map(track -> ResponseEntity.ok(trackHtml(track)))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(notFoundHtml()));
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(notFoundHtml("Track", "tracks")));
+    }
+
+    @GetMapping(value = "/patches/{patchid}", produces = MediaType.TEXT_HTML_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> patchPage(@PathVariable Long patchid) {
+        if (patchid == null || patchid < 1) {
+            return ResponseEntity.badRequest().body("Patch ID must be a positive integer.");
+        }
+        return patches.findById(patchid)
+                .map(patch -> ResponseEntity.ok(patchHtml(patch)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(notFoundHtml("Patch", "patches")));
     }
 
     @GetMapping(value = "/sitemap.xml", produces = MediaType.APPLICATION_XML_VALUE)
@@ -73,6 +89,14 @@ public class SeoController {
                                 : DateTimeFormatter.ISO_LOCAL_DATE
                                         .withZone(java.time.ZoneOffset.UTC)
                                         .format(track.getDateUploaded())));
+        StreamSupport.stream(patches.findAll().spliterator(), false)
+                .forEach(patch -> appendSitemapUrl(
+                        xml,
+                        baseUrl + "/patches/" + patch.getPatchid(),
+                        patch.getDateUploaded() == null ? null
+                                : DateTimeFormatter.ISO_LOCAL_DATE
+                                        .withZone(java.time.ZoneOffset.UTC)
+                                        .format(patch.getDateUploaded())));
         return xml.append("</urlset>\n").toString();
     }
 
@@ -221,26 +245,133 @@ public class SeoController {
                 track.trackid(), trackName, artistAlias, ratingTrackData);
     }
 
-    private String notFoundHtml() {
+    private String patchHtml(Patch patch) {
+        String canonicalUrl = baseUrl + "/patches/" + patch.getPatchid();
+        String imageUrl = patch.getPatchImgUri() == null
+                ? baseUrl + "/images/logo_by_chatgpt.jpg"
+                : baseUrl + "/api/patches/" + patch.getPatchid() + "/image";
+        String description = "Download " + patch.getPatchName() + " by " + patch.getArtistAlias()
+                + ", a Reason patch shared on Reason Station."
+                + (patch.getDescription() == null ? "" : " " + patch.getDescription());
+        String title = escape(patch.getPatchName() + " by " + patch.getArtistAlias() + " | Reason Station");
+        String artistUrl = "/index.html?artistAlias="
+                + UriUtils.encodeQueryParam(patch.getArtistAlias(), StandardCharsets.UTF_8);
+        String downloadUrl = "/api/patches/" + patch.getPatchid() + "/download";
+        Map<String, Object> structuredData = new LinkedHashMap<>();
+        structuredData.put("@context", "https://schema.org");
+        structuredData.put("@type", "CreativeWork");
+        structuredData.put("name", patch.getPatchName());
+        structuredData.put("url", canonicalUrl);
+        structuredData.put("description", description);
+        structuredData.put("image", imageUrl);
+        structuredData.put("author", Map.of("@type", "Person", "name", patch.getArtistAlias(),
+                "url", baseUrl + artistUrl));
+        if (patch.getDateUploaded() != null) {
+            structuredData.put("datePublished", DateTimeFormatter.ISO_INSTANT.format(patch.getDateUploaded()));
+        }
+        Map<String, Object> encoding = new LinkedHashMap<>();
+        encoding.put("@type", "MediaObject");
+        encoding.put("name", patch.getFilename());
+        encoding.put("contentUrl", baseUrl + downloadUrl);
+        if (patch.getFilesize() != null) {
+            encoding.put("contentSize", patch.getFilesize() + " bytes");
+        }
+        structuredData.put("encoding", encoding);
         return """
                 <!DOCTYPE html>
                 <html lang="en">
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Track not found | Reason Station</title>
+                    <title>%s</title>
+                    <meta name="description" content="%s">
+                    <meta name="author" content="%s">
+                    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+                    <link rel="canonical" href="%s">
+                    <link rel="icon" href="/images/logo_by_chatgpt.jpg" type="image/jpeg">
+                    <meta property="og:type" content="article">
+                    <meta property="og:site_name" content="Reason Station">
+                    <meta property="og:title" content="%s">
+                    <meta property="og:description" content="%s">
+                    <meta property="og:url" content="%s">
+                    <meta property="og:image" content="%s">
+                    <meta property="og:image:alt" content="%s">
+                    <meta name="twitter:card" content="summary_large_image">
+                    <meta name="twitter:title" content="%s">
+                    <meta name="twitter:description" content="%s">
+                    <meta name="twitter:image" content="%s">
+                    <script type="application/ld+json">%s</script>
+                    <link rel="stylesheet" href="/css/styles.css">
+                </head>
+                <body class="site-page patch-detail-page">
+                    <header class="navbar track-detail-header">
+                        <div class="container">
+                            <a class="logo-title" href="/index.html" aria-label="Reason Station home">
+                                <img src="/images/logo_by_chatgpt.jpg" alt="">
+                                <span>Reason <b>Station</b></span><span id="header-rs-2">2</span>
+                            </a>
+                        </div>
+                    </header>
+                    <main class="container track-detail-main">
+                        <nav class="track-detail-breadcrumb" aria-label="Breadcrumb">
+                            <a href="/index.html">Home</a><span aria-hidden="true">/</span>
+                            <a href="/index.html?view=patches">Patches</a>
+                        </nav>
+                        <article class="track-card track-detail-card patch-card">
+                            <div class="track-card-content">
+                                <h1>%s</h1>
+                                <a class="track-artist-link" href="%s">by %s</a>
+                                %s
+                                <p class="patch-description">%s</p>
+                                <a class="track-file-meta" href="%s">%s</a>
+                                <div class="patch-card-meta">
+                                    <span>Format: %s</span>
+                                    %s
+                                    %s
+                                </div>
+                            </div>
+                            <div class="track-card-actions">
+                                <a class="download-track-link" href="%s">Download patch</a>
+                            </div>
+                        </article>
+                    </main>
+                    <script src="/js/image_zoom.js"></script>
+                </body>
+                </html>
+                """.formatted(
+                title, escape(description), escape(patch.getArtistAlias()), escape(canonicalUrl),
+                title, escape(description), escape(canonicalUrl), escape(imageUrl),
+                escape(patch.getPatchName()), title, escape(description), escape(imageUrl), toJson(structuredData),
+                escape(patch.getPatchName()), escape(artistUrl), escape(patch.getArtistAlias()),
+                patch.getPatchImgUri() == null ? "" : "<img class=\"patch-detail-image\" src=\""
+                        + escape(imageUrl) + "\" alt=\"Image for " + escape(patch.getPatchName()) + "\">",
+                escape(patch.getDescription()), downloadUrl, escape(patch.getFilename()), escape(patch.getExt()),
+                patch.getFilesize() == null ? "" : "<span>Size: " + patch.getFilesize() + " bytes</span>",
+                patch.getDateUploaded() == null ? "" : "<time datetime=\"" + patch.getDateUploaded()
+                        + "\">Uploaded: " + DateTimeFormatter.ISO_LOCAL_DATE.withZone(java.time.ZoneOffset.UTC)
+                        .format(patch.getDateUploaded()) + "</time>", downloadUrl);
+    }
+
+    private String notFoundHtml(String type, String catalog) {
+        return """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>%s not found | Reason Station</title>
                     <meta name="robots" content="noindex, follow">
                     <link rel="stylesheet" href="/css/styles.css">
                 </head>
                 <body class="account-page">
                     <main class="account-card">
-                        <h1>Track not found</h1>
-                        <p>This track may have been removed.</p>
-                        <a class="cta-button" href="/index.html?view=tracks">Browse tracks</a>
+                        <h1>%s not found</h1>
+                        <p>This %s may have been removed.</p>
+                        <a class="cta-button" href="/index.html?view=%s">Browse %s</a>
                     </main>
                 </body>
                 </html>
-                """;
+                """.formatted(type, type, type.toLowerCase(java.util.Locale.ROOT), catalog, catalog);
     }
 
     private void appendSitemapUrl(StringBuilder xml, String location, String lastModified) {
@@ -255,7 +386,7 @@ public class SeoController {
         try {
             return objectMapper.writeValueAsString(value).replace("</", "<\\/");
         } catch (JacksonException exception) {
-            throw new IllegalStateException("Unable to create track structured data.", exception);
+            throw new IllegalStateException("Unable to create structured data.", exception);
         }
     }
 

@@ -684,6 +684,10 @@ body {
     }
 }
 
+#upload-patch-form {
+    width: min(650px, calc(100% - 2rem));
+}
+
 .upload-dialog-backdrop {
     position: fixed;
     inset: 0;
@@ -900,6 +904,39 @@ body.site-page .track-detail-main {
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+}
+
+.patch-card-image {
+    object-fit: contain;
+}
+
+img[data-image-zoom] {
+    cursor: zoom-in;
+
+    &:focus-visible {
+        outline: 3px solid $secondary-color;
+        outline-offset: 3px;
+    }
+}
+
+.patch-detail-image {
+    display: block;
+    max-width: 100%;
+    max-height: 400px;
+    margin: 1rem 0;
+    object-fit: contain;
+}
+
+.patch-description {
+    overflow-wrap: anywhere;
+}
+
+.patch-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    color: #376e78;
+    font-size: 0.9rem;
 }
 
 .track-style-badge {

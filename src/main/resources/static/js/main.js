@@ -282,7 +282,7 @@ $(document).ready(async function() {
         }
     }
 
-    $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .catalog-table a:not(.catalog-download-link):not(.track-detail-link), .tutorial-card, .tutorial-back-link',
+    $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .catalog-table a:not(.catalog-download-link):not(.track-detail-link):not(.patch-detail-link), .tutorial-card, .tutorial-back-link',
         navigateInternalLink);
     $('#my-tracks-link, #tutorials-link, #links-link, #about-link, #artists-link, #tracks-link, #patches-link')
         .on('click', navigateInternalLink);

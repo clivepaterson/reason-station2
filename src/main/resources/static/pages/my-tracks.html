@@ -95,7 +95,7 @@
             <label for="track-file">Reason file</label>
             <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason"
                    aria-describedby="track-file-extensions" multiple required>
-            <small id="track-file-extensions" class="privacy-note">Allowed extensions: .rps, .rns, .reason</small>
+            <small id="track-file-extensions" class="privacy-note">Allowed extensions: .rps, .rns, .reason. Maximum size: 80 MB.</small>
             <button class="cta-button" type="submit">Upload</button>
             <p id="upload-status" class="form-message" aria-live="polite"></p>
         </form>
@@ -124,7 +124,13 @@
             <small id="patch-file-extensions" class="privacy-note">
                 Allowed extensions: .sxt, .xwv, .smp, .drex, .drum, .rv7, .sm4, .echo,
                 .pulver, .gator, .cmb, .thor, .kong, .drp, .zyp, .patch,
-                .repatch, .sf2, .rx2, .rcy, .rex
+                .repatch, .sf2, .rx2, .rcy, .rex. Maximum size: 30 MB.
+            </small>
+            <label for="patch-image">Patch image <span class="privacy-note">(optional)</span></label>
+            <input id="patch-image" name="image" type="file" accept=".jpg,.jpeg,.png,.bmp,.gif"
+                   aria-describedby="patch-image-extensions">
+            <small id="patch-image-extensions" class="privacy-note">
+                Allowed extensions: .jpg, .jpeg, .png, .bmp, .gif. Maximum size: 30 MB.
             </small>
             <button class="cta-button" type="submit">Upload</button>
             <p id="patch-upload-status" class="form-message" aria-live="polite"></p>
@@ -133,6 +139,11 @@
         <section>
             <h2>Uploaded tracks</h2>
             <div id="tracks-list" class="tracks-list"></div>
+        </section>
+        <section>
+            <h2>Uploaded patches</h2>
+            <p id="my-patches-status" aria-live="polite"></p>
+            <div id="my-patches-list" class="tracks-list"></div>
         </section>
     </div>
 </section>

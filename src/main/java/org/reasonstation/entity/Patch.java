@@ -35,6 +35,9 @@ public class Patch {
     @Column("patch_uri")
     private String patchUri;
 
+    @Column("patch_img_uri")
+    private String patchImgUri;
+
     @Column("date_uploaded")
     private Instant dateUploaded = Instant.now();
 
@@ -127,6 +130,14 @@ public class Patch {
 
     public Instant getDateUploaded() {
         return dateUploaded;
+    }
+
+    public String getPatchImgUri() {
+        return patchImgUri;
+    }
+
+    public void setPatchImgUri(String patchImgUri) {
+        this.patchImgUri = patchImgUri;
     }
 
     public void setDateUploaded(Instant dateUploaded) {

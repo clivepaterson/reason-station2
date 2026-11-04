@@ -143,6 +143,7 @@ public class DiscoveryController {
                         patch.getFilename(),
                         patch.getExt(),
                         patch.getFilesize(),
+                        patch.getPatchImgUri(),
                         patch.getDateUploaded()))
                 .toList());
     }
@@ -240,6 +241,7 @@ public class DiscoveryController {
             String filename,
             String ext,
             Long filesize,
+            String patchImgUri,
             java.time.Instant dateUploaded) {
     }
 }

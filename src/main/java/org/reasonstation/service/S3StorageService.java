@@ -65,6 +65,19 @@ public class S3StorageService {
         return URI.create(presigner.presignGetObject(presignRequest).url().toString());
     }
 
+    public URI createImageUrl(String objectUri) {
+        URI uri = URI.create(objectUri);
+        GetObjectRequest request = GetObjectRequest.builder()
+                .bucket(uri.getHost())
+                .key(uri.getPath().substring(1))
+                .responseContentDisposition("inline")
+                .build();
+        return URI.create(presigner.presignGetObject(GetObjectPresignRequest.builder()
+                .signatureDuration(downloadUrlTtl)
+                .getObjectRequest(request)
+                .build()).url().toString());
+    }
+
     public void delete(String trackUri) {
         URI uri = URI.create(trackUri);
         client.deleteObject(DeleteObjectRequest.builder()

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Map;
@@ -24,6 +25,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import javax.imageio.IIOException;
+import javax.imageio.ImageIO;
 
 @RestController
 @RequestMapping("/api/patches")
@@ -33,6 +36,8 @@ public class PatchController {
     private static final int MAX_DESCRIPTION_LENGTH = 200;
     private static final int MAX_FILENAME_LENGTH = 255;
     private static final long MAX_FILE_SIZE = 30L * 1024 * 1024;
+    private static final Map<String, String> IMAGE_TYPES = Map.of(
+            ".jpg", "jpeg", ".jpeg", "jpeg", ".png", "png", ".bmp", "bmp", ".gif", "gif");
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             ".sxt", ".xwv", ".smp", ".drex", ".drum", ".rv7", ".sm4", ".echo",
             ".pulver", ".gator", ".cmb", ".thor", ".kong", ".drp", ".zyp", ".patch",
@@ -50,6 +55,16 @@ public class PatchController {
         this.patches = patches;
         this.users = users;
         this.storage = storage;
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> myPatches(Authentication authentication) {
+        return users.findByAlias(authentication.getName())
+                .map(user -> ResponseEntity.ok(
+                        patches.findByUseridOrderByDateUploadedDesc(user.getUserid()).stream()
+                                .map(PatchResponse::from)
+                                .toList()))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{patchid}/download")
@@ -71,13 +86,30 @@ public class PatchController {
                 .build();
     }
 
+    @GetMapping("/{patchid}/image")
+    public ResponseEntity<?> patchImage(@PathVariable Long patchid) {
+        if (patchid == null || patchid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Patch ID must be a positive integer."));
+        }
+        Optional<Patch> patch = patches.findById(patchid);
+        if (patch.isEmpty() || patch.get().getPatchImgUri() == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Patch image not found."));
+        }
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(storage.createImageUrl(patch.get().getPatchImgUri()))
+                .build();
+    }
+
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadPatch(
             Authentication authentication,
             @RequestParam("artistAlias") String artistAlias,
             @RequestParam("patchName") String patchName,
             @RequestParam(value = "description", defaultValue = "") String description,
-            @RequestParam("file") MultipartFile file) throws IOException {
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "image", required = false) MultipartFile image) throws IOException {
         Optional<User> currentUser = users.findByAlias(authentication.getName());
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -127,12 +159,62 @@ public class PatchController {
                     .body(Map.of("error", "The selected file type is not a supported patch format."));
         }
 
+        byte[] imageBytes = null;
+        String imageFormat = null;
+        if (image != null && !image.isEmpty()) {
+            String imageFilename = image.getOriginalFilename();
+            imageFormat = IMAGE_TYPES.get(getExtension(imageFilename));
+            if (imageFilename == null || imageFilename.length() > MAX_FILENAME_LENGTH
+                    || imageFilename.contains("/") || imageFilename.contains("\\")
+                    || image.getSize() > MAX_FILE_SIZE || imageFormat == null) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "Choose a .jpg, .jpeg, .png, .bmp, or .gif image no larger than 30 MB."));
+            }
+            imageBytes = image.getBytes();
+            try (var input = ImageIO.createImageInputStream(new ByteArrayInputStream(imageBytes))) {
+                var readers = ImageIO.getImageReaders(input);
+                if (!readers.hasNext()) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "The image file is invalid."));
+                }
+                var reader = readers.next();
+                try {
+                    if (!imageFormat.equalsIgnoreCase(reader.getFormatName())) {
+                        return ResponseEntity.badRequest().body(Map.of("error",
+                                "The image content must match its file extension."));
+                    }
+                    reader.setInput(input);
+                    reader.getWidth(0);
+                    reader.getHeight(0);
+                } finally {
+                    reader.dispose();
+                }
+            } catch (IIOException exception) {
+                return ResponseEntity.badRequest().body(Map.of("error", "The image file is invalid."));
+            }
+        }
+
         String patchUri = storage.upload(
                 "patches/" + UUID.randomUUID(), file.getBytes(), file.getContentType());
         Patch patch = new Patch(currentUser.get().getUserid(), trimmedArtistAlias, trimmedPatchName,
                 trimmedDescription.isEmpty() ? null : trimmedDescription,
                 filename, extension, file.getSize(), patchUri);
-        return ResponseEntity.status(HttpStatus.CREATED).body(PatchResponse.from(patches.save(patch)));
+        try {
+            if (imageBytes != null) {
+                patch.setPatchImgUri(storage.upload(
+                        "patch-images/" + UUID.randomUUID(), imageBytes, "image/" + imageFormat));
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(PatchResponse.from(patches.save(patch)));
+        } catch (RuntimeException exception) {
+            try {
+                storage.delete(patchUri);
+                if (patch.getPatchImgUri() != null) {
+                    storage.delete(patch.getPatchImgUri());
+                }
+            } catch (RuntimeException cleanupException) {
+                exception.addSuppressed(cleanupException);
+            }
+            throw exception;
+        }
     }
 
     private String getExtension(String filename) {
@@ -148,10 +230,12 @@ public class PatchController {
 
     private record PatchResponse(Long patchid, String artistAlias, String patchName, String description,
                                  String filename, String ext, Long filesize,
+                                 String patchImgUri,
                                  java.time.Instant dateUploaded) {
         private static PatchResponse from(Patch patch) {
             return new PatchResponse(patch.getPatchid(), patch.getArtistAlias(), patch.getPatchName(),
                     patch.getDescription(), patch.getFilename(), patch.getExt(), patch.getFilesize(),
+                    patch.getPatchImgUri(),
                     patch.getDateUploaded());
         }
     }

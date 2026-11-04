@@ -12,6 +12,8 @@ window.initializeMyTracks = function() {
     var uploadDialogBackdrop = $('#upload-dialog-backdrop');
     var tracksStatus = $('#tracks-status');
     var tracksList = $('#tracks-list');
+    var patchesStatus = $('#my-patches-status');
+    var patchesList = $('#my-patches-list');
     var uploadSubmitButton = uploadForm.find('button[type="submit"]');
     var verificationNotice = $('#verification-notice');
     var resendVerificationLink = $('#resend-verification-email');
@@ -65,6 +67,38 @@ window.initializeMyTracks = function() {
             .then(showTracks);
     }
 
+    function loadPatches() {
+        patchesStatus.text('Loading your patches...');
+        return fetch('/api/patches/me')
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Unable to load your patches.');
+                }
+                return response.json();
+            })
+            .then(function(patches) {
+                patchesList.empty();
+                patchesStatus.text('');
+                if (patches.length === 0) {
+                    patchesList.append($('<p>').text('You have not uploaded any patches yet.'));
+                    return;
+                }
+                patches.forEach(function(patch) {
+                    patchesList.append(window.createPatchCard(patch));
+                });
+            });
+    }
+
+    function showPatchesError(error) {
+        patchesStatus.text(error.message);
+    }
+
+    function refreshPatchesIfVisible() {
+        if (!$('#my-tracks-page').is('[hidden]')) {
+            loadPatches().catch(showPatchesError);
+        }
+    }
+
     function refreshTracksIfVisible() {
         if ($('#my-tracks-page').is('[hidden]')) {
             return;
@@ -92,11 +126,18 @@ window.initializeMyTracks = function() {
                 uploadPatchButton.attr('hidden', true);
                 verificationNotice.removeAttr('hidden');
             }
-            return loadTracks();
+            return Promise.all([
+                loadTracks().catch(function(error) {
+                    tracksStatus.text(error.message);
+                }),
+                loadPatches().catch(showPatchesError)
+            ]);
         })
         .catch(function(error) {
             tracksStatus.text(error.message);
             tracksList.empty();
+            patchesList.empty();
+            patchesStatus.text('');
             uploadButton.attr('hidden', true);
             uploadPatchButton.attr('hidden', true);
             closeUploadForm();
@@ -313,12 +354,15 @@ window.initializeMyTracks = function() {
         });
     }
 
-    function uploadPatch(file, artistAlias, patchName, description) {
+    function uploadPatch(file, artistAlias, patchName, description, image) {
         var formData = new FormData();
         formData.append('artistAlias', artistAlias);
         formData.append('patchName', patchName);
         formData.append('description', description);
         formData.append('file', file);
+        if (image) {
+            formData.append('image', image);
+        }
 
         if (activeUploads === 0) {
             uploadingItems.empty();
@@ -367,6 +411,7 @@ window.initializeMyTracks = function() {
                 if (request.status >= 200 && request.status < 300) {
                     progress.val(100);
                     status.text('Complete');
+                    refreshPatchesIfVisible();
                     resolve({success: true});
                 } else {
                     var errorMessage = 'Unable to upload "' + file.name + '".';
@@ -407,6 +452,7 @@ window.initializeMyTracks = function() {
     uploadPatchForm.off('submit.siteTracks').on('submit.siteTracks', function(event) {
         event.preventDefault();
         var file = $('#patch-file')[0].files[0];
+        var image = $('#patch-image')[0].files[0];
         var artistAlias = $('#patch-artist-alias').val().trim();
         var patchName = $('#patch-name').val().trim();
         var description = $('#patch-description').val();
@@ -429,12 +475,19 @@ window.initializeMyTracks = function() {
             return;
         }
 
+        if (image && (!/\.(jpe?g|png|bmp|gif)$/i.test(image.name)
+                || image.size > 30 * 1024 * 1024)) {
+            patchUploadStatus.removeClass('success').addClass('error')
+                .text('Choose a .jpg, .jpeg, .png, .bmp, or .gif image no larger than 30 MB.');
+            return;
+        }
+
         submitButton.prop('disabled', true);
         patchUploadStatus.removeClass('error success').text('Uploading...');
         uploadPatchForm.attr('hidden', true);
         uploadDialogBackdrop.attr('hidden', true);
 
-        uploadPatch(file, artistAlias, patchName, description.replace(/\r\n|\r|\n/g, ' '))
+        uploadPatch(file, artistAlias, patchName, description.replace(/\r\n|\r|\n/g, ' '), image)
             .then(function(result) {
                 if (!result.success) {
                     throw new Error(result.message);

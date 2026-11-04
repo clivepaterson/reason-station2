@@ -37,6 +37,12 @@ class S3StorageServiceTest {
             assertEquals("/tracks/tracks/song", downloadUrl.getPath());
             assertTrue(downloadUrl.getRawQuery().contains("response-content-disposition="));
             assertTrue(downloadUrl.getRawQuery().contains("X-Amz-Signature="));
+
+            URI imageUrl = storage.createImageUrl("s3://tracks/patch-images/image");
+            assertEquals("/tracks/patch-images/image", imageUrl.getPath());
+            assertTrue(imageUrl.getRawQuery().contains("response-content-disposition=inline"));
+            assertTrue(imageUrl.getRawQuery().contains("X-Amz-Signature="));
+            assertTrue(!imageUrl.getRawQuery().contains("response-content-type="));
         }
     }
 }

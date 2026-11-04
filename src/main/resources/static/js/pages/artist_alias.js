@@ -7,15 +7,14 @@ window.initializeArtistPage = function() {
     var patchesList = document.getElementById('artist-patches');
     var patchesLoading = document.getElementById('artist-patches-loading');
     var patchesMessage = document.getElementById('artist-patches-message');
-    var patchesTable = document.getElementById('artist-patches-table');
-    var patchesTableBody = patchesTable.querySelector('tbody');
+    var patchCards = document.getElementById('artist-patches-list');
 
     if (!artistAlias) {
         heading.textContent = 'Artist not found';
         tracksList.replaceChildren();
         tracksList.hidden = false;
         tracksLoading.hidden = true;
-        patchesTableBody.replaceChildren();
+        patchCards.replaceChildren();
         patchesList.hidden = true;
         patchesLoading.hidden = true;
         return;
@@ -66,43 +65,14 @@ window.initializeArtistPage = function() {
             return response.json();
         })
         .then(function(patches) {
-            patchesTableBody.replaceChildren();
+            patchCards.replaceChildren();
             patchesMessage.hidden = true;
-            patchesTable.hidden = false;
+            patchCards.hidden = false;
             if (patches.length === 0) {
-                var emptyCell = document.createElement('td');
-                emptyCell.className = 'catalog-empty';
-                emptyCell.colSpan = 6;
-                emptyCell.textContent = 'No patches found.';
-                var emptyRow = document.createElement('tr');
-                emptyRow.appendChild(emptyCell);
-                patchesTableBody.appendChild(emptyRow);
+                patchCards.appendChild(document.createElement('p')).textContent = 'No patches found.';
             } else {
                 patches.forEach(function(patch) {
-                    var values = [
-                        patch.patchName,
-                        patch.description || '',
-                        patch.filename,
-                        patch.ext || '',
-                        patch.dateUploaded
-                            ? new Intl.DateTimeFormat(undefined, {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                            }).format(new Date(patch.dateUploaded))
-                            : ''
-                    ];
-                    var row = document.createElement('tr');
-                    values.forEach(function(value) {
-                        var cell = document.createElement('td');
-                        cell.textContent = value;
-                        row.appendChild(cell);
-                    });
-                    var downloadCell = document.createElement('td');
-                    downloadCell.appendChild(window.createCatalogDownloadLink(
-                        'patch', patch.patchid, patch.patchName, patch.filename)[0]);
-                    row.appendChild(downloadCell);
-                    patchesTableBody.appendChild(row);
+                    patchCards.appendChild(window.createPatchCard(patch));
                 });
             }
             patchesList.hidden = false;
@@ -110,8 +80,8 @@ window.initializeArtistPage = function() {
             patchesLoading.hidden = true;
         })
         .catch(function() {
-            patchesTableBody.replaceChildren();
-            patchesTable.hidden = true;
+            patchCards.replaceChildren();
+            patchCards.hidden = true;
             patchesMessage.textContent = 'Unable to load artist patches.';
             patchesMessage.hidden = false;
             patchesList.hidden = false;

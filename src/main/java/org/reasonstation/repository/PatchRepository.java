@@ -8,5 +8,7 @@ import java.util.List;
 
 @Repository
 public interface PatchRepository extends CrudRepository<Patch, Long> {
+    List<Patch> findByUseridOrderByDateUploadedDesc(Long userid);
+
     List<Patch> findByArtistAliasOrderByDateUploadedDesc(String artistAlias);
 }

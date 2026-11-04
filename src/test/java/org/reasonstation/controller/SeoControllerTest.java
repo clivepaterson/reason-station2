@@ -6,6 +6,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.entity.Track;
+import org.reasonstation.entity.Patch;
+import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.springframework.http.HttpStatus;
@@ -24,12 +26,14 @@ import static org.mockito.Mockito.when;
 class SeoControllerTest {
     @Mock
     private TrackRepository tracks;
+    @Mock
+    private PatchRepository patches;
 
     private SeoController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new SeoController(tracks, new ObjectMapper(), "https://reasonstation.example/");
+        controller = new SeoController(tracks, patches, new ObjectMapper(), "https://reasonstation.example/");
     }
 
     @Test
@@ -73,14 +77,78 @@ class SeoControllerTest {
         track.setTrackid(42L);
         track.setDateUploaded(Instant.parse("2026-11-03T10:15:30Z"));
         when(tracks.findAll()).thenReturn(List.of(track));
+        when(patches.findAll()).thenReturn(List.of(patch()));
 
         String sitemap = controller.sitemap();
 
         assertTrue(sitemap.contains("<loc>https://reasonstation.example/index.html</loc>"));
         assertTrue(sitemap.contains("<loc>https://reasonstation.example/tracks/42</loc>"));
         assertTrue(sitemap.contains("<lastmod>2026-11-03</lastmod>"));
+        assertTrue(sitemap.contains("<loc>https://reasonstation.example/patches/15</loc>"));
         assertTrue(controller.robots().contains(
                 "Sitemap: https://reasonstation.example/sitemap.xml"));
+    }
+
+    @Test
+    void rendersPatchMetadataAndAllPublicDetails() {
+        when(patches.findById(15L)).thenReturn(Optional.of(patch()));
+
+        var response = controller.patchPage(15L);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        String html = response.getBody();
+        assertTrue(html.contains("<title>Warm &amp; Deep by A &amp; B | Reason Station</title>"));
+        assertTrue(html.contains("<link rel=\"canonical\" href=\"https://reasonstation.example/patches/15\">"));
+        assertTrue(html.contains("\"@type\":\"CreativeWork\""));
+        assertTrue(html.contains("content=\"https://reasonstation.example/api/patches/15/image\""));
+        assertTrue(html.contains("href=\"/api/patches/15/download\""));
+        assertTrue(html.contains("Bass &lt;description&gt;"));
+        assertTrue(html.contains("bass.thor"));
+        assertTrue(html.contains("Format: .thor"));
+        assertTrue(html.contains("Size: 1024 bytes"));
+        assertTrue(html.contains("Uploaded: 2026-11-03"));
+        assertTrue(html.contains("<script src=\"/js/image_zoom.js\"></script>"));
+    }
+
+    @Test
+    void rendersPatchWithoutImageOrOptionalMetadata() {
+        Patch patch = patch();
+        patch.setPatchImgUri(null);
+        patch.setDescription(null);
+        patch.setFilesize(null);
+        patch.setDateUploaded(null);
+        when(patches.findById(15L)).thenReturn(Optional.of(patch));
+
+        var response = controller.patchPage(15L);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody().contains(
+                "content=\"https://reasonstation.example/images/logo_by_chatgpt.jpg\""));
+    }
+
+    @Test
+    void returnsNoindexPageForUnknownPatch() {
+        when(patches.findById(99L)).thenReturn(Optional.empty());
+
+        var response = controller.patchPage(99L);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody().contains("Patch not found"));
+        assertTrue(response.getBody().contains("content=\"noindex, follow\""));
+    }
+
+    @Test
+    void rejectsNonPositivePatchId() {
+        assertEquals(HttpStatus.BAD_REQUEST, controller.patchPage(0L).getStatusCode());
+    }
+
+    private Patch patch() {
+        Patch patch = new Patch(7L, "A & B", "Warm & Deep", "Bass <description>",
+                "bass.thor", ".thor", 1024L, "s3://tracks/patches/bass");
+        patch.setPatchid(15L);
+        patch.setPatchImgUri("s3://tracks/patch-images/bass");
+        patch.setDateUploaded(Instant.parse("2026-11-03T10:15:30Z"));
+        return patch;
     }
 
     private TrackWithRating track() {
