@@ -13,7 +13,7 @@
         item.className = 'track-card patch-card';
         var image = document.createElement('img');
         image.className = 'track-card-art patch-card-image';
-        image.src = patch.patchImgUri ? '/api/patches/' + id + '/image' : '/images/icon-file.svg';
+        image.src = patch.patchImgUri ? '/api/patches/' + id + '/image' : '/images/icon-patch.svg';
         image.alt = patch.patchImgUri ? 'Image for ' + patch.patchName : '';
         image.loading = 'lazy';
         if (patch.patchImgUri) {
@@ -24,31 +24,36 @@
         var content = document.createElement('div');
         content.className = 'track-card-content';
         item.appendChild(content);
-        var title = appendText(content, 'h3', '', '');
+        var heading = appendText(content, 'div', 'patch-card-heading', '');
+        var identity = appendText(heading, 'div', 'patch-card-identity', '');
+        var title = appendText(identity, 'h3', '', '');
         var link = appendText(title, 'a', 'patch-detail-link', patch.patchName);
         link.href = '/patches/' + id;
-        var artist = appendText(content, 'a', 'track-artist-link', 'by ' + patch.artistAlias);
+        var artist = appendText(identity, 'a', 'track-artist-link', 'by ' + patch.artistAlias);
         artist.href = '/index.html?artistAlias=' + encodeURIComponent(patch.artistAlias);
         if (patch.description) {
-            appendText(content, 'p', 'patch-description', patch.description);
+            appendText(heading, 'p', 'patch-description', 'Description: ' + patch.description);
         }
+        appendText(content, 'span', 'track-style-badge', patch.ext || 'Unknown');
         var filename = appendText(content, 'a', 'track-file-meta', patch.filename);
         filename.href = '/api/patches/' + id + '/download';
-        var metadata = appendText(content, 'div', 'patch-card-meta', '');
-        appendText(metadata, 'span', '', 'Format: ' + (patch.ext || 'Unknown'));
-        if (typeof patch.filesize === 'number') {
-            appendText(metadata, 'span', '', 'Size: ' + patch.filesize.toLocaleString() + ' bytes');
+        var metadata = appendText(content, 'div', 'track-card-meta patch-card-meta', '');
+        var formattedFilesize = window.formatFileSize(patch.filesize);
+        if (formattedFilesize) {
+            appendText(metadata, 'span', 'track-filesize-meta', 'Size: ' + formattedFilesize);
         }
         if (patch.dateUploaded) {
-            var date = appendText(metadata, 'time', '', 'Uploaded: '
+            var date = appendText(metadata, 'time', 'patch-uploaded-meta', 'Uploaded: '
                 + new Intl.DateTimeFormat(undefined, {dateStyle: 'medium'})
                     .format(new Date(patch.dateUploaded)));
             date.dateTime = patch.dateUploaded;
         }
+        window.addPatchRatingMeta(metadata, patch);
         var actions = appendText(item, 'div', 'track-card-actions', '');
         var download = appendText(actions, 'a', 'download-track-link', 'Download');
         download.href = filename.href;
         download.setAttribute('aria-label', 'Download ' + patch.patchName + ' by ' + patch.artistAlias);
+        actions.appendChild(window.createRatePatchButton(patch));
         return item;
     };
 }());

@@ -7,7 +7,7 @@
         return element;
     }
 
-    function formatFileSize(filesize) {
+    window.formatFileSize = function(filesize) {
         if (typeof filesize !== 'number' || !Number.isFinite(filesize) || filesize < 0) {
             return null;
         }
@@ -21,7 +21,7 @@
         }
 
         return (Math.round(filesize / (1024 * 1024) * 10) / 10).toLocaleString() + ' Mb';
-    }
+    };
 
     window.createTrackCard = function(track, options) {
         options = options || {};
@@ -64,7 +64,7 @@
         var metadata = document.createElement('div');
         metadata.className = 'track-card-meta';
         appendTextElement(metadata, 'span', 'track-style-meta', 'Style: ' + track.musicStyle);
-        var formattedFilesize = formatFileSize(track.filesize);
+        var formattedFilesize = window.formatFileSize(track.filesize);
         if (formattedFilesize) {
             appendTextElement(metadata, 'span', 'track-filesize-meta', 'Size: ' + formattedFilesize);
         }

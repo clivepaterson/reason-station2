@@ -839,7 +839,6 @@ body.site-page .track-detail-main {
 }
 
 .track-card.track-detail-card {
-    grid-template-columns: minmax(0, 1fr) auto;
     padding: 2rem;
 
     h1 {
@@ -847,18 +846,15 @@ body.site-page .track-detail-main {
         color: #07495a;
         font-size: clamp(1.75rem, 4vw, 2.5rem);
         line-height: 1.2;
+        overflow-wrap: anywhere;
     }
 
-    .track-card-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem 1.5rem;
+    .track-card-content > .track-card-meta {
         margin-top: 0.75rem;
+    }
 
-        > span {
-            padding: 0;
-            border: 0;
-        }
+    .track-uploaded-meta {
+        grid-column: 1 / -1;
     }
 }
 
@@ -931,6 +927,25 @@ img[data-image-zoom] {
     overflow-wrap: anywhere;
 }
 
+.patch-card-heading {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 1.25rem;
+    align-items: start;
+
+    .patch-description {
+        margin: 0;
+    }
+}
+
+.patch-card-identity {
+    min-width: 0;
+
+    &:only-child {
+        grid-column: 1 / -1;
+    }
+}
+
 .patch-card-meta {
     display: flex;
     flex-wrap: wrap;
@@ -992,6 +1007,16 @@ img[data-image-zoom] {
 
 .track-style-meta {
     grid-area: style;
+}
+
+.track-card-meta.patch-card-meta {
+    grid-template-areas:
+        "uploaded size"
+        "uploaded rating";
+}
+
+.patch-uploaded-meta {
+    grid-area: uploaded;
 }
 
 .track-style-meta::before {
@@ -1270,6 +1295,10 @@ img[data-image-zoom] {
 }
 
 @media (max-width: 700px) {
+    .patch-card-heading {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
     .track-card {
         grid-template-columns: 72px minmax(0, 1fr);
         gap: 1rem;
@@ -1296,12 +1325,7 @@ img[data-image-zoom] {
     }
 
     .track-card.track-detail-card {
-        grid-template-columns: minmax(0, 1fr);
         padding: 1.25rem;
-
-        .track-card-actions {
-            grid-column: auto;
-        }
     }
 }
 
@@ -1704,6 +1728,17 @@ body.site-page {
 
             &:hover,
             &:focus-visible {
+                color: $station-orange;
+            }
+        }
+    }
+
+    #tracks-catalog-table,
+    #patches-table {
+        a {
+            font-weight: normal;
+
+            &:hover {
                 color: $station-orange;
             }
         }

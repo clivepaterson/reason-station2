@@ -19,6 +19,7 @@ import java.util.Optional;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +53,16 @@ class SeoControllerTest {
         assertTrue(html.contains("href=\"/api/tracks/42/download\""));
         assertTrue(html.contains("window.createRateTrackButton"));
         assertTrue(html.contains("\"trackid\":42"));
+        assertTrue(html.contains("class=\"track-card-art\""));
+        assertTrue(html.contains("<script src=\"/js/style_icons.js\"></script>"));
+        assertTrue(html.contains("window.createMusicStyleIcon(track.musicStyle)"));
+        assertTrue(html.contains("<a class=\"track-file-meta\" href=\"/api/tracks/42/download\""));
+        assertTrue(html.contains("class=\"track-style-meta\">Style: Electronic"));
+        assertTrue(html.contains("class=\"track-filesize-meta\">Size: 1 Kb"));
+        assertTrue(html.contains("class=\"track-downloads-meta\">Downloads: 12"));
+        assertTrue(html.contains("class=\"track-rating-stars\""));
+        assertTrue(html.contains("--rating-percent: 85.0%"));
+        assertTrue(html.contains("class=\"track-rating-value\" aria-hidden=\"true\">8.5/10"));
     }
 
     @Test
@@ -104,10 +115,19 @@ class SeoControllerTest {
         assertTrue(html.contains("href=\"/api/patches/15/download\""));
         assertTrue(html.contains("Bass &lt;description&gt;"));
         assertTrue(html.contains("bass.thor"));
-        assertTrue(html.contains("Format: .thor"));
-        assertTrue(html.contains("Size: 1024 bytes"));
+        assertTrue(html.contains("class=\"track-style-badge\">.thor"));
+        assertTrue(html.contains("class=\"track-filesize-meta\">Size: 1 Kb"));
+        assertTrue(html.contains("class=\"track-card-art patch-card-image\" data-image-zoom"));
+        assertTrue(html.contains("class=\"patch-card-heading\""));
+        assertTrue(html.contains("class=\"patch-card-identity\""));
+        assertTrue(html.contains("class=\"track-card-meta patch-card-meta\""));
+        assertTrue(html.contains("class=\"patch-uploaded-meta\""));
         assertTrue(html.contains("Uploaded: 2026-11-03"));
         assertTrue(html.contains("<script src=\"/js/image_zoom.js\"></script>"));
+        assertTrue(html.contains("<script src=\"/js/track_rating.js\"></script>"));
+        assertTrue(html.contains("window.createRatePatchButton"));
+        assertTrue(html.contains("\"patchid\":15"));
+        assertTrue(html.contains("\"patchName\":\"Warm & Deep\""));
     }
 
     @Test
@@ -124,6 +144,25 @@ class SeoControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertTrue(response.getBody().contains(
                 "content=\"https://reasonstation.example/images/logo_by_chatgpt.jpg\""));
+        assertTrue(response.getBody().contains(
+                "class=\"track-card-art patch-card-image\" src=\"/images/icon-patch.svg\" alt=\"\""));
+        assertFalse(response.getBody().contains("data-image-zoom"));
+        assertFalse(response.getBody().contains("class=\"patch-description\""));
+        assertFalse(response.getBody().contains("class=\"track-filesize-meta\""));
+        assertFalse(response.getBody().contains("class=\"patch-uploaded-meta\""));
+    }
+
+    @Test
+    void formatsPatchFilesizesLikeTheSharedCards() {
+        Patch patch = patch();
+        when(patches.findById(15L)).thenReturn(Optional.of(patch));
+        long[] sizes = {0, 1, 1023, 1536, 1048576, 1572864};
+        String[] labels = {"0 bytes", "1 byte", "1,023 bytes", "1.5 Kb", "1 Mb", "1.5 Mb"};
+        for (int i = 0; i < sizes.length; i++) {
+            patch.setFilesize(sizes[i]);
+            assertTrue(controller.patchPage(15L).getBody().contains(
+                    "class=\"track-filesize-meta\">Size: " + labels[i]), labels[i]);
+        }
     }
 
     @Test

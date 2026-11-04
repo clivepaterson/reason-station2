@@ -122,6 +122,7 @@ public class SeoController {
         String artistAlias = escape(track.artistAlias());
         String musicStyle = escape(track.musicStyle());
         String filename = escape(track.filename());
+        String downloadUrl = "/api/tracks/" + track.trackid() + "/download";
         String canonicalUrl = baseUrl + "/tracks/" + track.trackid();
         String imageUrl = baseUrl + "/images/logo_by_chatgpt.jpg";
         String description = "Download " + track.trackName() + " by " + track.artistAlias()
@@ -160,7 +161,8 @@ public class SeoController {
         String ratingTrackData = toJson(Map.of(
                 "trackid", track.trackid(),
                 "trackName", track.trackName(),
-                "artistAlias", track.artistAlias()));
+                "artistAlias", track.artistAlias(),
+                "musicStyle", track.musicStyle()));
 
         return """
                 <!DOCTYPE html>
@@ -205,31 +207,37 @@ public class SeoController {
                             <a href="/index.html?view=tracks">Tracks</a>
                         </nav>
                         <article class="track-card track-detail-card">
+                            <img id="track-style-icon" class="track-card-art"
+                                 src="/images/style-icons/other.svg" alt="">
                             <div class="track-card-content">
                                 <h1>%s</h1>
                                 <a class="track-artist-link" href="%s">by %s</a>
                                 <span class="track-style-badge">%s</span>
-                                <p class="track-file-meta">%s</p>
+                                <a class="track-file-meta" href="%s" aria-label="Download %s by %s">%s</a>
                                 <div class="track-card-meta">
-                                    <span>Style: %s</span>
-                                    <span>Downloads: %d</span>
+                                    <span class="track-style-meta">Style: %s</span>
+                                    %s
+                                    <span class="track-downloads-meta">Downloads: %d</span>
                                     %s
                                     %s
                                 </div>
                             </div>
                             <div class="track-card-actions">
                                 <a class="download-track-link" href="/api/tracks/%d/download"
-                                   aria-label="Download %s by %s">Download track</a>
+                                   aria-label="Download %s by %s">Download</a>
                                 <div id="track-rating-action" class="track-rating-action"></div>
                             </div>
                         </article>
                     </main>
                     <script id="track-rating-data" type="application/json">%s</script>
+                    <script src="/js/style_icons.js"></script>
                     <script src="/js/track_rating.js"></script>
                     <script>
+                        var track = JSON.parse(document.getElementById('track-rating-data').textContent);
+                        document.getElementById('track-style-icon').replaceWith(
+                            window.createMusicStyleIcon(track.musicStyle));
                         document.getElementById('track-rating-action').appendChild(
-                            window.createRateTrackButton(JSON.parse(
-                                document.getElementById('track-rating-data').textContent)));
+                            window.createRateTrackButton(track));
                     </script>
                 </body>
                 </html>
@@ -237,11 +245,11 @@ public class SeoController {
                 title, escapedDescription, artistAlias, canonicalUrl,
                 title, escapedDescription, canonicalUrl, imageUrl, artistAlias,
                 title, escapedDescription, imageUrl, toJson(structuredData),
-                trackName, artistUrl, artistAlias, musicStyle, filename, musicStyle,
-                track.downloadCount(),
-                track.averageTrackRating() == null ? "" : "<span>Rating: %.1f/10</span>"
-                        .formatted(track.averageTrackRating()),
-                visibleDate.isEmpty() ? "" : "<span>Uploaded: " + escape(visibleDate) + "</span>",
+                trackName, escape(artistUrl), artistAlias, musicStyle,
+                downloadUrl, trackName, artistAlias, filename, musicStyle,
+                filesizeHtml(track.filesize()), track.downloadCount(), ratingHtml(track.averageTrackRating()),
+                visibleDate.isEmpty() ? "" : "<time class=\"track-uploaded-meta\" datetime=\"" + dateUploaded
+                        + "\">Uploaded: " + escape(visibleDate) + "</time>",
                 track.trackid(), trackName, artistAlias, ratingTrackData);
     }
 
@@ -277,6 +285,10 @@ public class SeoController {
             encoding.put("contentSize", patch.getFilesize() + " bytes");
         }
         structuredData.put("encoding", encoding);
+        String ratingPatchData = toJson(Map.of(
+                "patchid", patch.getPatchid(),
+                "patchName", patch.getPatchName(),
+                "artistAlias", patch.getArtistAlias()));
         return """
                 <!DOCTYPE html>
                 <html lang="en">
@@ -318,38 +330,88 @@ public class SeoController {
                             <a href="/index.html?view=patches">Patches</a>
                         </nav>
                         <article class="track-card track-detail-card patch-card">
+                            %s
                             <div class="track-card-content">
-                                <h1>%s</h1>
-                                <a class="track-artist-link" href="%s">by %s</a>
-                                %s
-                                <p class="patch-description">%s</p>
+                                <div class="patch-card-heading">
+                                    <div class="patch-card-identity">
+                                        <h1>%s</h1>
+                                        <a class="track-artist-link" href="%s">by %s</a>
+                                    </div>
+                                    %s
+                                </div>
+                                <span class="track-style-badge">%s</span>
                                 <a class="track-file-meta" href="%s">%s</a>
-                                <div class="patch-card-meta">
-                                    <span>Format: %s</span>
+                                <div class="track-card-meta patch-card-meta">
                                     %s
                                     %s
                                 </div>
                             </div>
                             <div class="track-card-actions">
-                                <a class="download-track-link" href="%s">Download patch</a>
+                                <a class="download-track-link" href="%s"
+                                   aria-label="Download %s by %s">Download</a>
+                                <div id="patch-rating-action" class="track-rating-action"></div>
                             </div>
                         </article>
                     </main>
                     <script src="/js/image_zoom.js"></script>
+                    <script id="patch-rating-data" type="application/json">%s</script>
+                    <script src="/js/track_rating.js"></script>
+                    <script>
+                        document.getElementById('patch-rating-action').appendChild(
+                            window.createRatePatchButton(JSON.parse(
+                                document.getElementById('patch-rating-data').textContent)));
+                    </script>
                 </body>
                 </html>
                 """.formatted(
                 title, escape(description), escape(patch.getArtistAlias()), escape(canonicalUrl),
                 title, escape(description), escape(canonicalUrl), escape(imageUrl),
                 escape(patch.getPatchName()), title, escape(description), escape(imageUrl), toJson(structuredData),
+                patch.getPatchImgUri() == null
+                        ? "<img class=\"track-card-art patch-card-image\" src=\"/images/icon-patch.svg\" alt=\"\">"
+                        : "<img class=\"track-card-art patch-card-image\" data-image-zoom role=\"button\" tabindex=\"0\""
+                                + " aria-label=\"View larger image: Image for " + escape(patch.getPatchName())
+                                + "\" src=\"" + escape(imageUrl) + "\" alt=\"Image for "
+                                + escape(patch.getPatchName()) + "\">",
                 escape(patch.getPatchName()), escape(artistUrl), escape(patch.getArtistAlias()),
-                patch.getPatchImgUri() == null ? "" : "<img class=\"patch-detail-image\" src=\""
-                        + escape(imageUrl) + "\" alt=\"Image for " + escape(patch.getPatchName()) + "\">",
-                escape(patch.getDescription()), downloadUrl, escape(patch.getFilename()), escape(patch.getExt()),
-                patch.getFilesize() == null ? "" : "<span>Size: " + patch.getFilesize() + " bytes</span>",
-                patch.getDateUploaded() == null ? "" : "<time datetime=\"" + patch.getDateUploaded()
+                patch.getDescription() == null || patch.getDescription().isEmpty() ? ""
+                        : "<p class=\"patch-description\">Description: " + escape(patch.getDescription()) + "</p>",
+                patch.getExt() == null || patch.getExt().isEmpty() ? "Unknown" : escape(patch.getExt()),
+                downloadUrl, escape(patch.getFilename()), filesizeHtml(patch.getFilesize()),
+                patch.getDateUploaded() == null ? "" : "<time class=\"patch-uploaded-meta\" datetime=\"" + patch.getDateUploaded()
                         + "\">Uploaded: " + DateTimeFormatter.ISO_LOCAL_DATE.withZone(java.time.ZoneOffset.UTC)
-                        .format(patch.getDateUploaded()) + "</time>", downloadUrl);
+                        .format(patch.getDateUploaded()) + "</time>", downloadUrl,
+                escape(patch.getPatchName()), escape(patch.getArtistAlias()), ratingPatchData);
+    }
+
+    private String filesizeHtml(Long filesize) {
+        if (filesize == null || filesize < 0) {
+            return "";
+        }
+        var format = java.text.NumberFormat.getNumberInstance(java.util.Locale.US);
+        format.setMaximumFractionDigits(1);
+        String size;
+        if (filesize < 1024) {
+            size = format.format(filesize) + (filesize == 1 ? " byte" : " bytes");
+        } else {
+            double divisor = filesize < 1024 * 1024 ? 1024.0 : 1024.0 * 1024;
+            size = format.format(Math.round(filesize / divisor * 10) / 10.0)
+                    + (filesize < 1024 * 1024 ? " Kb" : " Mb");
+        }
+        return "<span class=\"track-filesize-meta\">Size: " + size + "</span>";
+    }
+
+    private String ratingHtml(Double rating) {
+        if (rating == null) {
+            return "";
+        }
+        double average = Math.max(0, Math.min(10, rating));
+        return String.format(java.util.Locale.ROOT, """
+                <span class="track-rating-meta" aria-label="Average rating: %.1f out of 10 stars">
+                    <span class="track-rating-stars" aria-hidden="true" style="--rating-percent: %.1f%%"></span>
+                    <span class="track-rating-value" aria-hidden="true">%.1f/10</span>
+                </span>
+                """, average, average * 10, average);
     }
 
     private String notFoundHtml(String type, String catalog) {

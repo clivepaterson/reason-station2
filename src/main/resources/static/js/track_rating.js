@@ -3,7 +3,9 @@
     var form;
     var status;
     var title;
-    var activeTrack;
+    var activeItem;
+    var activeType;
+    var activeButton;
     var maxRating = 10;
 
     function createRatingOptions() {
@@ -60,7 +62,7 @@
     function submitRating(event) {
         event.preventDefault();
         var selected = form.querySelector('input[name="rating"]:checked');
-        if (!selected || !activeTrack) {
+        if (!selected || !activeItem) {
             status.className = 'form-message rating-status error';
             status.textContent = 'Choose a rating from 1 to ' + maxRating + ' stars.';
             return;
@@ -70,7 +72,12 @@
         submit.disabled = true;
         status.className = 'form-message rating-status';
         status.textContent = 'Saving...';
-        fetch('/api/tracks/' + encodeURIComponent(activeTrack.trackid) + '/rating', {
+        var item = activeItem;
+        var type = activeType;
+        var button = activeButton;
+        var id = type === 'patch' ? item.patchid : item.trackid;
+        var resource = type === 'patch' ? 'patches' : 'tracks';
+        fetch('/api/' + resource + '/' + encodeURIComponent(id) + '/rating', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({rating: Number(selected.value)})
@@ -78,7 +85,9 @@
             .then(function(response) {
                 var contentType = response.headers.get('content-type') || '';
                 if (response.redirected || !contentType.includes('application/json')) {
-                    throw new Error('Sign in to rate tracks.');
+                    throw new Error(type === 'patch'
+                        ? 'Unable to save your rating. Please try again.'
+                        : 'Sign in to rate tracks.');
                 }
                 return response.json().then(function(body) {
                     if (!response.ok) {
@@ -88,10 +97,15 @@
                 });
             })
             .then(function() {
+                if (type === 'patch') {
+                    button.textContent = 'Rated';
+                    button.setAttribute('aria-label', 'Rating saved for ' + item.patchName);
+                    button.disabled = true;
+                }
                 dialog.close();
                 var artistPage = document.getElementById('artist-page');
                 var isTrackPage = /^\/tracks\/\d+\/?$/.test(window.location.pathname);
-                if ((artistPage && !artistPage.hidden) || isTrackPage) {
+                if (type === 'track' && ((artistPage && !artistPage.hidden) || isTrackPage)) {
                     window.location.reload();
                 }
             })
@@ -104,11 +118,11 @@
             });
     }
 
-    window.addTrackRatingMeta = function(metadata, track) {
-        if (track.averageTrackRating === null || track.averageTrackRating === undefined) {
+    function addRatingMeta(metadata, averageRating) {
+        if (averageRating === null || averageRating === undefined) {
             return;
         }
-        var average = Math.max(0, Math.min(maxRating, Number(track.averageTrackRating)));
+        var average = Math.max(0, Math.min(maxRating, Number(averageRating)));
         var rating = document.createElement('span');
         rating.className = 'track-rating-meta';
         rating.setAttribute('aria-label', 'Average rating: ' + average.toFixed(1) + ' out of ' + maxRating + ' stars');
@@ -125,24 +139,44 @@
         value.textContent = average.toFixed(1) + '/' + maxRating;
         rating.appendChild(value);
         metadata.appendChild(rating);
+    }
+
+    window.addTrackRatingMeta = function(metadata, track) {
+        addRatingMeta(metadata, track.averageTrackRating);
     };
 
-    window.createRateTrackButton = function(track) {
+    window.addPatchRatingMeta = function(metadata, patch) {
+        addRatingMeta(metadata, patch.averagePatchRating);
+    };
+
+    function createRatingButton(item, type) {
+        var name = type === 'patch' ? item.patchName : item.trackName;
         var button = document.createElement('button');
         button.className = 'rate-track-button';
         button.type = 'button';
-        button.textContent = 'Rate track';
-        button.setAttribute('aria-label', 'Rate ' + track.trackName);
+        button.textContent = 'Rate ' + type;
+        button.setAttribute('aria-label', 'Rate ' + name);
         button.addEventListener('click', function() {
             ensureDialog();
-            activeTrack = track;
+            activeItem = item;
+            activeType = type;
+            activeButton = button;
             form.reset();
-            title.textContent = track.trackName + ' by ' + track.artistAlias;
+            dialog.querySelector('h2').textContent = 'Rate ' + type;
+            title.textContent = name + ' by ' + item.artistAlias;
             status.className = 'form-message rating-status';
             status.textContent = '';
             dialog.showModal();
             form.querySelector('input[name="rating"]').focus();
         });
         return button;
+    }
+
+    window.createRateTrackButton = function(track) {
+        return createRatingButton(track, 'track');
+    };
+
+    window.createRatePatchButton = function(patch) {
+        return createRatingButton(patch, 'patch');
     };
 }());

@@ -11,9 +11,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.entity.Patch;
 import org.reasonstation.entity.User;
 import org.reasonstation.repository.PatchRepository;
+import org.reasonstation.repository.PatchWithRating;
+import org.reasonstation.repository.PatchRatingRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,9 +41,11 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
@@ -49,6 +54,8 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standal
 class PatchControllerTest {
     @Mock
     private PatchRepository patches;
+    @Mock
+    private PatchRatingRepository ratings;
     @Mock
     private UserRepository users;
     @Mock
@@ -60,18 +67,17 @@ class PatchControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new PatchController(patches, users, storage);
+        controller = new PatchController(patches, ratings, users, storage);
         lenient().when(authentication.getName()).thenReturn("listener");
     }
 
     @Test
     void listsAuthenticatedUsersPatchesWithCardMetadata() throws Exception {
         when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
-        Patch patch = new Patch(7L, "Artist", "Bass", "Warm bass",
-                "bass.thor", ".thor", 3L, "s3://tracks/patches/bass");
-        patch.setPatchid(4L);
-        patch.setPatchImgUri("s3://tracks/patch-images/bass");
-        when(patches.findByUseridOrderByDateUploadedDesc(7L)).thenReturn(List.of(patch));
+        var patch = new PatchWithRating(4L, "Artist", "Bass", "Warm bass",
+                "bass.thor", ".thor", 3L, "s3://tracks/patch-images/bass",
+                java.time.Instant.now(), 8.5);
+        when(patches.findWithRatingsByUserid(7L)).thenReturn(List.of(patch));
         MockMvc mvc = standaloneSetup(controller).build();
 
         mvc.perform(get("/api/patches/me").principal(authentication))
@@ -83,17 +89,18 @@ class PatchControllerTest {
                 .andExpect(jsonPath("$[0].filename").value("bass.thor"))
                 .andExpect(jsonPath("$[0].filesize").value(3))
                 .andExpect(jsonPath("$[0].ext").value(".thor"))
+                .andExpect(jsonPath("$[0].averagePatchRating").value(8.5))
                 .andExpect(jsonPath("$[0].dateUploaded").exists())
                 .andExpect(jsonPath("$[0].patchImgUri").value("s3://tracks/patch-images/bass"))
                 .andExpect(jsonPath("$[0].userid").doesNotExist());
 
-        verify(patches).findByUseridOrderByDateUploadedDesc(7L);
+        verify(patches).findWithRatingsByUserid(7L);
     }
 
     @Test
     void listsNoPatchesWhenUserHasNotUploadedAny() {
         when(users.findByAlias("listener")).thenReturn(Optional.of(user(false)));
-        when(patches.findByUseridOrderByDateUploadedDesc(7L)).thenReturn(List.of());
+        when(patches.findWithRatingsByUserid(7L)).thenReturn(List.of());
 
         var response = controller.myPatches(authentication);
 
@@ -106,7 +113,7 @@ class PatchControllerTest {
         when(users.findByAlias("listener")).thenReturn(Optional.empty());
 
         assertEquals(HttpStatus.NOT_FOUND, controller.myPatches(authentication).getStatusCode());
-        verify(patches, never()).findByUseridOrderByDateUploadedDesc(any());
+        verify(patches, never()).findWithRatingsByUserid(any());
     }
 
     @Test
@@ -140,6 +147,118 @@ class PatchControllerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(patches, never()).findById(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 10})
+    void savesPatchRatingWithoutSigningIn(int rating) throws Exception {
+        when(patches.findById(4L)).thenReturn(Optional.of(new Patch()));
+        when(ratings.recordRating(4L, "192.0.2.1", (short) rating)).thenReturn(1);
+        MockMvc mvc = standaloneSetup(controller).build();
+
+        mvc.perform(post("/api/patches/4/rating")
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.1");
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":" + rating + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.patchid").value(4))
+                .andExpect(jsonPath("$.rating").value(rating));
+
+        verify(ratings).recordRating(4L, "192.0.2.1", (short) rating);
+        verifyNoInteractions(users, storage);
+    }
+
+    @Test
+    void reportsDuplicatePatchRatingWithoutClaimingItWasSaved() throws Exception {
+        when(patches.findById(4L)).thenReturn(Optional.of(new Patch()));
+        when(ratings.recordRating(4L, "192.0.2.1", (short) 8)).thenReturn(0);
+        MockMvc mvc = standaloneSetup(controller).build();
+
+        mvc.perform(post("/api/patches/4/rating")
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.1");
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":8}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("This IP address has already rated this patch."));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "11", "-1", "1.5", "null"})
+    void rejectsInvalidPatchRating(String rating) throws Exception {
+        MockMvc mvc = standaloneSetup(controller).build();
+
+        mvc.perform(post("/api/patches/4/rating")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":" + rating + "}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Rating must be an integer between 1 and 10."));
+
+        verifyNoInteractions(patches, ratings);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "null"})
+    void rejectsMissingPatchRating(String body) throws Exception {
+        MockMvc mvc = standaloneSetup(controller).build();
+
+        mvc.perform(post("/api/patches/4/rating")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(patches, ratings);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void rejectsRatingForInvalidPatchId(int patchid) throws Exception {
+        MockMvc mvc = standaloneSetup(controller).build();
+
+        mvc.perform(post("/api/patches/" + patchid + "/rating")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":8}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Patch ID must be a positive integer."));
+
+        verifyNoInteractions(patches, ratings);
+    }
+
+    @Test
+    void rejectsRatingForUnknownPatch() throws Exception {
+        when(patches.findById(4L)).thenReturn(Optional.empty());
+        MockMvc mvc = standaloneSetup(controller).build();
+
+        mvc.perform(post("/api/patches/4/rating")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":8}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Patch not found."));
+
+        verifyNoInteractions(ratings);
+    }
+
+    @Test
+    void rejectsPatchRatingWithoutIpAddress() throws Exception {
+        when(patches.findById(4L)).thenReturn(Optional.of(new Patch()));
+        MockMvc mvc = standaloneSetup(controller).build();
+
+        mvc.perform(post("/api/patches/4/rating")
+                        .with(request -> {
+                            request.setRemoteAddr("");
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":8}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("An IP address is required."));
+
+        verifyNoInteractions(ratings);
     }
 
     @Test

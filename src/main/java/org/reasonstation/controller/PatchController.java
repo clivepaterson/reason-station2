@@ -3,6 +3,7 @@ package org.reasonstation.controller;
 import org.reasonstation.entity.Patch;
 import org.reasonstation.entity.User;
 import org.reasonstation.repository.PatchRepository;
+import org.reasonstation.repository.PatchRatingRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
 import org.springframework.http.HttpStatus;
@@ -13,12 +14,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -48,11 +52,14 @@ public class PatchController {
             Pattern.compile("[A-Za-z0-9()\\[\\]_.'+\\- ]+");
 
     private final PatchRepository patches;
+    private final PatchRatingRepository ratings;
     private final UserRepository users;
     private final S3StorageService storage;
 
-    public PatchController(PatchRepository patches, UserRepository users, S3StorageService storage) {
+    public PatchController(PatchRepository patches, PatchRatingRepository ratings,
+                           UserRepository users, S3StorageService storage) {
         this.patches = patches;
+        this.ratings = ratings;
         this.users = users;
         this.storage = storage;
     }
@@ -61,9 +68,7 @@ public class PatchController {
     public ResponseEntity<?> myPatches(Authentication authentication) {
         return users.findByAlias(authentication.getName())
                 .map(user -> ResponseEntity.ok(
-                        patches.findByUseridOrderByDateUploadedDesc(user.getUserid()).stream()
-                                .map(PatchResponse::from)
-                                .toList()))
+                        patches.findWithRatingsByUserid(user.getUserid())))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
@@ -100,6 +105,36 @@ public class PatchController {
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(storage.createImageUrl(patch.get().getPatchImgUri()))
                 .build();
+    }
+
+    @PostMapping(value = "/{patchid}/rating", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> ratePatch(@PathVariable Long patchid, @RequestBody RatingRequest request,
+                                       HttpServletRequest httpRequest) {
+        if (patchid == null || patchid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Patch ID must be a positive integer."));
+        }
+        if (request == null || request.rating() == null
+                || request.rating().stripTrailingZeros().scale() > 0
+                || request.rating().compareTo(BigDecimal.ONE) < 0
+                || request.rating().compareTo(BigDecimal.TEN) > 0) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Rating must be an integer between 1 and 10."));
+        }
+        if (patches.findById(patchid).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Patch not found."));
+        }
+        String ipAddress = httpRequest.getRemoteAddr();
+        if (ipAddress == null || ipAddress.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "An IP address is required."));
+        }
+        if (ratings.recordRating(patchid, ipAddress, request.rating().shortValue()) == 0) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "This IP address has already rated this patch."));
+        }
+        return ResponseEntity.ok(Map.of("patchid", patchid, "rating", request.rating()));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -226,6 +261,9 @@ public class PatchController {
         return extensionStart >= 0
                 ? filename.substring(extensionStart).toLowerCase(Locale.ROOT)
                 : "";
+    }
+
+    private record RatingRequest(BigDecimal rating) {
     }
 
     private record PatchResponse(Long patchid, String artistAlias, String patchName, String description,

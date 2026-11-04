@@ -134,18 +134,7 @@ public class DiscoveryController {
         if (normalizedAlias == null) {
             return invalidArtistAlias();
         }
-        return ResponseEntity.ok(patches.findByArtistAliasOrderByDateUploadedDesc(normalizedAlias).stream()
-                .map(patch -> new PatchDiscoveryResponse(
-                        patch.getPatchid(),
-                        patch.getArtistAlias(),
-                        patch.getPatchName(),
-                        patch.getDescription(),
-                        patch.getFilename(),
-                        patch.getExt(),
-                        patch.getFilesize(),
-                        patch.getPatchImgUri(),
-                        patch.getDateUploaded()))
-                .toList());
+        return ResponseEntity.ok(patches.findWithRatingsByArtistAlias(normalizedAlias));
     }
 
     @GetMapping("/search")
@@ -233,15 +222,4 @@ public class DiscoveryController {
             java.time.Instant dateUploaded) {
     }
 
-    private record PatchDiscoveryResponse(
-            Long patchid,
-            String artistAlias,
-            String patchName,
-            String description,
-            String filename,
-            String ext,
-            Long filesize,
-            String patchImgUri,
-            java.time.Instant dateUploaded) {
-    }
 }

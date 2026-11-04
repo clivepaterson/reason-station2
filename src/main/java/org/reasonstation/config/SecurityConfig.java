@@ -84,7 +84,7 @@ public class SecurityConfig {
                                 "/api/verify-email",
                                 "/index.html", "/api/discovery/**", "/api/catalog/**",
                                 "/api/tracks/*/download", "/api/patches/*/download",
-                                "/api/tracks/*/rating", "/api/patches/*/image",
+                                "/api/tracks/*/rating", "/api/patches/*/rating", "/api/patches/*/image",
                                 "/error", "/hello").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll();

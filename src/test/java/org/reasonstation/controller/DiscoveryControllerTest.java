@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.reasonstation.entity.Patch;
+import org.reasonstation.repository.PatchWithRating;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.springframework.http.HttpStatus;
@@ -33,16 +33,17 @@ class DiscoveryControllerTest {
 
     @Test
     void listsPatchesForArtistAlias() {
-        var patch = new Patch(7L, "Artist", "Warm Bass", "Bass patch",
-                "warm-bass.thor", ".thor", 1024L, "s3://patches/warm-bass");
-        when(patches.findByArtistAliasOrderByDateUploadedDesc("Artist"))
+        var patch = new PatchWithRating(7L, "Artist", "Warm Bass", "Bass patch",
+                "warm-bass.thor", ".thor", 1024L, null, java.time.Instant.now(), 8.5);
+        when(patches.findWithRatingsByArtistAlias("Artist"))
                 .thenReturn(List.of(patch));
 
         var response = controller.artistPatches("Artist");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, ((List<?>) response.getBody()).size());
-        verify(patches).findByArtistAliasOrderByDateUploadedDesc("Artist");
+        assertEquals(8.5, ((PatchWithRating) ((List<?>) response.getBody()).getFirst()).averagePatchRating());
+        verify(patches).findWithRatingsByArtistAlias("Artist");
     }
 
     @Test
