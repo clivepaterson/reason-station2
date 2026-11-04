@@ -13,7 +13,7 @@ $card-hover-shadow: 0 5px 14px rgba(15, 75, 88, 0.12);
 $navbar-min-height: 84px;
 $catalog-navbar-height: 46px;
 $header-min-height: $navbar-min-height + $catalog-navbar-height;
-$footer-min-height: 150px;
+$footer-min-height: 75px;
 
 * {
     margin: 0;
@@ -630,7 +630,7 @@ body {
     position: fixed;
     top: 50%;
     left: 50%;
-    z-index: 10;
+    z-index: 1100;
     width: min(430px, calc(100% - 2rem));
     margin: 0;
     padding: 2.5rem;
@@ -687,7 +687,7 @@ body {
 .upload-dialog-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 9;
+    z-index: 1099;
     background: rgba(15, 75, 88, 0.6);
 }
 
@@ -1481,6 +1481,46 @@ body.site-page {
         }
     }
 
+    @media (max-width: 1100px) {
+        #site-header {
+            position: static;
+        }
+
+        #site-content {
+            padding-top: 0;
+        }
+
+        .navbar {
+            .container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-menu {
+                flex-wrap: wrap;
+                justify-content: center;
+                width: 100%;
+                gap: 0.5rem 1.5rem;
+                margin-left: 0;
+
+                li + li {
+                    margin-left: 0;
+                    padding-left: 0;
+                    border-left: 0;
+                }
+            }
+        }
+
+        .track-search {
+            flex: none;
+            width: 100%;
+        }
+
+        .catalog-nav a {
+            padding: 0 1rem;
+        }
+    }
+
     .catalog-page {
         min-height: calc(100vh - #{$header-min-height} - #{$footer-min-height});
         padding: 3rem 1rem;
@@ -1728,6 +1768,26 @@ body.site-page {
                 margin-bottom: 0;
                 color: #e1f1f2;
                 font-size: clamp(1.1rem, 2.2vw, 1.55rem);
+            }
+        }
+    }
+
+    @media (max-width: 700px) {
+        #home {
+            min-height: 0;
+            padding: 1.25rem 1rem;
+
+            .hero-content {
+                h1 {
+                    margin-bottom: 0.5rem;
+                    font-size: clamp(1.65rem, 6vw, 2.1rem);
+                    line-height: 1.2;
+                }
+
+                p {
+                    font-size: 1rem;
+                    line-height: 1.4;
+                }
             }
         }
     }
@@ -2170,8 +2230,10 @@ body.site-page {
 
     .footer {
         position: relative;
+        display: flex;
+        align-items: center;
         overflow: hidden;
-        padding: 2rem 0 2.5rem;
+        padding: 0.25rem 0;
         min-height: $footer-min-height;
         background:
             url("/images/footer-waves.svg") no-repeat center bottom / 100% auto,
@@ -2182,7 +2244,7 @@ body.site-page {
         p {
             position: relative;
             z-index: 1;
-            margin: 0.45rem 0;
+            margin: 0;
             font-size: 1rem;
         }
 
@@ -2207,7 +2269,7 @@ body.site-page {
             justify-content: center;
             align-items: center;
             gap: 0.75rem 1.25rem;
-            margin-top: 0.65rem;
+            margin-top: 0;
         }
 
         .footer-nav {
