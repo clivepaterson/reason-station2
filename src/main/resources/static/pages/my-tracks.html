@@ -23,12 +23,12 @@
                 Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
             </label>
             <input id="artist-alias" name="artistAlias" type="text" required maxlength="100"
-                   pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
-                   title="Use only letters, numbers, and ()[]_.'+-">
+                   pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
+                   title="Use only letters, numbers, spaces, and ()[]_.'+-">
             <label for="track-name">Track name</label>
             <input id="track-name" name="trackName" type="text" required maxlength="200"
-                   pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
-                   title="Use only letters, numbers, and ()[]_.'+-">
+                   pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
+                   title="Use only letters, numbers, spaces, and ()[]_.'+-">
             <label for="music-style">Music style</label>
             <input id="music-style" name="musicStyle" type="text" required maxlength="100"
                    list="music-style-options" autocomplete="off">
@@ -92,8 +92,10 @@
                 <option value="Acoustic"><option value="Live"><option value="Instrumental"><option value="Vocal">
                 <option value="Female Vocal"><option value="Male Vocal"><option value="Other">
             </datalist>
-            <label for="track-file">Audio file</label>
-            <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason" multiple required>
+            <label for="track-file">Reason file</label>
+            <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason"
+                   aria-describedby="track-file-extensions" multiple required>
+            <small id="track-file-extensions" class="privacy-note">Allowed extensions: .rps, .rns, .reason</small>
             <button class="cta-button" type="submit">Upload</button>
             <p id="upload-status" class="form-message" aria-live="polite"></p>
         </form>
@@ -104,8 +106,8 @@
                 Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
             </label>
             <input id="patch-artist-alias" name="artistAlias" type="text" required maxlength="255"
-                   pattern="[A-Za-z0-9\(\)\[\]_.'+\-]+"
-                   title="Use only letters, numbers, and ()[]_.'+-">
+                   pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
+                   title="Use only letters, numbers, spaces, and ()[]_.'+-">
             <label for="patch-name">Patch name</label>
             <input id="patch-name" name="patchName" type="text" required maxlength="255"
                    pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
@@ -118,7 +120,12 @@
             <label for="patch-file">Patch file</label>
             <input id="patch-file" name="file" type="file"
                    accept=".sxt,.xwv,.smp,.drex,.drum,.rv7,.sm4,.echo,.pulver,.gator,.cmb,.thor,.kong,.drp,.zyp,.patch,.repatch,.sf2,.rx2,.rcy,.rex"
-                   required>
+                   aria-describedby="patch-file-extensions" required>
+            <small id="patch-file-extensions" class="privacy-note">
+                Allowed extensions: .sxt, .xwv, .smp, .drex, .drum, .rv7, .sm4, .echo,
+                .pulver, .gator, .cmb, .thor, .kong, .drp, .zyp, .patch,
+                .repatch, .sf2, .rx2, .rcy, .rex
+            </small>
             <button class="cta-button" type="submit">Upload</button>
             <p id="patch-upload-status" class="form-message" aria-live="polite"></p>
         </form>

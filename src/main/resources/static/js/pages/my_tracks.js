@@ -16,8 +16,8 @@ window.initializeMyTracks = function() {
     var verificationNotice = $('#verification-notice');
     var resendVerificationLink = $('#resend-verification-email');
     var verificationEmailStatus = $('#verification-email-status');
-    var trackTextPattern = /^[A-Za-z0-9()\[\]_.'+\-]+$/;
-    var patchNamePattern = /^[A-Za-z0-9()\[\]_.'+\- ]+$/;
+    var trackTextPattern = /^[A-Za-z0-9()\[\]_.'+\- ]+$/;
+    var artistAliasAndPatchNamePattern = /^[A-Za-z0-9()\[\]_.'+\- ]+$/;
     var descriptionInvalidCharacters = /[^A-Za-z0-9()\[\]_.'+\- \r\n]/g;
     function closeUploadForm() {
         if (!uploadForm.length) {
@@ -417,10 +417,10 @@ window.initializeMyTracks = function() {
             return filename.endsWith(extension);
         });
 
-        if (!artistAlias || !patchName || !trackTextPattern.test(artistAlias)
-                || !patchNamePattern.test(patchName)) {
+        if (!artistAlias || !patchName || !artistAliasAndPatchNamePattern.test(artistAlias)
+                || !artistAliasAndPatchNamePattern.test(patchName)) {
             patchUploadStatus.removeClass('success').addClass('error')
-                .text("Artist alias and patch name are required; patch names may also contain spaces.");
+                .text("Artist alias and patch name are required, and may contain only letters, numbers, spaces, and ()[]_.'+-.");
             return;
         }
         if (!file || !hasAllowedExtension) {
@@ -455,8 +455,8 @@ window.initializeMyTracks = function() {
     uploadForm.off('submit.siteTracks').on('submit.siteTracks', function(event) {
         event.preventDefault();
         var files = Array.prototype.slice.call($('#track-file')[0].files);
-        var artistAlias = $('#artist-alias').val();
-        var trackName = $('#track-name').val();
+        var artistAlias = $('#artist-alias').val().trim();
+        var trackName = $('#track-name').val().trim();
         var musicStyle = $('#music-style').val();
         var invalidFile = files.find(function(file) {
             var filename = file.name.toLowerCase();
@@ -465,12 +465,12 @@ window.initializeMyTracks = function() {
             });
         });
 
-        if (!artistAlias || !trackName || !musicStyle || !trackTextPattern.test(artistAlias)
+        if (!artistAlias || !trackName || !musicStyle || !artistAliasAndPatchNamePattern.test(artistAlias)
                 || !trackTextPattern.test(trackName)) {
             $('#upload-status')
                 .removeClass('success')
                 .addClass('error')
-                .text("Artist alias and track name are required, and may contain only letters, numbers, and ()[]_.'+-; choose a music style.");
+                .text("Artist alias and track name are required, and may contain only letters, numbers, spaces, and ()[]_.'+-; choose a music style.");
             return;
         }
 

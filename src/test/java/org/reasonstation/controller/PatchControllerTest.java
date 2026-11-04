@@ -3,6 +3,8 @@ package org.reasonstation.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -85,15 +87,29 @@ class PatchControllerTest {
         when(patches.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = controller.uploadPatch(
-                authentication, "Artist", "Warm Bass", "Warm_Bass", patchFile("bass.thor"));
+                authentication, " Artist Name ", " Warm Bass ", "Warm_Bass", patchFile("bass.thor"));
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         ArgumentCaptor<Patch> savedPatch = ArgumentCaptor.forClass(Patch.class);
         verify(patches).save(savedPatch.capture());
+        assertEquals("Artist Name", savedPatch.getValue().getArtistAlias());
         assertEquals(3L, savedPatch.getValue().getFilesize());
         assertEquals("Warm Bass", savedPatch.getValue().getPatchName());
         assertEquals("Warm_Bass", savedPatch.getValue().getDescription());
         assertEquals(".thor", savedPatch.getValue().getExt());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"   ", "Artist@Name", "Artist\tName"})
+    void rejectsInvalidArtistAlias(String artistAlias) throws IOException {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+
+        var response = controller.uploadPatch(
+                authentication, artistAlias, "Warm Bass", "", patchFile("bass.thor"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(storage, never()).upload(any(), any(), any());
+        verify(patches, never()).save(any());
     }
 
     @Test

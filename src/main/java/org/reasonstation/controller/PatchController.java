@@ -37,8 +37,6 @@ public class PatchController {
             ".sxt", ".xwv", ".smp", ".drex", ".drum", ".rv7", ".sm4", ".echo",
             ".pulver", ".gator", ".cmb", ".thor", ".kong", ".drp", ".zyp", ".patch",
             ".repatch", ".sf2", ".rx2", ".rcy", ".rex");
-    private static final Pattern ARTIST_ALIAS_PATTERN =
-            Pattern.compile("[A-Za-z0-9()\\[\\]_.'+\\-]+");
     private static final Pattern PATCH_TEXT_PATTERN =
             Pattern.compile("[A-Za-z0-9()\\[\\]_.'+\\- ]+");
     private static final Pattern DESCRIPTION_PATTERN =
@@ -103,9 +101,9 @@ public class PatchController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Artist alias and patch name must be 255 characters or fewer."));
         }
-        if (!ARTIST_ALIAS_PATTERN.matcher(trimmedArtistAlias).matches()) {
+        if (!PATCH_TEXT_PATTERN.matcher(trimmedArtistAlias).matches()) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Artist alias may contain only letters, numbers, and ()[]_.'+-."));
+                    .body(Map.of("error", "Artist alias may contain only letters, numbers, spaces, and ()[]_.'+-."));
         }
         if (!PATCH_TEXT_PATTERN.matcher(trimmedPatchName).matches()) {
             return ResponseEntity.badRequest()
