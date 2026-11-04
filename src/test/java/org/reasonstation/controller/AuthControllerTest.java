@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.mock.web.MockHttpSession;
 
 import java.util.Map;
 import java.util.Optional;
@@ -100,6 +101,61 @@ class AuthControllerTest {
         verify(users).save(userCaptor.capture());
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(userCaptor.getValue().getDateCreated());
+    }
+
+    @Test
+    void rejectsMissingRegistrationBody() {
+        var response = controller.register(null);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void rejectsExcessivelyLongPassword() {
+        var response = controller.register(new AuthController.RegisterRequest(
+                "listener", "listener@example.com", "p".repeat(129)));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(passwordEncoder, never()).encode(any());
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void storesAliasBeforeStartingGoogleRegistration() {
+        MockHttpSession session = new MockHttpSession();
+
+        var response = controller.registerWithGoogle("Google_Artist", session);
+
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertEquals("/oauth2/authorization/google", response.getHeaders().getLocation().toString());
+        assertEquals("Google_Artist", session.getAttribute(
+                org.reasonstation.service.SocialAccountService.REGISTRATION_ALIAS_SESSION_ATTRIBUTE));
+    }
+
+    @Test
+    void rejectsUnavailableGoogleRegistrationAlias() {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(unverifiedUser()));
+
+        var response = controller.registerWithGoogle("listener", new MockHttpSession());
+
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertEquals("/index.html?register=true&aliasError=unavailable",
+                response.getHeaders().getLocation().toString());
+    }
+
+    @Test
+    void clearsPendingRegistrationAliasBeforeGoogleLogin() {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(
+                org.reasonstation.service.SocialAccountService.REGISTRATION_ALIAS_SESSION_ATTRIBUTE,
+                "Pending_Alias");
+
+        var response = controller.loginWithGoogle(session);
+
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertEquals(null, session.getAttribute(
+                org.reasonstation.service.SocialAccountService.REGISTRATION_ALIAS_SESSION_ATTRIBUTE));
     }
 
     private User unverifiedUser() {

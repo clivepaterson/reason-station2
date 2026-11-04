@@ -14,6 +14,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,5 +43,31 @@ class DiscoveryControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, ((List<?>) response.getBody()).size());
         verify(patches).findByArtistAliasOrderByDateUploadedDesc("Artist");
+    }
+
+    @Test
+    void trimsArtistAliasBeforeLookup() {
+        when(tracks.findByArtistAlias("Artist")).thenReturn(List.of());
+
+        var response = controller.artistTracks("  Artist  ");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(tracks).findByArtistAlias("Artist");
+    }
+
+    @Test
+    void rejectsBlankArtistAlias() {
+        var response = controller.artistTracks(" ");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verifyNoInteractions(tracks);
+    }
+
+    @Test
+    void rejectsMissingSearchTerm() {
+        var response = controller.searchTracks(null, 1);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verifyNoInteractions(tracks);
     }
 }

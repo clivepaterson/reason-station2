@@ -71,6 +71,14 @@ class PatchControllerTest {
     }
 
     @Test
+    void rejectsNonPositivePatchId() {
+        var response = controller.downloadPatch(0L);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(patches, never()).findById(any());
+    }
+
+    @Test
     void uploadsSupportedPatchWhenEmailIsVerified() throws IOException {
         when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
         when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/patches/upload");
@@ -94,6 +102,30 @@ class PatchControllerTest {
 
         var response = controller.uploadPatch(
                 authentication, "Artist", "Bass", "Warm_Bass", patchFile("bass.exe"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(storage, never()).upload(any(), any(), any());
+        verify(patches, never()).save(any());
+    }
+
+    @Test
+    void rejectsOverlongPatchName() throws IOException {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+
+        var response = controller.uploadPatch(
+                authentication, "Artist", "P".repeat(256), "", patchFile("bass.thor"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(storage, never()).upload(any(), any(), any());
+        verify(patches, never()).save(any());
+    }
+
+    @Test
+    void rejectsUnsafePatchFilename() throws IOException {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+
+        var response = controller.uploadPatch(
+                authentication, "Artist", "Bass", "", patchFile("../bass.thor"));
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(storage, never()).upload(any(), any(), any());

@@ -1,5 +1,6 @@
 package org.reasonstation.service;
 
+import jakarta.servlet.http.HttpSession;
 import org.reasonstation.entity.User;
 import org.reasonstation.repository.UserRepository;
 import org.springframework.security.core.GrantedAuthority;
@@ -11,6 +12,8 @@ import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.Collection;
 import java.util.Locale;
@@ -19,6 +22,9 @@ import java.util.UUID;
 
 @Service
 public class SocialAccountService {
+    public static final String REGISTRATION_ALIAS_SESSION_ATTRIBUTE =
+            SocialAccountService.class.getName() + ".registrationAlias";
+
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final OidcUserService oidcDelegate = new OidcUserService();
@@ -36,12 +42,16 @@ public class SocialAccountService {
                     "The " + provider + " account did not verify its email address.");
         }
         String email = requiredEmail(user.getEmail(), provider);
-        User account = provision(email, firstNonBlank(
-                user.getPreferredUsername(), user.getFullName(), email.substring(0, email.indexOf('@'))));
+        String registrationAlias = takeRegistrationAlias();
+        String alias = registrationAlias == null
+                ? firstNonBlank(user.getPreferredUsername(), user.getFullName(),
+                        email.substring(0, email.indexOf('@')))
+                : registrationAlias;
+        User account = provision(email, alias, registrationAlias != null);
         return new ProvisionedOidcUser(user, account.getAlias());
     }
 
-    private User provision(String rawEmail, String rawAlias) {
+    User provision(String rawEmail, String rawAlias, boolean exactAliasRequired) {
         String email = requiredEmail(rawEmail, "social");
         User existing = users.findByEmail(email).orElse(null);
         if (existing != null) {
@@ -53,11 +63,35 @@ public class SocialAccountService {
             return existing;
         }
 
-        String alias = uniqueAlias(rawAlias);
+        String alias = exactAliasRequired ? requiredAvailableAlias(rawAlias) : uniqueAlias(rawAlias);
         User account = new User(alias, email, passwordEncoder.encode(UUID.randomUUID().toString()));
         account.setEmailVerified(true);
         account.setVerifyEmailToken(null);
         return users.save(account);
+    }
+
+    private String takeRegistrationAlias() {
+        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
+            return null;
+        }
+        HttpSession session = attributes.getRequest().getSession(false);
+        if (session == null) {
+            return null;
+        }
+        Object alias = session.getAttribute(REGISTRATION_ALIAS_SESSION_ATTRIBUTE);
+        session.removeAttribute(REGISTRATION_ALIAS_SESSION_ATTRIBUTE);
+        return alias instanceof String value ? value : null;
+    }
+
+    private String requiredAvailableAlias(String rawAlias) {
+        String alias = rawAlias == null ? "" : rawAlias.trim();
+        if (!alias.matches("[A-Za-z0-9_]{3,30}")) {
+            throw new OAuth2AuthenticationException("The selected alias is invalid.");
+        }
+        if (users.findByAlias(alias).isPresent()) {
+            throw new OAuth2AuthenticationException("The selected alias is already in use.");
+        }
+        return alias;
     }
 
     private String uniqueAlias(String rawAlias) {

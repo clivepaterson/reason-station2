@@ -4,8 +4,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.reasonstation.entity.User;
 import org.reasonstation.repository.UserRepository;
+import org.reasonstation.service.SocialAccountService;
 import org.reasonstation.service.VerificationEmailService;
 import org.reasonstation.service.VerificationEmailService.VerificationEmailException;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -25,6 +27,7 @@ import java.util.UUID;
 
 @RestController
 public class AuthController {
+    private static final int MAX_PASSWORD_LENGTH = 128;
     private static final String EMAIL_PATTERN =
             "^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$";
 
@@ -48,25 +51,29 @@ public class AuthController {
 
     @PostMapping("/api/register")
     public ResponseEntity<Map<String, String>> register(@RequestBody RegisterRequest request) {
+        if (request == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Alias, email address, and password are required."));
+        }
         String alias = request.userid() == null ? "" : request.userid().trim();
         String email = request.email() == null ? "" : request.email().trim().toLowerCase(Locale.ROOT);
         String password = request.password() == null ? "" : request.password();
 
         if (!alias.matches("[A-Za-z0-9_]{3,30}")) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "User ID must be 3-30 characters and use only letters, numbers, or underscores."));
+                    .body(Map.of("error", "Your alias must be 3-30 characters and use only letters, numbers, or underscores."));
         }
         if (email.length() > 254 || !email.matches(EMAIL_PATTERN)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Please enter a valid email address."));
         }
-        if (password.length() < 8) {
+        if (password.length() < 8 || password.length() > MAX_PASSWORD_LENGTH) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Password must be at least 8 characters."));
+                    .body(Map.of("error", "Password must be 8-128 characters."));
         }
         if (users.findByAlias(alias).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "That user ID is already in use."));
+                    .body(Map.of("error", "That alias is already in use."));
         }
         if (users.findByEmail(email).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -86,6 +93,39 @@ public class AuthController {
     }
 
     public record RegisterRequest(String userid, String email, String password) {
+    }
+
+    @GetMapping("/oauth2/login/google")
+    public ResponseEntity<Void> loginWithGoogle(HttpSession session) {
+        session.removeAttribute(SocialAccountService.REGISTRATION_ALIAS_SESSION_ATTRIBUTE);
+        return googleAuthorizationRedirect();
+    }
+
+    @GetMapping("/oauth2/register/google")
+    public ResponseEntity<Void> registerWithGoogle(
+            @RequestParam("alias") String rawAlias, HttpSession session) {
+        String alias = rawAlias == null ? "" : rawAlias.trim();
+        if (!alias.matches("[A-Za-z0-9_]{3,30}")) {
+            return registrationRedirect("invalid");
+        }
+        if (users.findByAlias(alias).isPresent()) {
+            return registrationRedirect("unavailable");
+        }
+
+        session.setAttribute(SocialAccountService.REGISTRATION_ALIAS_SESSION_ATTRIBUTE, alias);
+        return googleAuthorizationRedirect();
+    }
+
+    private ResponseEntity<Void> googleAuthorizationRedirect() {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, "/oauth2/authorization/google")
+                .build();
+    }
+
+    private ResponseEntity<Void> registrationRedirect(String error) {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, "/index.html?register=true&aliasError=" + error)
+                .build();
     }
 
     @PostMapping("/api/verify-email")

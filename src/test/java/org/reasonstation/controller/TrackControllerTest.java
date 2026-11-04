@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.URI;
@@ -25,6 +26,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -108,6 +110,59 @@ class TrackControllerTest {
         assertEquals(downloadUrl, response.getHeaders().getLocation());
         assertEquals(null, response.getBody());
         verify(downloads).recordDownload(4L, "192.0.2.1");
+    }
+
+    @Test
+    void rejectsNonPositiveTrackIdBeforeDownloadLookup() {
+        var response = controller.downloadTrack(0L, new org.springframework.mock.web.MockHttpServletRequest());
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verifyNoInteractions(tracks, downloads, storage);
+    }
+
+    @Test
+    void rejectsOverlongTrackName() throws IOException {
+        when(authentication.getName()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+
+        var response = controller.uploadTrack(
+                authentication, "Artist", "T".repeat(256), "Rock", trackFile());
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(storage, never()).upload(any(), any(), any());
+        verify(tracks, never()).save(any());
+    }
+
+    @Test
+    void rejectsUnsafeTrackFilename() throws IOException {
+        when(authentication.getName()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        var unsafeFile = new MockMultipartFile(
+                "file", "../song.reason", "application/octet-stream", new byte[]{1});
+
+        var response = controller.uploadTrack(
+                authentication, "Artist", "Track", "Rock", unsafeFile);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(storage, never()).upload(any(), any(), any());
+        verify(tracks, never()).save(any());
+    }
+
+    @Test
+    void rejectsTrackLargerThanEightyMegabytes() throws IOException {
+        when(authentication.getName()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        MultipartFile oversizedFile = mock(MultipartFile.class);
+        when(oversizedFile.isEmpty()).thenReturn(false);
+        when(oversizedFile.getOriginalFilename()).thenReturn("song.reason");
+        when(oversizedFile.getSize()).thenReturn(80L * 1024 * 1024 + 1);
+
+        var response = controller.uploadTrack(
+                authentication, "Artist", "Track", "Rock", oversizedFile);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(storage, never()).upload(any(), any(), any());
+        verify(tracks, never()).save(any());
     }
 
     @Test

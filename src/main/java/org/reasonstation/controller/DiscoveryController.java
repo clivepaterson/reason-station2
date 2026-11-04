@@ -15,6 +15,8 @@ import java.util.Map;
 @RequestMapping("/api/discovery")
 public class DiscoveryController {
     private static final int SEARCH_PAGE_SIZE = 20;
+    private static final int MAX_ARTIST_ALIAS_LENGTH = 255;
+    private static final int MAX_SEARCH_TERM_LENGTH = 100;
 
     private final TrackRepository tracks;
     private final PatchRepository patches;
@@ -108,7 +110,11 @@ public class DiscoveryController {
 
     @GetMapping("/artist-tracks")
     public ResponseEntity<?> artistTracks(@RequestParam("artistAlias") String artistAlias) {
-        return ResponseEntity.ok(tracks.findByArtistAlias(artistAlias).stream()
+        String normalizedAlias = normalizeArtistAlias(artistAlias);
+        if (normalizedAlias == null) {
+            return invalidArtistAlias();
+        }
+        return ResponseEntity.ok(tracks.findByArtistAlias(normalizedAlias).stream()
                 .map(track -> new TrackDiscoveryResponse(
                         track.trackid(),
                         track.artistAlias(),
@@ -124,7 +130,11 @@ public class DiscoveryController {
 
     @GetMapping("/artist-patches")
     public ResponseEntity<?> artistPatches(@RequestParam("artistAlias") String artistAlias) {
-        return ResponseEntity.ok(patches.findByArtistAliasOrderByDateUploadedDesc(artistAlias).stream()
+        String normalizedAlias = normalizeArtistAlias(artistAlias);
+        if (normalizedAlias == null) {
+            return invalidArtistAlias();
+        }
+        return ResponseEntity.ok(patches.findByArtistAliasOrderByDateUploadedDesc(normalizedAlias).stream()
                 .map(patch -> new PatchDiscoveryResponse(
                         patch.getPatchid(),
                         patch.getArtistAlias(),
@@ -141,6 +151,10 @@ public class DiscoveryController {
     public ResponseEntity<?> searchTracks(
             @RequestParam("query") String query,
             @RequestParam(value = "page", defaultValue = "1") int page) {
+        if (query == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "A search term is required."));
+        }
         String searchTerm = query.trim();
         long alphanumericCharacterCount = searchTerm.codePoints()
                 .filter(Character::isLetterOrDigit)
@@ -150,7 +164,7 @@ public class DiscoveryController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Search terms must contain at least 3 alphanumeric characters."));
         }
-        if (searchTerm.length() > 100) {
+        if (searchTerm.length() > MAX_SEARCH_TERM_LENGTH) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Search terms must be 100 characters or fewer."));
         }
@@ -181,6 +195,21 @@ public class DiscoveryController {
                 SEARCH_PAGE_SIZE,
                 totalElements,
                 totalPages));
+    }
+
+    private String normalizeArtistAlias(String artistAlias) {
+        if (artistAlias == null) {
+            return null;
+        }
+        String normalizedAlias = artistAlias.trim();
+        return normalizedAlias.isEmpty() || normalizedAlias.length() > MAX_ARTIST_ALIAS_LENGTH
+                ? null
+                : normalizedAlias;
+    }
+
+    private ResponseEntity<Map<String, String>> invalidArtistAlias() {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", "Artist alias must be 1-255 characters."));
     }
 
     private record TrackSearchPageResponse(

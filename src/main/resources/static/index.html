@@ -76,7 +76,7 @@
         <p class="account-intro">Sign in to manage and upload your tracks.</p>
 
         <div class="social-signup" aria-label="Sign in with a social account">
-            <a class="social-signup-button" href="/oauth2/authorization/google">Continue with Google</a>
+            <a class="social-signup-button" href="/oauth2/login/google">Continue with Google</a>
             <!-- <a class="social-signup-button" href="/oauth2/authorization/apple">Continue with Apple</a> -->
         </div>
         <p class="social-signup-divider"><span>or use email</span></p>
@@ -101,33 +101,48 @@
     <div class="account-card">
         <button class="dialog-close" type="button" data-dialog-close aria-label="Close registration dialog">&times;</button>
         <h1 id="register-dialog-title">Create your account</h1>
-        <p class="account-intro">Choose a user ID, enter your email, and set a password to get started.</p>
+        <p class="account-intro">Choose an alias, then continue with Google or register with your email and a password.</p>
 
-        <div class="social-signup" aria-label="Sign up with a social account">
-            <a class="social-signup-button" href="/oauth2/authorization/google">Continue with Google</a>
-            <!-- <a class="social-signup-button" href="/oauth2/authorization/apple">Continue with Apple</a> -->
-        </div>
-        <p class="social-signup-divider"><span>or use email</span></p>
-
-        <form id="registration-form">
-            <label for="userid">User ID <span class="privacy-note">(public)</span></label>
-            <input id="userid" name="userid" type="text" minlength="3" maxlength="30"
+        <h2 class="account-section-title">Use a Google account</h2>
+        <form class="social-signup" action="/oauth2/register/google" method="get"
+              aria-label="Sign up with a social account">
+            <label for="google-alias">Your alias <span class="privacy-note">(public)</span></label>
+            <input id="google-alias" name="alias" type="text" minlength="3" maxlength="30"
                    pattern="[A-Za-z0-9_]+" autocomplete="username" required>
             <small>3-30 characters: letters, numbers, and underscores only.</small>
+            <button class="social-signup-button" type="submit">Continue with Google</button>
+            <!-- <a class="social-signup-button" href="/oauth2/authorization/apple">Continue with Apple</a> -->
+        </form>
+        <p class="social-signup-divider" aria-hidden="true"><span>or</span></p>
 
-            <label for="register-email">Email address <span class="privacy-note">(private)</span></label>
-            <input id="register-email" name="email" type="email" maxlength="254"
-                   autocomplete="email" required>
-            <small>Enter a valid email address.</small>
+        <h2 class="account-section-title">Use email</h2>
+        <form id="registration-form">
+            <div class="account-field">
+                <label for="userid">Your alias <span class="privacy-note">(public)</span></label>
+                <input id="userid" name="userid" type="text" minlength="3" maxlength="30"
+                       pattern="[A-Za-z0-9_]+" autocomplete="username" required>
+                <small>3-30 characters: letters, numbers, and underscores only.</small>
+            </div>
 
-            <label for="register-password">Password <span class="privacy-note">(private)</span></label>
-            <input id="register-password" name="password" type="password" minlength="8"
-                   autocomplete="new-password" required>
-            <small>Use at least 8 characters.</small>
+            <div class="account-field">
+                <label for="register-email">Email address <span class="privacy-note">(private)</span></label>
+                <input id="register-email" name="email" type="email" maxlength="254"
+                       autocomplete="email" required>
+                <small>Enter a valid email address.</small>
+            </div>
 
-            <label for="register-confirm-password">Confirm password <span class="privacy-note">(private)</span></label>
-            <input id="register-confirm-password" name="confirmPassword" type="password" minlength="8"
-                   autocomplete="new-password" required>
+            <div class="account-field">
+                <label for="register-password">Password</label>
+                <input id="register-password" name="password" type="password" minlength="8"
+                       autocomplete="new-password" required>
+                <small>Use at least 8 characters.</small>
+            </div>
+
+            <div class="account-field">
+                <label for="register-confirm-password">Confirm password</label>
+                <input id="register-confirm-password" name="confirmPassword" type="password" minlength="8"
+                       autocomplete="new-password" required>
+            </div>
 
             <button class="cta-button account-submit" type="submit">Create account</button>
             <p id="registration-message" class="form-message" aria-live="polite"></p>

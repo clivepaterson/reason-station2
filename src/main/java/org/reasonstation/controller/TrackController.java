@@ -34,6 +34,10 @@ import java.util.regex.Pattern;
 @RestController
 @RequestMapping("/api/tracks")
 public class TrackController {
+    private static final int MAX_ARTIST_ALIAS_LENGTH = 255;
+    private static final int MAX_TRACK_NAME_LENGTH = 255;
+    private static final int MAX_FILENAME_LENGTH = 255;
+    private static final long MAX_FILE_SIZE = 80L * 1024 * 1024;
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".rps", ".rns", ".reason");
     private static final Set<String> MUSIC_STYLES = Set.of(
             "Rock", "Alternative Rock", "Classic Rock", "Hard Rock", "Soft Rock",
@@ -111,6 +115,10 @@ public class TrackController {
 
     @DeleteMapping("/{trackid}")
     public ResponseEntity<?> deleteTrack(Authentication authentication, @PathVariable Long trackid) {
+        if (trackid == null || trackid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Track ID must be a positive integer."));
+        }
         return findCurrentUser(authentication)
                 .<ResponseEntity<?>>map(user -> {
                     if (tracks.findById(trackid)
@@ -131,6 +139,10 @@ public class TrackController {
 
     @GetMapping("/{trackid}/download")
     public ResponseEntity<?> downloadTrack(@PathVariable Long trackid, HttpServletRequest request) {
+        if (trackid == null || trackid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Track ID must be a positive integer."));
+        }
         var track = tracks.findById(trackid);
         if (track.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -193,20 +205,31 @@ public class TrackController {
                     .body(Map.of("error", "Verify your email address before uploading tracks."));
         }
 
-        String trimmedArtistAlias = artistAlias.trim();
-        String trimmedTrackName = trackName.trim();
-        String trimmedMusicStyle = musicStyle.trim();
+        String trimmedArtistAlias = artistAlias == null ? "" : artistAlias.trim();
+        String trimmedTrackName = trackName == null ? "" : trackName.trim();
+        String trimmedMusicStyle = musicStyle == null ? "" : musicStyle.trim();
         if (trimmedArtistAlias.isEmpty() || trimmedTrackName.isEmpty()
-                || trimmedMusicStyle.isEmpty() || file.isEmpty()) {
+                || trimmedMusicStyle.isEmpty() || file == null || file.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Artist alias, track name, music style, and a file are required."));
         }
-        if (!TRACK_TEXT_PATTERN.matcher(artistAlias).matches()
-                || !TRACK_TEXT_PATTERN.matcher(trackName).matches()) {
+        if (trimmedArtistAlias.length() > MAX_ARTIST_ALIAS_LENGTH
+                || trimmedTrackName.length() > MAX_TRACK_NAME_LENGTH) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Artist alias and track name must be 255 characters or fewer."));
+        }
+        if (!TRACK_TEXT_PATTERN.matcher(trimmedArtistAlias).matches()
+                || !TRACK_TEXT_PATTERN.matcher(trimmedTrackName).matches()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Artist alias and track name may contain only letters, numbers, spaces, and ()[]_.'+-."));
         }
-        if (!hasAllowedExtension(file.getOriginalFilename())) {
+        String filename = file.getOriginalFilename();
+        if (filename == null || filename.isBlank() || filename.length() > MAX_FILENAME_LENGTH
+                || filename.contains("/") || filename.contains("\\") || file.getSize() > MAX_FILE_SIZE) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "File name is invalid or the file exceeds 80 MB."));
+        }
+        if (!hasAllowedExtension(filename)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Only .rps, .rns, and .reason files are allowed."));
         }
@@ -224,7 +247,7 @@ public class TrackController {
         }
 
         Track track = new Track(currentUser.get().getUserid(), trimmedArtistAlias, trimmedTrackName,
-                trimmedMusicStyle, file.getOriginalFilename(), file.getSize(), trackUri);
+                trimmedMusicStyle, filename, file.getSize(), trackUri);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(TrackResponse.from(tracks.save(track), 0));
     }

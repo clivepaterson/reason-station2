@@ -2,6 +2,15 @@
     var form = document.getElementById('registration-form');
     var message = document.getElementById('registration-message');
     var confirmPassword = form.elements.confirmPassword;
+    var aliasError = new URL(window.location.href).searchParams.get('aliasError');
+
+    if (aliasError === 'unavailable') {
+        message.textContent = 'That alias is already in use.';
+        message.className = 'form-message error';
+    } else if (aliasError === 'invalid') {
+        message.textContent = 'Your alias must be 3-30 characters and use only letters, numbers, or underscores.';
+        message.className = 'form-message error';
+    }
 
     function validatePasswordConfirmation() {
         var matches = form.password.value === confirmPassword.value;

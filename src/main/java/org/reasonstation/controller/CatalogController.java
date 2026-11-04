@@ -68,6 +68,10 @@ public class CatalogController {
     }
 
     private String normalizeFilter(String filter) {
+        if (filter == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Catalog filter is required.");
+        }
         String normalizedFilter = filter.trim();
         if (normalizedFilter.length() > 100
                 || (!normalizedFilter.isEmpty()
@@ -84,13 +88,17 @@ public class CatalogController {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Page numbers must be 1 or greater.");
         }
-        if (!allowedSorts.contains(sort)) {
+        if (sort == null || !allowedSorts.contains(sort)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Unsupported sort column.");
         }
     }
 
     private SortDirection parseDirection(String direction) {
+        if (direction == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Sort direction must be asc or desc.");
+        }
         try {
             return SortDirection.valueOf(direction.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException exception) {

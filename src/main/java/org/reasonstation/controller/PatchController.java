@@ -28,6 +28,11 @@ import java.util.regex.Pattern;
 @RestController
 @RequestMapping("/api/patches")
 public class PatchController {
+    private static final int MAX_ARTIST_ALIAS_LENGTH = 255;
+    private static final int MAX_PATCH_NAME_LENGTH = 255;
+    private static final int MAX_DESCRIPTION_LENGTH = 200;
+    private static final int MAX_FILENAME_LENGTH = 255;
+    private static final long MAX_FILE_SIZE = 30L * 1024 * 1024;
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             ".sxt", ".xwv", ".smp", ".drex", ".drum", ".rv7", ".sm4", ".echo",
             ".pulver", ".gator", ".cmb", ".thor", ".kong", ".drp", ".zyp", ".patch",
@@ -51,6 +56,10 @@ public class PatchController {
 
     @GetMapping("/{patchid}/download")
     public ResponseEntity<?> downloadPatch(@PathVariable Long patchid) {
+        if (patchid == null || patchid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Patch ID must be a positive integer."));
+        }
         Optional<Patch> patch = patches.findById(patchid);
         if (patch.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -81,12 +90,18 @@ public class PatchController {
                     .body(Map.of("error", "Verify your email address before uploading patches."));
         }
 
-        String trimmedArtistAlias = artistAlias.trim();
-        String trimmedPatchName = patchName.trim();
-        String trimmedDescription = description.trim();
-        if (trimmedArtistAlias.isEmpty() || trimmedPatchName.isEmpty() || file.isEmpty()) {
+        String trimmedArtistAlias = artistAlias == null ? "" : artistAlias.trim();
+        String trimmedPatchName = patchName == null ? "" : patchName.trim();
+        String trimmedDescription = description == null ? "" : description.trim();
+        if (trimmedArtistAlias.isEmpty() || trimmedPatchName.isEmpty()
+                || file == null || file.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Artist alias, patch name, and a file are required."));
+        }
+        if (trimmedArtistAlias.length() > MAX_ARTIST_ALIAS_LENGTH
+                || trimmedPatchName.length() > MAX_PATCH_NAME_LENGTH) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Artist alias and patch name must be 255 characters or fewer."));
         }
         if (!ARTIST_ALIAS_PATTERN.matcher(trimmedArtistAlias).matches()) {
             return ResponseEntity.badRequest()
@@ -96,13 +111,19 @@ public class PatchController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Patch name may contain only letters, numbers, spaces, and ()[]_.'+-."));
         }
-        if (trimmedDescription.length() > 200
+        if (trimmedDescription.length() > MAX_DESCRIPTION_LENGTH
                 || (!trimmedDescription.isEmpty()
                 && !DESCRIPTION_PATTERN.matcher(trimmedDescription).matches())) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Description must be 200 characters or fewer and may contain only letters, numbers, and ()[]_.'+-."));
         }
-        String extension = getExtension(file.getOriginalFilename());
+        String filename = file.getOriginalFilename();
+        if (filename == null || filename.isBlank() || filename.length() > MAX_FILENAME_LENGTH
+                || filename.contains("/") || filename.contains("\\") || file.getSize() > MAX_FILE_SIZE) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "File name is invalid or the file exceeds 30 MB."));
+        }
+        String extension = getExtension(filename);
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "The selected file type is not a supported patch format."));
@@ -112,7 +133,7 @@ public class PatchController {
                 "patches/" + UUID.randomUUID(), file.getBytes(), file.getContentType());
         Patch patch = new Patch(currentUser.get().getUserid(), trimmedArtistAlias, trimmedPatchName,
                 trimmedDescription.isEmpty() ? null : trimmedDescription,
-                file.getOriginalFilename(), extension, file.getSize(), patchUri);
+                filename, extension, file.getSize(), patchUri);
         return ResponseEntity.status(HttpStatus.CREATED).body(PatchResponse.from(patches.save(patch)));
     }
 

@@ -325,6 +325,8 @@ $(document).ready(async function() {
     var authQuery = new URL(window.location.href).searchParams;
     if (authQuery.get('login') === 'true' || authQuery.has('error')) {
         openAuthDialog('login-dialog');
+    } else if (authQuery.get('register') === 'true') {
+        openAuthDialog('register-dialog');
     }
 
     var currentUrl = new URL(window.location.href);

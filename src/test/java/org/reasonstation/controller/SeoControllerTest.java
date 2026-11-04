@@ -61,6 +61,13 @@ class SeoControllerTest {
     }
 
     @Test
+    void rejectsNonPositiveTrackId() {
+        var response = controller.trackPage(0L);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
     void includesTracksInSitemapAndAdvertisesItToCrawlers() {
         Track track = new Track();
         track.setTrackid(42L);

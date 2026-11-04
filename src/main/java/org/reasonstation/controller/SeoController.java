@@ -43,6 +43,9 @@ public class SeoController {
     @GetMapping(value = "/tracks/{trackid}", produces = MediaType.TEXT_HTML_VALUE)
     @ResponseBody
     public ResponseEntity<String> trackPage(@PathVariable Long trackid) {
+        if (trackid == null || trackid < 1) {
+            return ResponseEntity.badRequest().body("Track ID must be a positive integer.");
+        }
         return tracks.findWithRatingById(trackid)
                 .map(track -> ResponseEntity.ok(trackHtml(track)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(notFoundHtml()));
