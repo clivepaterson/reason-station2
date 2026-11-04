@@ -2895,6 +2895,7 @@ body.site-page {
 
     .oscillator-information {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         max-width: 880px;
         gap: 0.75rem;
         margin-top: 1.5rem;
