@@ -993,6 +993,23 @@ img[data-image-zoom] {
     }
 }
 
+.track-audio-link {
+    display: block;
+
+    &::before {
+        width: auto;
+        height: auto;
+        padding-right: 1.5rem;
+        background: url("../images/soundcloud-favicon.png") right center / 0.9rem 1.05rem no-repeat;
+        content: "Listen at: ";
+        vertical-align: baseline;
+    }
+
+    &[href^="https://audiomack.com/"]::before {
+        background-image: url("../images/audiomack-favicon.ico");
+    }
+}
+
 .track-card-meta {
     display: grid;
     grid-template-areas:

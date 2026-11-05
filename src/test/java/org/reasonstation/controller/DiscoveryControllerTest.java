@@ -9,6 +9,8 @@ import org.reasonstation.repository.PatchWithRating;
 import org.reasonstation.repository.HighestRatedPatch;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
+import org.reasonstation.repository.TrackWithRating;
+import org.reasonstation.repository.TrackSearchResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -88,6 +90,31 @@ class DiscoveryControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(tracks).findByArtistAlias("Artist");
+    }
+
+    @Test
+    void includesAudioLinksInAllTrackCardFeeds() throws Exception {
+        String audioLink = "https://audiomack.com/artist/song/track";
+        var track = new TrackWithRating(42L, 7L, "Artist", "Track", "Rock",
+                "song.reason", 3L, "s3://tracks/song", java.time.Instant.now(), 8.0, 2, audioLink);
+        when(tracks.findRandomTracks(10)).thenReturn(List.of(track));
+        when(tracks.findByArtistAlias("Artist")).thenReturn(List.of(track));
+        when(tracks.searchByArtistAliasOrTrackName("Track", 20, 0)).thenReturn(List.of(
+                new TrackSearchResult(track.trackid(), track.artistAlias(), track.trackName(),
+                        track.musicStyle(), track.filename(), track.filesize(), track.dateUploaded(),
+                        track.averageTrackRating(), track.downloadCount(), audioLink)));
+        when(tracks.countByArtistAliasOrTrackName("Track")).thenReturn(1L);
+        var mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(get("/api/discovery/tracks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].audioLink").value(audioLink));
+        mockMvc.perform(get("/api/discovery/artist-tracks").param("artistAlias", "Artist"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].audioLink").value(audioLink));
+        mockMvc.perform(get("/api/discovery/search").param("query", "Track"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].audioLink").value(audioLink));
     }
 
     @Test

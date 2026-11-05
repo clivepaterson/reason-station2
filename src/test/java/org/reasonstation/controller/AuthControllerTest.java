@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.entity.User;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.VerificationEmailService;
+import org.reasonstation.service.RecaptchaService;
+import org.reasonstation.service.RecaptchaService.RecaptchaUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -36,6 +38,8 @@ class AuthControllerTest {
     @Mock
     private VerificationEmailService verificationEmails;
     @Mock
+    private RecaptchaService recaptcha;
+    @Mock
     private Authentication authentication;
     @Mock
     private UserDetails userDetails;
@@ -44,7 +48,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new AuthController(users, passwordEncoder, verificationEmails);
+        controller = new AuthController(users, passwordEncoder, verificationEmails, recaptcha);
     }
 
     @Test
@@ -91,11 +95,12 @@ class AuthControllerTest {
 
     @Test
     void assignsCreationDateWhenRegisteringUser() {
+        when(recaptcha.verify("valid-token")).thenReturn(true);
         when(passwordEncoder.encode("password")).thenReturn("encoded-password");
         when(users.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = controller.register(new AuthController.RegisterRequest(
-                "listener", "listener@example.com", "password"));
+                "listener", "listener@example.com", "password", "valid-token"));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(users).save(userCaptor.capture());
@@ -114,11 +119,61 @@ class AuthControllerTest {
     @Test
     void rejectsExcessivelyLongPassword() {
         var response = controller.register(new AuthController.RegisterRequest(
-                "listener", "listener@example.com", "p".repeat(129)));
+                "listener", "listener@example.com", "p".repeat(129), "valid-token"));
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(passwordEncoder, never()).encode(any());
         verify(users, never()).save(any());
+    }
+
+    @Test
+    void rejectsRegistrationWithoutCaptcha() {
+        var response = controller.register(new AuthController.RegisterRequest(
+                "listener", "listener@example.com", "password", null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(users, never()).findByAlias(any());
+        verify(users, never()).save(any());
+        verify(passwordEncoder, never()).encode(any());
+        verify(verificationEmails, never()).send(any());
+    }
+
+    @Test
+    void rejectsInvalidCaptcha() {
+        var response = controller.register(new AuthController.RegisterRequest(
+                "listener", "listener@example.com", "password", "invalid-token"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void rejectsRegistrationWhenCaptchaServiceIsUnavailable() {
+        when(recaptcha.verify("token")).thenThrow(new RecaptchaUnavailableException("Unavailable"));
+
+        var response = controller.register(new AuthController.RegisterRequest(
+                "listener", "listener@example.com", "password", "token"));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+        verify(users, never()).save(any());
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void exposesOnlyPublicCaptchaKey() {
+        when(recaptcha.siteKey()).thenReturn("public-site-key");
+
+        var response = controller.recaptchaConfiguration();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(Map.of("siteKey", "public-site-key"), response.getBody());
+    }
+
+    @Test
+    void reportsUnavailableCaptchaConfiguration() {
+        when(recaptcha.siteKey()).thenThrow(new RecaptchaUnavailableException("Missing keys"));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, controller.recaptchaConfiguration().getStatusCode());
     }
 
     @Test

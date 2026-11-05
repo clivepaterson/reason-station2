@@ -92,6 +92,12 @@
                 <option value="Acoustic"><option value="Live"><option value="Instrumental"><option value="Vocal">
                 <option value="Female Vocal"><option value="Male Vocal"><option value="Other">
             </datalist>
+            <label for="audio-link">Audio link <span class="privacy-note">(optional)</span></label>
+            <input id="audio-link" name="audioLink" type="text"
+                   pattern="https://((on\.)?soundcloud|audiomack)\.com/[^\s\\]*"
+                   title="Use a link starting with https://soundcloud.com/, https://on.soundcloud.com/, or https://audiomack.com/ with no whitespace or backslashes."
+                   aria-describedby="audio-link-help">
+            <small id="audio-link-help" class="privacy-note">SoundCloud or Audiomack links only.</small>
             <label for="track-file">Reason file</label>
             <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason"
                    aria-describedby="track-file-extensions" multiple required>

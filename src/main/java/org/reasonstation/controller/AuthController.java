@@ -7,6 +7,8 @@ import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.SocialAccountService;
 import org.reasonstation.service.VerificationEmailService;
 import org.reasonstation.service.VerificationEmailService.VerificationEmailException;
+import org.reasonstation.service.RecaptchaService;
+import org.reasonstation.service.RecaptchaService.RecaptchaUnavailableException;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,12 +36,24 @@ public class AuthController {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final VerificationEmailService verificationEmails;
+    private final RecaptchaService recaptcha;
 
     public AuthController(UserRepository users, PasswordEncoder passwordEncoder,
-                          VerificationEmailService verificationEmails) {
+                          VerificationEmailService verificationEmails, RecaptchaService recaptcha) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.verificationEmails = verificationEmails;
+        this.recaptcha = recaptcha;
+    }
+
+    @GetMapping("/api/register/recaptcha")
+    public ResponseEntity<Map<String, String>> recaptchaConfiguration() {
+        try {
+            return ResponseEntity.ok(Map.of("siteKey", recaptcha.siteKey()));
+        } catch (RecaptchaUnavailableException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "Email registration is temporarily unavailable. Please try again later."));
+        }
     }
 
     @GetMapping("/login")
@@ -71,6 +85,15 @@ public class AuthController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Password must be 8-128 characters."));
         }
+        try {
+            if (!recaptcha.verify(request.recaptchaToken())) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Please complete the reCAPTCHA challenge again."));
+            }
+        } catch (RecaptchaUnavailableException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "reCAPTCHA verification is unavailable. Please try again later."));
+        }
         if (users.findByAlias(alias).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of("error", "That alias is already in use."));
@@ -92,7 +115,7 @@ public class AuthController {
                 .body(Map.of("message", "Account created. Check your email to verify it."));
     }
 
-    public record RegisterRequest(String userid, String email, String password) {
+    public record RegisterRequest(String userid, String email, String password, String recaptchaToken) {
     }
 
     @GetMapping("/oauth2/login/google")

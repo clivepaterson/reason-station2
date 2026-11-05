@@ -11,5 +11,6 @@ public record TrackSearchResult(
         Long filesize,
         Instant dateUploaded,
         Double averageTrackRating,
-        long downloadCount) {
+        long downloadCount,
+        String audioLink) {
 }

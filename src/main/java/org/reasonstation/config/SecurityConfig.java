@@ -79,7 +79,7 @@ public class SecurityConfig {
                     authorize.requestMatchers("/", "/css/**", "/js/**", "/pages/**",
                                 "/actuator/health/liveness", "/actuator/health/readiness",
                                 "/swagger-ui.html", "/swagger-ui/**",
-                                "/v3/api-docs/**", "/login", "/register", "/api/register",
+                                "/v3/api-docs/**", "/login", "/register", "/api/register", "/api/register/recaptcha",
                                 "/oauth2/**", "/login/oauth2/**",
                                 "/api/verify-email",
                                 "/index.html", "/api/discovery/**", "/api/catalog/**",

@@ -61,6 +61,16 @@
         filename.textContent = track.filename || options.filenameFallback || 'Unnamed file';
         content.appendChild(filename);
 
+        if (track.audioLink) {
+            var audioLink = document.createElement('a');
+            audioLink.className = 'track-file-meta track-audio-link';
+            audioLink.href = track.audioLink;
+            audioLink.target = '_blank';
+            audioLink.rel = 'noopener noreferrer';
+            audioLink.textContent = track.audioLink;
+            content.appendChild(audioLink);
+        }
+
         var metadata = document.createElement('div');
         metadata.className = 'track-card-meta';
         appendTextElement(metadata, 'span', 'track-style-meta', 'Style: ' + track.musicStyle);

@@ -86,6 +86,8 @@ public class TrackController {
             "Female Vocal", "Male Vocal", "Other");
     private static final Pattern TRACK_TEXT_PATTERN =
             Pattern.compile("[A-Za-z0-9 ()\\[\\]_.'+\\-]+");
+    private static final Pattern AUDIO_LINK_PATTERN =
+            Pattern.compile("https://(?:(?:on\\.)?soundcloud|audiomack)\\.com/[^\\s\\\\]*");
 
     private final TrackRepository tracks;
     private final TrackDownloadRepository downloads;
@@ -194,7 +196,8 @@ public class TrackController {
             @RequestParam("artistAlias") String artistAlias,
             @RequestParam("trackName") String trackName,
             @RequestParam("musicStyle") String musicStyle,
-            @RequestParam("file") MultipartFile file) throws IOException {
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "audioLink", required = false) String audioLink) throws IOException {
         var currentUser = findCurrentUser(authentication);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -208,6 +211,11 @@ public class TrackController {
         String trimmedArtistAlias = artistAlias == null ? "" : artistAlias.trim();
         String trimmedTrackName = trackName == null ? "" : trackName.trim();
         String trimmedMusicStyle = musicStyle == null ? "" : musicStyle.trim();
+        String trimmedAudioLink = audioLink == null ? "" : audioLink.trim();
+        if (!trimmedAudioLink.isEmpty() && !AUDIO_LINK_PATTERN.matcher(trimmedAudioLink).matches()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Audio link must start with https://soundcloud.com/, https://on.soundcloud.com/, or https://audiomack.com/ and contain no whitespace or backslashes."));
+        }
         if (trimmedArtistAlias.isEmpty() || trimmedTrackName.isEmpty()
                 || trimmedMusicStyle.isEmpty() || file == null || file.isEmpty()) {
             return ResponseEntity.badRequest()
@@ -248,6 +256,7 @@ public class TrackController {
 
         Track track = new Track(currentUser.get().getUserid(), trimmedArtistAlias, trimmedTrackName,
                 trimmedMusicStyle, filename, file.getSize(), trackUri);
+        track.setAudioLink(trimmedAudioLink.isEmpty() ? null : trimmedAudioLink);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(TrackResponse.from(tracks.save(track), 0));
     }
@@ -268,17 +277,17 @@ public class TrackController {
 
     private record TrackResponse(Long trackid, String artistAlias, String trackName, String musicStyle,
                                  String filename, Long filesize, long downloadCount, Double averageTrackRating,
-                                 java.time.Instant dateUploaded) {
+                                 java.time.Instant dateUploaded, String audioLink) {
         private static TrackResponse from(TrackWithRating track) {
             return new TrackResponse(track.trackid(), track.artistAlias(), track.trackName(),
                     track.musicStyle(), track.filename(), track.filesize(), track.downloadCount(),
-                    track.averageTrackRating(), track.dateUploaded());
+                    track.averageTrackRating(), track.dateUploaded(), track.audioLink());
         }
 
         private static TrackResponse from(Track track, int downloadCount) {
             return new TrackResponse(track.getTrackid(), track.getArtistAlias(),
                     track.getTrackName(), track.getMusicStyle(), track.getFilename(),
-                    track.getFilesize(), downloadCount, null, track.getDateUploaded());
+                    track.getFilesize(), downloadCount, null, track.getDateUploaded(), track.getAudioLink());
         }
     }
 

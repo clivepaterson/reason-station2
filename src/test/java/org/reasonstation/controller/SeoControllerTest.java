@@ -65,6 +65,20 @@ class SeoControllerTest {
         assertTrue(html.contains("class=\"track-rating-stars\""));
         assertTrue(html.contains("--rating-percent: 85.0%"));
         assertTrue(html.contains("class=\"track-rating-value\" aria-hidden=\"true\">8.5/10"));
+        assertTrue(html.contains("href=\"https://soundcloud.com/artist/song?one=1&amp;two=2\""
+                + " target=\"_blank\" rel=\"noopener noreferrer\">"
+                + "https://soundcloud.com/artist/song?one=1&amp;two=2</a>"));
+    }
+
+    @Test
+    void omitsAudioLinkWhenTrackHasNone() {
+        TrackWithRating track = track();
+        when(tracks.findWithRatingById(42L)).thenReturn(Optional.of(new TrackWithRating(
+                track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
+                track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
+                track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), null)));
+
+        assertFalse(controller.trackPage(42L).getBody().contains("track-audio-link"));
     }
 
     @Test
@@ -198,6 +212,7 @@ class SeoControllerTest {
         return new TrackWithRating(
                 42L, 7L, "A & B", "Signal & Noise", "Electronic",
                 "signal.reason", 1024L, "s3://tracks/signal",
-                Instant.parse("2026-11-03T10:15:30Z"), 8.5, 12);
+                Instant.parse("2026-11-03T10:15:30Z"), 8.5, 12,
+                "https://soundcloud.com/artist/song?one=1&two=2");
     }
 }

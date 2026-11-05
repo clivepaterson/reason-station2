@@ -262,11 +262,12 @@ window.initializeMyTracks = function() {
         }
     }
 
-    function uploadFile(file, artistAlias, trackName, musicStyle) {
+    function uploadFile(file, artistAlias, trackName, musicStyle, audioLink) {
         var formData = new FormData();
         formData.append('artistAlias', artistAlias);
         formData.append('trackName', trackName);
         formData.append('musicStyle', musicStyle);
+        formData.append('audioLink', audioLink);
         formData.append('file', file);
 
         if (activeUploads === 0) {
@@ -511,6 +512,7 @@ window.initializeMyTracks = function() {
         var artistAlias = $('#artist-alias').val().trim();
         var trackName = $('#track-name').val().trim();
         var musicStyle = $('#music-style').val();
+        var audioLink = $('#audio-link').val().trim();
         var invalidFile = files.find(function(file) {
             var filename = file.name.toLowerCase();
             return !allowedExtensions.some(function(extension) {
@@ -524,6 +526,14 @@ window.initializeMyTracks = function() {
                 .removeClass('success')
                 .addClass('error')
                 .text("Artist alias and track name are required, and may contain only letters, numbers, spaces, and ()[]_.'+-; choose a music style.");
+            return;
+        }
+
+        if (audioLink && !/^https:\/\/((on\.)?soundcloud|audiomack)\.com\/[^\s\\]*$/.test(audioLink)) {
+            $('#upload-status')
+                .removeClass('success')
+                .addClass('error')
+                .text('Audio link must start with https://soundcloud.com/, https://on.soundcloud.com/, or https://audiomack.com/ and contain no whitespace or backslashes.');
             return;
         }
 
@@ -543,7 +553,7 @@ window.initializeMyTracks = function() {
         uploadForm.attr('hidden', true);
         uploadDialogBackdrop.attr('hidden', true);
         Promise.all(files.map(function(file) {
-            return uploadFile(file, artistAlias, trackName, musicStyle);
+            return uploadFile(file, artistAlias, trackName, musicStyle, audioLink);
         }))
             .then(function(results) {
                 var failures = results.filter(function(result) {

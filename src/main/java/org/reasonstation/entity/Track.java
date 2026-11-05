@@ -32,6 +32,9 @@ public class Track {
     @Column("track_uri")
     private String trackUri;
 
+    @Column("audio_link")
+    private String audioLink;
+
     @Column("date_uploaded")
     private Instant dateUploaded = Instant.now();
 
@@ -135,6 +138,14 @@ public class Track {
 
     public Instant getDateUploaded() {
         return dateUploaded;
+    }
+
+    public String getAudioLink() {
+        return audioLink;
+    }
+
+    public void setAudioLink(String audioLink) {
+        this.audioLink = audioLink;
     }
 
     public void setDateUploaded(Instant dateUploaded) {

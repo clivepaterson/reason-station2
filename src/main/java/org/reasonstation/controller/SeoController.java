@@ -214,6 +214,7 @@ public class SeoController {
                                 <a class="track-artist-link" href="%s">by %s</a>
                                 <span class="track-style-badge">%s</span>
                                 <a class="track-file-meta" href="%s" aria-label="Download %s by %s">%s</a>
+                                %s
                                 <div class="track-card-meta">
                                     <span class="track-style-meta">Style: %s</span>
                                     %s
@@ -249,7 +250,12 @@ public class SeoController {
                 title, escapedDescription, canonicalUrl, imageUrl, artistAlias,
                 title, escapedDescription, imageUrl, toJson(structuredData),
                 trackName, escape(artistUrl), artistAlias, musicStyle,
-                downloadUrl, trackName, artistAlias, filename, musicStyle,
+                downloadUrl, trackName, artistAlias, filename,
+                track.audioLink() == null || track.audioLink().isBlank() ? ""
+                        : "<a class=\"track-file-meta track-audio-link\" href=\"" + escape(track.audioLink())
+                                + "\" target=\"_blank\" rel=\"noopener noreferrer\">"
+                                + escape(track.audioLink()) + "</a>",
+                musicStyle,
                 filesizeHtml(track.filesize()), track.downloadCount(), ratingHtml(track.averageTrackRating()),
                 visibleDate.isEmpty() ? "" : "<time class=\"track-uploaded-meta\" datetime=\"" + dateUploaded
                         + "\">Uploaded: " + escape(visibleDate) + "</time>",

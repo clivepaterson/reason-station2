@@ -13,5 +13,6 @@ public record TrackWithRating(
         String trackUri,
         Instant dateUploaded,
         Double averageTrackRating,
-        long downloadCount) {
+        long downloadCount,
+        String audioLink) {
 }
