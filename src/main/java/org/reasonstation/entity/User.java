@@ -24,6 +24,9 @@ public class User {
     @Column("email_verified")
     private boolean emailVerified = false;
 
+    @Column("admin")
+    private boolean admin = false;
+
     @Column("verify_email_token")
     private UUID verifyEmailToken;
 
@@ -88,6 +91,14 @@ public class User {
 
     public void setEmailVerified(boolean emailVerified) {
         this.emailVerified = emailVerified;
+    }
+
+    public boolean isAdmin() {
+        return admin;
+    }
+
+    public void setAdmin(boolean admin) {
+        this.admin = admin;
     }
 
     public UUID getVerifyEmailToken() {

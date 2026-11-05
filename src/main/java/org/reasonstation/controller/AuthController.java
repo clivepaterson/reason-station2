@@ -235,7 +235,7 @@ public class AuthController {
             if (oidcUser.getFullName() != null) {
                 response.put("name", oidcUser.getFullName());
             }
-        } else if (principal instanceof JwtAuthenticationToken token) {
+        } else if (authentication instanceof JwtAuthenticationToken token) {
             username = token.getToken().getClaimAsString("preferred_username");
             if (username == null || username.isBlank()) {
                 username = authentication.getName();
@@ -248,9 +248,9 @@ public class AuthController {
             username = authentication.getName();
         }
         response.put("username", username);
-        response.put("emailVerified", users.findByAlias(username)
-                .map(User::isEmailVerified)
-                .orElse(false));
+        User account = users.findByAlias(username).orElse(null);
+        response.put("emailVerified", account != null && account.isEmailVerified());
+        response.put("admin", account != null && account.isAdmin());
         return response;
     }
 

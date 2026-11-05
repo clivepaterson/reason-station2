@@ -37,6 +37,13 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.reasonstation.service.SocialAccountService;
+import org.reasonstation.service.AdminAccessService;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.Duration;
@@ -46,6 +53,11 @@ import java.util.UUID;
 
 @Configuration
 public class SecurityConfig {
+    private static final RequestMatcher ADMIN_REQUESTS = new OrRequestMatcher(
+            PathPatternRequestMatcher.withDefaults().matcher("/admin"),
+            PathPatternRequestMatcher.withDefaults().matcher("/admin/**"),
+            PathPatternRequestMatcher.withDefaults().matcher("/api/admin"),
+            PathPatternRequestMatcher.withDefaults().matcher("/api/admin/**"));
 
     @Bean
     @Order(1)
@@ -69,8 +81,12 @@ public class SecurityConfig {
     SecurityFilterChain applicationSecurityFilterChain(
             HttpSecurity http,
             SocialAccountService socialAccountService,
+            AdminAccessService adminAccessService,
             @Value("${app.scalar-ui.enabled:true}") boolean scalarUiEnabled) throws Exception {
         http.authorizeHttpRequests(authorize -> {
+                    authorize.requestMatchers(ADMIN_REQUESTS)
+                            .access((authentication, context) ->
+                                    new AuthorizationDecision(adminAccessService.isAdmin(authentication.get())));
                     if (scalarUiEnabled) {
                         authorize.requestMatchers("/scalar/**", "/scalar-ui").permitAll();
                     } else {
@@ -89,6 +105,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll();
                 })
+                .exceptionHandling(exceptions -> exceptions
+                        .defaultAuthenticationEntryPointFor(
+                                new HttpStatusEntryPoint(HttpStatus.NOT_FOUND), ADMIN_REQUESTS)
+                        .defaultAccessDeniedHandlerFor((request, response, exception) ->
+                                response.sendError(HttpServletResponse.SC_NOT_FOUND), ADMIN_REQUESTS))
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/login", "/api/register",
                         "/api/verify-email", "/api/resend-verification-email",
                         "/api/tracks/**", "/api/patches/**"))
@@ -124,8 +145,12 @@ public class SecurityConfig {
                         && authentication.isAuthenticated()
                         && "admin".equals(authentication.getName())
                         && !isLoopback(request.getRemoteAddr())) {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN,
-                            "The admin user is only available from localhost");
+                    if (ADMIN_REQUESTS.matches(request)) {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                    } else {
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                                "The admin user is only available from localhost");
+                    }
                     return;
                 }
                 filterChain.doFilter(request, response);

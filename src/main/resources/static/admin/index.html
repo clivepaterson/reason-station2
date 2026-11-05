@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Admin | Reason Station</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="/js/pages/admin.js" defer></script>
+</head>
+<body class="site-page">
+<header class="navbar">
+    <div class="container">
+        <a class="logo-title" href="/index.html">Reason Station</a>
+        <a href="/logout">Logout</a>
+    </div>
+</header>
+<main class="catalog-page">
+    <div class="container">
+        <h1>Users</h1>
+        <p>All users, newest accounts first. 100 users per page.</p>
+        <p id="users-status" class="catalog-status" role="status" aria-live="polite"></p>
+        <div class="catalog-table-wrapper">
+            <table class="catalog-table">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Alias</th>
+                    <th>Email</th>
+                    <th>Email verified</th>
+                    <th>Admin</th>
+                    <th aria-sort="descending">Date created</th>
+                </tr>
+                </thead>
+                <tbody id="users-rows"></tbody>
+            </table>
+        </div>
+        <nav id="users-pagination" class="catalog-pagination" aria-label="User pages" hidden>
+            <button id="users-previous" type="button">Previous</button>
+            <span id="users-page-status"></span>
+            <button id="users-next" type="button">Next</button>
+        </nav>
+    </div>
+</main>
+</body>
+</html>

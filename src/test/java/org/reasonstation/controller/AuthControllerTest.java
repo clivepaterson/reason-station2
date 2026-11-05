@@ -15,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.mock.web.MockHttpSession;
 
 import java.util.Map;
@@ -91,6 +93,32 @@ class AuthControllerTest {
 
         assertEquals("listener", response.get("username"));
         assertEquals(false, response.get("emailVerified"));
+        assertEquals(false, response.get("admin"));
+    }
+
+    @Test
+    void exposesAdminFlagForAdminNavigation() {
+        User user = unverifiedUser();
+        user.setAdmin(true);
+        when(authentication.getPrincipal()).thenReturn(userDetails);
+        when(userDetails.getUsername()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user));
+
+        assertEquals(true, controller.me(authentication).get("admin"));
+    }
+
+    @Test
+    void resolvesAdminNavigationForJwtPreferredUsername() {
+        User user = unverifiedUser();
+        user.setAdmin(true);
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user));
+        Jwt jwt = Jwt.withTokenValue("token").header("alg", "RS256")
+                .subject("provider-subject").claim("preferred_username", "listener").build();
+
+        var response = controller.me(new JwtAuthenticationToken(jwt, java.util.List.of()));
+
+        assertEquals("listener", response.get("username"));
+        assertEquals(true, response.get("admin"));
     }
 
     @Test
@@ -106,6 +134,7 @@ class AuthControllerTest {
         verify(users).save(userCaptor.capture());
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(userCaptor.getValue().getDateCreated());
+        assertEquals(false, userCaptor.getValue().isAdmin());
     }
 
     @Test
