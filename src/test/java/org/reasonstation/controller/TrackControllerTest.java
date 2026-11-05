@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -99,7 +100,7 @@ class TrackControllerTest {
         verify(tracks).save(savedTrack.capture());
         assertEquals("Artist Name", savedTrack.getValue().getArtistAlias());
         assertEquals("Track Name", savedTrack.getValue().getTrackName());
-        assertEquals(3L, savedTrack.getValue().getFilesize());
+        assertEquals((long) trackFile().getSize(), savedTrack.getValue().getFilesize());
         assertEquals(null, savedTrack.getValue().getAudioLink());
         assertEquals(null, savedTrack.getValue().getProgramVersion());
     }
@@ -122,7 +123,7 @@ class TrackControllerTest {
         byte[] marker = "PROGRAMVERSIONBODY".getBytes(StandardCharsets.US_ASCII);
         byte[] version = programVersion.getBytes(StandardCharsets.US_ASCII);
         byte[] content = ByteBuffer.allocate(262892 + marker.length + 8 + version.length)
-                .position(262892).put(marker).putInt(4 + version.length)
+                .put(fileHeader(filename)).position(262892).put(marker).putInt(4 + version.length)
                 .putInt(version.length).put(version).array();
         var file = new MockMultipartFile("file", filename, "application/octet-stream", content);
 
@@ -148,7 +149,8 @@ class TrackControllerTest {
         when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/upload");
         when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var file = new MockMultipartFile("file", filename, "application/octet-stream",
-                content.getBytes(StandardCharsets.US_ASCII));
+                ByteBuffer.allocate(12 + content.length()).put(fileHeader(filename))
+                        .put(content.getBytes(StandardCharsets.US_ASCII)).array());
 
         var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null);
 
@@ -165,7 +167,7 @@ class TrackControllerTest {
         when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/upload");
         when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var file = new MockMultipartFile("file", "song.reason", "application/octet-stream",
-                "PROGRAMVERSIONBODY".getBytes(StandardCharsets.US_ASCII));
+                "X15_FILEPROGRAMVERSIONBODY".getBytes(StandardCharsets.US_ASCII));
 
         var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null);
 
@@ -346,6 +348,37 @@ class TrackControllerTest {
         verify(tracks, never()).save(any());
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "song.reason, not a Reason file",
+            "song.rns, X15_FILE",
+            "song.reason, Propellerheads Reason Song File",
+            "song.rps, FORM",
+            "song.rps, FORM0000AIFFReason",
+            "song.rps, FORM0000RPS",
+            "song.reason, prefixX15_FILE",
+            "song.rns, Propellerheads Reason Song Fil"
+    })
+    void rejectsInvalidFileSignaturesBeforeSavingOrUploading(String filename, String content)
+            throws Exception {
+        when(authentication.getName()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+
+        standaloneSetup(controller).build()
+                .perform(multipart("/api/tracks")
+                        .file(new MockMultipartFile("file", filename, "application/octet-stream",
+                                content.getBytes(StandardCharsets.US_ASCII)))
+                        .principal(authentication)
+                        .param("artistAlias", "Artist")
+                        .param("trackName", "Track")
+                        .param("musicStyle", "Rock"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(
+                        "File contents do not match the expected Reason format for its extension."));
+
+        verifyNoInteractions(storage, tracks);
+    }
+
     @Test
     void acceptsTrackRatingOfTen() throws Exception {
         when(tracks.findById(3L)).thenReturn(Optional.of(new Track()));
@@ -386,6 +419,15 @@ class TrackControllerTest {
 
     private MockMultipartFile trackFile() {
         return new MockMultipartFile(
-                "file", "song.reason", "application/octet-stream", new byte[]{1, 2, 3});
+                "file", "song.reason", "application/octet-stream", fileHeader("song.reason"));
+    }
+
+    private byte[] fileHeader(String filename) {
+        if (filename.toLowerCase(Locale.ROOT).endsWith(".rps")) {
+            return ByteBuffer.allocate(12).put("FORM".getBytes(StandardCharsets.US_ASCII))
+                    .putInt(4).put("RPS2".getBytes(StandardCharsets.US_ASCII)).array();
+        }
+        return (filename.toLowerCase(Locale.ROOT).endsWith(".rns")
+                ? "Propellerheads Reason Song File" : "X15_FILE").getBytes(StandardCharsets.US_ASCII);
     }
 }

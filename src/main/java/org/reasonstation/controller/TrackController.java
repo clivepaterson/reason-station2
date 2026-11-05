@@ -8,6 +8,7 @@ import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.util.ReasonFileFormat;
 import org.reasonstation.util.ReasonFileMetadata;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -252,6 +253,11 @@ public class TrackController {
         byte[] content;
         try {
             content = file.getBytes();
+            if (!ReasonFileFormat.matches(filename, content)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "File contents do not match the " +
+                                "expected Reason format for its extension."));
+            }
             trackUri = storage.upload(objectKey, content, file.getContentType());
         } catch (IOException exception) {
             throw new TrackUploadException(exception);

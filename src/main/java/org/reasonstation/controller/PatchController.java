@@ -6,6 +6,7 @@ import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.PatchRatingRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.util.PatchFileFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -194,6 +195,14 @@ public class PatchController {
                     .body(Map.of("error", "The selected file type is not a supported patch format."));
         }
 
+        byte[] patchBytes = file.getBytes();
+        if (!PatchFileFormat.matches(extension, patchBytes)) {
+            String error = ".patch".equals(extension) || ".repatch".equals(extension)
+                    ? "The patch must be valid XML with a JukeboxPatch root element and a deviceProductID containing propellerheads."
+                    : "The patch file must start with FORM.";
+            return ResponseEntity.badRequest().body(Map.of("error", error));
+        }
+
         byte[] imageBytes = null;
         String imageFormat = null;
         if (image != null && !image.isEmpty()) {
@@ -229,7 +238,7 @@ public class PatchController {
         }
 
         String patchUri = storage.upload(
-                "patches/" + UUID.randomUUID(), file.getBytes(), file.getContentType());
+                "patches/" + UUID.randomUUID(), patchBytes, file.getContentType());
         Patch patch = new Patch(currentUser.get().getUserid(), trimmedArtistAlias, trimmedPatchName,
                 trimmedDescription.isEmpty() ? null : trimmedDescription,
                 filename, extension, file.getSize(), patchUri);

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -27,6 +28,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.Locale;
 import java.util.List;
@@ -274,7 +276,7 @@ class PatchControllerTest {
         ArgumentCaptor<Patch> savedPatch = ArgumentCaptor.forClass(Patch.class);
         verify(patches).save(savedPatch.capture());
         assertEquals("Artist Name", savedPatch.getValue().getArtistAlias());
-        assertEquals(3L, savedPatch.getValue().getFilesize());
+        assertEquals(4L, savedPatch.getValue().getFilesize());
         assertEquals("Warm Bass", savedPatch.getValue().getPatchName());
         assertEquals("Warm_Bass", savedPatch.getValue().getDescription());
         assertEquals(".thor", savedPatch.getValue().getExt());
@@ -304,6 +306,71 @@ class PatchControllerTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(storage, never()).upload(any(), any(), any());
         verify(patches, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            ".sxt", ".xwv", ".smp", ".drex", ".drum", ".rv7", ".sm4", ".echo",
+            ".pulver", ".gator", ".cmb", ".thor", ".kong", ".drp", ".zyp",
+            ".sf2", ".rx2", ".rcy", ".rex", ".THOR", ".patch", ".repatch", ".PATCH", ".REPATCH"
+    })
+    void uploadsMatchingPatchFormats(String extension) throws IOException {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/patches/upload");
+        when(patches.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String content = ".patch".equalsIgnoreCase(extension) || ".repatch".equalsIgnoreCase(extension)
+                ? "<?xml version=\"1.0\"?><JukeboxPatch deviceProductID=\"se.propellerheads.Mimic\"><Properties/></JukeboxPatch>"
+                : "FORM";
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        var file = new MockMultipartFile("file", "bass" + extension, "application/octet-stream", bytes);
+
+        var response = controller.uploadPatch(authentication, "Artist", "Bass", "", file, null);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(storage).upload(startsWith("patches/"), aryEq(bytes), eq("application/octet-stream"));
+        verify(patches).save(any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            ".thor, FOR",
+            ".cmb, prefixFORM",
+            ".sxt, form",
+            ".patch, FORM",
+            ".repatch, FORM",
+            ".patch, <JukeboxPatch deviceProductID=\"se.propellerheads.Mimic\">",
+            ".repatch, <JukeboxPatch deviceProductID=\"another.vendor\"/>"
+    })
+    void rejectsInvalidPatchFormatsBeforeUploadingAnything(String extension, String content) throws Exception {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        MultipartFile image = mock(MultipartFile.class);
+        var file = new MockMultipartFile("file", "bass" + extension, "application/octet-stream",
+                content.getBytes(StandardCharsets.UTF_8));
+
+        var response = controller.uploadPatch(authentication, "Artist", "Bass", "", file, image);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(java.util.Map.of("error", extension.equals(".patch") || extension.equals(".repatch")
+                ? "The patch must be valid XML with a JukeboxPatch root element and a deviceProductID containing propellerheads."
+                : "The patch file must start with FORM."), response.getBody());
+        verifyNoInteractions(storage, patches, image);
+    }
+
+    @Test
+    void returnsFormatErrorForInvalidMultipartUpload() throws Exception {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+
+        standaloneSetup(controller).build()
+                .perform(multipart("/api/patches")
+                        .file(new MockMultipartFile("file", "bass.thor", "application/octet-stream",
+                                new byte[]{1, 2, 3}))
+                        .param("artistAlias", "Artist")
+                        .param("patchName", "Bass")
+                        .principal(authentication))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("The patch file must start with FORM."));
+
+        verifyNoInteractions(storage, patches);
     }
 
     @Test
@@ -545,6 +612,6 @@ class PatchControllerTest {
 
     private MockMultipartFile patchFile(String filename) {
         return new MockMultipartFile(
-                "file", filename, "application/octet-stream", new byte[]{1, 2, 3});
+                "file", filename, "application/octet-stream", "FORM".getBytes(StandardCharsets.US_ASCII));
     }
 }
