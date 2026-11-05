@@ -35,6 +35,9 @@ public class Track {
     @Column("audio_link")
     private String audioLink;
 
+    @Column("program_version")
+    private String programVersion;
+
     @Column("date_uploaded")
     private Instant dateUploaded = Instant.now();
 
@@ -146,6 +149,14 @@ public class Track {
 
     public void setAudioLink(String audioLink) {
         this.audioLink = audioLink;
+    }
+
+    public String getProgramVersion() {
+        return programVersion;
+    }
+
+    public void setProgramVersion(String programVersion) {
+        this.programVersion = programVersion;
     }
 
     public void setDateUploaded(Instant dateUploaded) {

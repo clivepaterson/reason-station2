@@ -23,6 +23,11 @@
         return (Math.round(filesize / (1024 * 1024) * 10) / 10).toLocaleString() + ' Mb';
     };
 
+    window.formatTrackFilename = function(track, fallback) {
+        var filename = track.filename || fallback || 'Unnamed file';
+        return filename + (track.programVersion ? ' (Reason ' + track.programVersion + ')' : '');
+    };
+
     window.createTrackCard = function(track, options) {
         options = options || {};
 
@@ -58,7 +63,7 @@
         filename.className = 'track-file-meta';
         filename.href = downloadUrl;
         filename.setAttribute('aria-label', downloadLabel);
-        filename.textContent = track.filename || options.filenameFallback || 'Unnamed file';
+        filename.textContent = window.formatTrackFilename(track, options.filenameFallback);
         content.appendChild(filename);
 
         if (track.audioLink) {

@@ -3,6 +3,7 @@ package org.reasonstation.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 
@@ -98,6 +101,78 @@ class TrackControllerTest {
         assertEquals("Track Name", savedTrack.getValue().getTrackName());
         assertEquals(3L, savedTrack.getValue().getFilesize());
         assertEquals(null, savedTrack.getValue().getAudioLink());
+        assertEquals(null, savedTrack.getValue().getProgramVersion());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "song.reason, 13.2.1, 13.2.1",
+            "song.REASON, 13.2.1, 13.2.1",
+            "song.rns, 4.0.0,",
+            "song.rps, 4.0.0, 4.0.0",
+            "song.RPS, 3.0.0, 3.0.0",
+            "song.rps, 0.0.0, 0.0.0"
+    })
+    void extractsProgramVersionForReasonAndRpsUploads(
+            String filename, String programVersion, String expectedVersion) throws IOException {
+        when(authentication.getName()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/upload");
+        when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        byte[] marker = "PROGRAMVERSIONBODY".getBytes(StandardCharsets.US_ASCII);
+        byte[] version = programVersion.getBytes(StandardCharsets.US_ASCII);
+        byte[] content = ByteBuffer.allocate(262892 + marker.length + 8 + version.length)
+                .position(262892).put(marker).putInt(4 + version.length)
+                .putInt(version.length).put(version).array();
+        var file = new MockMultipartFile("file", filename, "application/octet-stream", content);
+
+        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        ArgumentCaptor<Track> savedTrack = ArgumentCaptor.forClass(Track.class);
+        verify(tracks).save(savedTrack.capture());
+        assertEquals(expectedVersion, savedTrack.getValue().getProgramVersion());
+        verify(storage).upload(any(), org.mockito.ArgumentMatchers.eq(content), any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "song.rps, 'no metadata'",
+            "song.RPS, 'no metadata'",
+            "song.rps, PROGRAMVERSIONBODY"
+    })
+    void defaultsRpsVersionToOneWhenNoValidProgramVersionIsFound(
+            String filename, String content) throws IOException {
+        when(authentication.getName()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/upload");
+        when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var file = new MockMultipartFile("file", filename, "application/octet-stream",
+                content.getBytes(StandardCharsets.US_ASCII));
+
+        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        ArgumentCaptor<Track> savedTrack = ArgumentCaptor.forClass(Track.class);
+        verify(tracks).save(savedTrack.capture());
+        assertEquals("1.0.0", savedTrack.getValue().getProgramVersion());
+    }
+
+    @Test
+    void uploadsReasonFileWithMalformedVersionWithoutSettingProgramVersion() throws IOException {
+        when(authentication.getName()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/upload");
+        when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var file = new MockMultipartFile("file", "song.reason", "application/octet-stream",
+                "PROGRAMVERSIONBODY".getBytes(StandardCharsets.US_ASCII));
+
+        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        ArgumentCaptor<Track> savedTrack = ArgumentCaptor.forClass(Track.class);
+        verify(tracks).save(savedTrack.capture());
+        assertEquals(null, savedTrack.getValue().getProgramVersion());
     }
 
     @ParameterizedTest
@@ -162,18 +237,19 @@ class TrackControllerTest {
     }
 
     @Test
-    void includesAudioLinkInCurrentUserTracks() throws Exception {
+    void includesAudioLinkAndProgramVersionInCurrentUserTracks() throws Exception {
         when(authentication.getName()).thenReturn("listener");
         when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
         String audioLink = "https://soundcloud.com/artist/song";
         when(tracks.findByUseridWithRating(7L)).thenReturn(java.util.List.of(
                 new TrackWithRating(42L, 7L, "Artist", "Track", "Rock", "song.reason", 3L,
-                        "s3://tracks/song", java.time.Instant.now(), null, 0, audioLink)));
+                        "s3://tracks/song", java.time.Instant.now(), null, 0, audioLink, "13.2.1")));
 
         standaloneSetup(controller).build()
                 .perform(get("/api/tracks/me").principal(authentication))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].audioLink").value(audioLink));
+                .andExpect(jsonPath("$[0].audioLink").value(audioLink))
+                .andExpect(jsonPath("$[0].programVersion").value("13.2.1"));
     }
 
     @ParameterizedTest

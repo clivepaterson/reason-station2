@@ -27,6 +27,36 @@ class CatalogRepositoryTest {
 
     @ParameterizedTest
     @NullSource
+    @ValueSource(strings = "13.2.1")
+    void listsTracksWithOptionalProgramVersion(String programVersion) throws Exception {
+        ResultSet row = mock(ResultSet.class);
+        when(row.getLong("trackid")).thenReturn(42L);
+        when(row.getString("artist_alias")).thenReturn("Artist");
+        when(row.getString("track_name")).thenReturn("Track");
+        when(row.getString("music_style")).thenReturn("Rock");
+        when(row.getString("filename")).thenReturn("song.reason");
+        when(row.getString("program_version")).thenReturn(programVersion);
+        when(queries.queryForObject(
+                any(String.class), eq(Map.of("filter", "")), eq(Long.class)))
+                .thenReturn(1L);
+        when(queries.<CatalogRepository.TrackListItem>query(
+                contains("t.program_version"), any(MapSqlParameterSource.class), any()))
+                .thenAnswer(invocation -> {
+                    RowMapper<CatalogRepository.TrackListItem> mapper = invocation.getArgument(2);
+                    return List.of(mapper.mapRow(row, 0));
+                });
+
+        var result = new CatalogRepository(queries).findTracks(
+                1, 25, "dateUploaded", CatalogRepository.SortDirection.DESC, "");
+
+        assertEquals(1, result.items().size());
+        assertEquals(42L, result.items().getFirst().trackid());
+        assertEquals("song.reason", result.items().getFirst().filename());
+        assertEquals(programVersion, result.items().getFirst().programVersion());
+    }
+
+    @ParameterizedTest
+    @NullSource
     @ValueSource(strings = "s3://tracks/patch-images/bass")
     void listsPatchesWithOptionalImageUri(String imageUri) throws Exception {
         ResultSet row = mock(ResultSet.class);

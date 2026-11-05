@@ -35,7 +35,7 @@
                     artistLink(item.artistAlias),
                     trackLink(item, item.trackName),
                     item.musicStyle,
-                    trackLink(item, item.filename),
+                    trackLink(item, window.formatTrackFilename(item)),
                     formatFileSize(item.filesize),
                     formatDate(item.dateUploaded),
                     formatRating(item.averageRating),

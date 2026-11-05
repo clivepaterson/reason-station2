@@ -55,7 +55,7 @@ public class DiscoveryController {
                         track.filesize(),
                         track.downloadCount(),
                         track.averageTrackRating(),
-                        track.dateUploaded(), track.audioLink()))
+                        track.dateUploaded(), track.audioLink(), track.programVersion()))
                 .toList();
     }
 
@@ -129,7 +129,7 @@ public class DiscoveryController {
                         track.filesize(),
                         track.downloadCount(),
                         track.averageTrackRating(),
-                        track.dateUploaded(), track.audioLink()))
+                        track.dateUploaded(), track.audioLink(), track.programVersion()))
                 .toList());
     }
 
@@ -181,7 +181,7 @@ public class DiscoveryController {
                         track.filesize(),
                         track.downloadCount(),
                         track.averageTrackRating(),
-                        track.dateUploaded(), track.audioLink()))
+                        track.dateUploaded(), track.audioLink(), track.programVersion()))
                 .toList();
 
         return ResponseEntity.ok(new TrackSearchPageResponse(
@@ -225,7 +225,8 @@ public class DiscoveryController {
             long downloadCount,
             Double averageTrackRating,
             java.time.Instant dateUploaded,
-            String audioLink) {
+            String audioLink,
+            String programVersion) {
     }
 
 }

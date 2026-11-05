@@ -103,6 +103,7 @@ public class CatalogRepository {
                        t.track_name,
                        t.music_style,
                        t.filename,
+                       t.program_version,
                        t.filesize,
                        t.date_uploaded,
                        AVG(r.rating) AS average_rating
@@ -122,7 +123,8 @@ public class CatalogRepository {
                         resultSet.getString("filename"),
                         resultSet.getObject("filesize", Long.class),
                         toInstant(resultSet.getTimestamp("date_uploaded")),
-                        toDouble(resultSet.getBigDecimal("average_rating"))));
+                        toDouble(resultSet.getBigDecimal("average_rating")),
+                        resultSet.getString("program_version")));
         return page(items, page, pageSize, totalElements);
     }
 
@@ -217,7 +219,7 @@ public class CatalogRepository {
 
     public record TrackListItem(Long trackid, String artistAlias, String trackName, String musicStyle,
                                 String filename, Long filesize, Instant dateUploaded,
-                                Double averageRating) {
+                                Double averageRating, String programVersion) {
     }
 
     public record PatchListItem(Long patchid, String artistAlias, String patchName, String description,

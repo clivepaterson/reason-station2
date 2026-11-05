@@ -284,6 +284,11 @@ $applicationConfig = [ordered]@{
     APPLE_CLIENT_ID = $appleClientId
     APPLE_CLIENT_SECRET = $appleClientSecret
 }
+foreach ($key in @("RECAPTCHA_SITE_KEY", "RECAPTCHA_SECRET_KEY")) {
+    if ($existingConfig.ContainsKey($key)) {
+        $applicationConfig[$key] = $existingConfig[$key]
+    }
+}
 $applicationConfigJson = $applicationConfig | ConvertTo-Json -Compress
 $secretFile = [System.IO.Path]::GetTempFileName()
 try {

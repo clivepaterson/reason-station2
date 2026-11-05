@@ -8,6 +8,7 @@ import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.util.ReasonFileMetadata;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -248,8 +249,10 @@ public class TrackController {
 
         String objectKey = "tracks/" + UUID.randomUUID();
         String trackUri;
+        byte[] content;
         try {
-            trackUri = storage.upload(objectKey, file.getBytes(), file.getContentType());
+            content = file.getBytes();
+            trackUri = storage.upload(objectKey, content, file.getContentType());
         } catch (IOException exception) {
             throw new TrackUploadException(exception);
         }
@@ -257,6 +260,12 @@ public class TrackController {
         Track track = new Track(currentUser.get().getUserid(), trimmedArtistAlias, trimmedTrackName,
                 trimmedMusicStyle, filename, file.getSize(), trackUri);
         track.setAudioLink(trimmedAudioLink.isEmpty() ? null : trimmedAudioLink);
+        String lowercaseFilename = filename.toLowerCase(Locale.ROOT);
+        if (lowercaseFilename.endsWith(".rps")) {
+            track.setProgramVersion(ReasonFileMetadata.programVersion(content).orElse("1.0.0"));
+        } else if (lowercaseFilename.endsWith(".reason")) {
+            track.setProgramVersion(ReasonFileMetadata.programVersion(content).orElse(null));
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(TrackResponse.from(tracks.save(track), 0));
     }
@@ -277,17 +286,18 @@ public class TrackController {
 
     private record TrackResponse(Long trackid, String artistAlias, String trackName, String musicStyle,
                                  String filename, Long filesize, long downloadCount, Double averageTrackRating,
-                                 java.time.Instant dateUploaded, String audioLink) {
+                                 java.time.Instant dateUploaded, String audioLink, String programVersion) {
         private static TrackResponse from(TrackWithRating track) {
             return new TrackResponse(track.trackid(), track.artistAlias(), track.trackName(),
                     track.musicStyle(), track.filename(), track.filesize(), track.downloadCount(),
-                    track.averageTrackRating(), track.dateUploaded(), track.audioLink());
+                    track.averageTrackRating(), track.dateUploaded(), track.audioLink(), track.programVersion());
         }
 
         private static TrackResponse from(Track track, int downloadCount) {
             return new TrackResponse(track.getTrackid(), track.getArtistAlias(),
                     track.getTrackName(), track.getMusicStyle(), track.getFilename(),
-                    track.getFilesize(), downloadCount, null, track.getDateUploaded(), track.getAudioLink());
+                    track.getFilesize(), downloadCount, null, track.getDateUploaded(), track.getAudioLink(),
+                    track.getProgramVersion());
         }
     }
 

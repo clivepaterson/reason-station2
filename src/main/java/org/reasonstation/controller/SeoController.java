@@ -121,7 +121,9 @@ public class SeoController {
         String trackName = escape(track.trackName());
         String artistAlias = escape(track.artistAlias());
         String musicStyle = escape(track.musicStyle());
-        String filename = escape(track.filename());
+        String filename = escape(track.filename())
+                + (track.programVersion() == null || track.programVersion().isBlank()
+                ? "" : " (Reason " + escape(track.programVersion()) + ")");
         String downloadUrl = "/api/tracks/" + track.trackid() + "/download";
         String canonicalUrl = baseUrl + "/tracks/" + track.trackid();
         String imageUrl = baseUrl + "/images/logo_by_chatgpt.jpg";
