@@ -13,18 +13,21 @@ import java.time.Duration;
 
 @Service
 public class RecaptchaService {
+    private final boolean enabled;
     private final String siteKey;
     private final String secretKey;
     private final RestClient client;
 
     @Autowired
     public RecaptchaService(
+            @Value("${app.recaptcha.enabled:true}") boolean enabled,
             @Value("${app.recaptcha.site-key:}") String siteKey,
             @Value("${app.recaptcha.secret-key:}") String secretKey) {
-        this(siteKey, secretKey, createClient());
+        this(enabled, siteKey, secretKey, createClient());
     }
 
-    RecaptchaService(String siteKey, String secretKey, RestClient client) {
+    RecaptchaService(boolean enabled, String siteKey, String secretKey, RestClient client) {
+        this.enabled = enabled;
         this.siteKey = siteKey;
         this.secretKey = secretKey;
         this.client = client;
@@ -42,7 +45,14 @@ public class RecaptchaService {
         return siteKey;
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
     public boolean verify(String token) {
+        if (!enabled) {
+            return true;
+        }
         requireConfiguration();
         if (token == null || token.isBlank() || token.length() > 8192) {
             return false;

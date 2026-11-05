@@ -47,9 +47,12 @@ public class AuthController {
     }
 
     @GetMapping("/api/register/recaptcha")
-    public ResponseEntity<Map<String, String>> recaptchaConfiguration() {
+    public ResponseEntity<Map<String, Object>> recaptchaConfiguration() {
+        if (!recaptcha.isEnabled()) {
+            return ResponseEntity.ok(Map.of("enabled", false));
+        }
         try {
-            return ResponseEntity.ok(Map.of("siteKey", recaptcha.siteKey()));
+            return ResponseEntity.ok(Map.of("enabled", true, "siteKey", recaptcha.siteKey()));
         } catch (RecaptchaUnavailableException exception) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(Map.of("error", "Email registration is temporarily unavailable. Please try again later."));

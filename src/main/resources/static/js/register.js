@@ -6,6 +6,7 @@
     var dialog = document.getElementById('register-dialog');
     var widgetId = null;
     var captchaLoading = false;
+    var captchaEnabled = true;
     var submitting = false;
     var aliasError = new URL(window.location.href).searchParams.get('aliasError');
 
@@ -25,10 +26,16 @@
                     if (!response.ok) {
                         throw new Error(body.error || 'Unable to load reCAPTCHA.');
                     }
-                    return body.siteKey;
+                    return body;
                 });
             })
-            .then(function (siteKey) {
+            .then(function (configuration) {
+                if (configuration.enabled === false) {
+                    captchaEnabled = false;
+                    document.getElementById('registration-recaptcha').hidden = true;
+                    submitButton.disabled = submitting;
+                    return;
+                }
                 var script = document.createElement('script');
                 script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
                 script.async = true;
@@ -39,7 +46,7 @@
                 script.onload = function () {
                     window.grecaptcha.ready(function () {
                         widgetId = window.grecaptcha.render('registration-recaptcha', {
-                            sitekey: siteKey,
+                            sitekey: configuration.siteKey,
                             size: document.getElementById('registration-recaptcha').clientWidth < 304
                                 ? 'compact' : 'normal',
                             callback: function () {
@@ -97,7 +104,7 @@
             return;
         }
         var token = widgetId === null ? '' : window.grecaptcha.getResponse(widgetId);
-        if (!token) {
+        if (captchaEnabled && !token) {
             showError('Please complete the reCAPTCHA challenge.');
             return;
         }
@@ -133,8 +140,10 @@
             })
             .finally(function () {
                 submitting = false;
-                window.grecaptcha.reset(widgetId);
-                submitButton.disabled = true;
+                if (widgetId !== null) {
+                    window.grecaptcha.reset(widgetId);
+                }
+                submitButton.disabled = captchaEnabled;
             });
     });
 })();

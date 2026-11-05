@@ -30,7 +30,7 @@ class RecaptchaServiceTest {
         var builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
         client = builder.build();
-        service = new RecaptchaService("site-key", "secret-key", client);
+        service = new RecaptchaService(true, "site-key", "secret-key", client);
     }
 
     @Test
@@ -68,14 +68,31 @@ class RecaptchaServiceTest {
 
     @Test
     void failsClosedWhenKeysAreMissing() {
-        var missingSecret = new RecaptchaService("site-key", "", client);
-        var missingSiteKey = new RecaptchaService("", "secret-key", client);
+        var missingSecret = new RecaptchaService(true, "site-key", "", client);
+        var missingSiteKey = new RecaptchaService(true, "", "secret-key", client);
 
         assertThrows(RecaptchaService.RecaptchaUnavailableException.class, missingSecret::siteKey);
         assertThrows(RecaptchaService.RecaptchaUnavailableException.class,
                 () -> missingSecret.verify("token"));
         assertThrows(RecaptchaService.RecaptchaUnavailableException.class,
                 () -> missingSiteKey.verify("token"));
+        server.verify();
+    }
+
+    @Test
+    void bypassesVerificationWhenExplicitlyDisabledForLocalDevelopment() {
+        var localService = new RecaptchaService(false, "", "", client);
+
+        assertFalse(localService.isEnabled());
+        assertTrue(localService.verify(null));
+        assertTrue(localService.verify(""));
+        server.verify();
+    }
+
+    @Test
+    void requiresVerificationWhenEnabled() {
+        assertTrue(service.isEnabled());
+        assertFalse(service.verify(null));
         server.verify();
     }
 

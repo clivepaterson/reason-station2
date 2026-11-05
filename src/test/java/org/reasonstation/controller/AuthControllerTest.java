@@ -161,19 +161,44 @@ class AuthControllerTest {
 
     @Test
     void exposesOnlyPublicCaptchaKey() {
+        when(recaptcha.isEnabled()).thenReturn(true);
         when(recaptcha.siteKey()).thenReturn("public-site-key");
 
         var response = controller.recaptchaConfiguration();
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(Map.of("siteKey", "public-site-key"), response.getBody());
+        assertEquals(Map.of("enabled", true, "siteKey", "public-site-key"), response.getBody());
     }
 
     @Test
     void reportsUnavailableCaptchaConfiguration() {
+        when(recaptcha.isEnabled()).thenReturn(true);
         when(recaptcha.siteKey()).thenThrow(new RecaptchaUnavailableException("Missing keys"));
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, controller.recaptchaConfiguration().getStatusCode());
+    }
+
+    @Test
+    void exposesDisabledLocalCaptchaWithoutReadingKeys() {
+        var response = controller.recaptchaConfiguration();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(Map.of("enabled", false), response.getBody());
+        verify(recaptcha, never()).siteKey();
+    }
+
+    @Test
+    void allowsLocalRegistrationWithoutCaptchaToken() {
+        var localController = new AuthController(users, passwordEncoder, verificationEmails,
+                new RecaptchaService(false, "", ""));
+        when(passwordEncoder.encode("password")).thenReturn("encoded-password");
+        when(users.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = localController.register(new AuthController.RegisterRequest(
+                "listener", "listener@example.com", "password", null));
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(verificationEmails).send(any(User.class));
     }
 
     @Test
