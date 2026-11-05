@@ -54,6 +54,7 @@
         download.href = filename.href;
         download.setAttribute('aria-label', 'Download ' + patch.patchName + ' by ' + patch.artistAlias);
         actions.appendChild(window.createRatePatchButton(patch));
+        actions.appendChild(window.createCopyLinkButton(link.href, patch.patchName));
         return item;
     };
 }());

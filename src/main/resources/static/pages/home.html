@@ -30,7 +30,7 @@
                 </section>
             </div>
 
-            <aside class="discovery-sidebar" aria-label="Track and artist charts">
+            <aside class="discovery-sidebar" aria-label="Track, patch and artist charts">
                 <section class="sidebar-panel sidebar-panel-featured">
                     <header class="sidebar-panel-header">
                         <span class="sidebar-eyebrow">Weekly chart</span>
@@ -53,6 +53,18 @@
                         <span>Loading ratings...</span>
                     </div>
                     <ol id="highest-rated-tracks" class="sidebar-list track-ranking" hidden></ol>
+                </section>
+
+                <section class="sidebar-panel">
+                    <header class="sidebar-panel-header">
+                        <span class="sidebar-eyebrow">All-time ratings</span>
+                        <h2>Top 10 highest rated patches of all time</h2>
+                    </header>
+                    <div id="highest-rated-patches-loading" class="sidebar-loading loading-indicator" role="status">
+                        <span class="loading-spinner" aria-hidden="true"></span>
+                        <span>Loading ratings...</span>
+                    </div>
+                    <ol id="highest-rated-patches" class="sidebar-list track-ranking" hidden></ol>
                 </section>
 
                 <section class="sidebar-panel">

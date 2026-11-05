@@ -40,7 +40,9 @@
                     formatDate(item.dateUploaded),
                     formatRating(item.averageRating),
                     window.createCatalogDownloadLink(
-                        'track', item.trackid, item.trackName, item.filename)
+                        'track', item.trackid, item.trackName, item.filename),
+                    $(window.createCopyLinkButton(
+                        '/tracks/' + encodeURIComponent(item.trackid), item.trackName))
                 ];
             }
         },
@@ -58,12 +60,21 @@
                 return [
                     artistLink(item.artistAlias),
                     patchLink(item, item.patchName),
+                    item.patchImgUri ? $('<img>')
+                        .addClass('catalog-patch-image')
+                        .attr({
+                            src: '/api/patches/' + encodeURIComponent(item.patchid) + '/image',
+                            alt: 'Image for ' + item.patchName,
+                            loading: 'lazy'
+                        }) : '',
                     item.description || '',
                     patchLink(item, item.filename),
                     item.ext || '',
                     formatDate(item.dateUploaded),
                     window.createCatalogDownloadLink(
-                        'patch', item.patchid, item.patchName, item.filename)
+                        'patch', item.patchid, item.patchName, item.filename),
+                    $(window.createCopyLinkButton(
+                        '/patches/' + encodeURIComponent(item.patchid), item.patchName))
                 ];
             }
         }

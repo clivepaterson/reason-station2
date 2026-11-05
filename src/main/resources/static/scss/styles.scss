@@ -1142,6 +1142,70 @@ img[data-image-zoom] {
     width: 100%;
 }
 
+.copy-link-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-end;
+    padding: 0.5rem;
+    background: #fff;
+    border: 1px solid $secondary-color;
+    border-radius: $border-radius;
+    cursor: pointer;
+
+    img {
+        width: 20px;
+        height: 20px;
+    }
+
+    &:hover, &:focus-visible {
+        background: $card-hover-background;
+        outline: 2px solid $secondary-color;
+        outline-offset: 2px;
+    }
+}
+
+.copy-link-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: min(360px, calc(100vw - 2rem));
+    margin: 0;
+    padding: 1rem;
+    color: $primary-color;
+    background: #fff;
+    border: 1px solid $card-border-color;
+    border-radius: $border-radius;
+    box-shadow: $card-hover-shadow;
+    transform: translate(-50%, -50%);
+
+    &::backdrop {
+        background: rgba(4, 38, 47, 0.4);
+    }
+
+    h2 {
+        margin: 0 2rem 0.65rem 0;
+        font-size: 1rem;
+    }
+
+    input {
+        width: 100%;
+        min-width: 0;
+        padding: 0.5rem;
+        color: inherit;
+        background: $card-background;
+        border: 1px solid $secondary-color;
+        border-radius: 4px;
+        font: inherit;
+        font-size: 0.8rem;
+    }
+}
+
+.copy-link-status {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+}
+
 .rating-dialog {
     position: fixed;
     top: 50%;
@@ -1712,6 +1776,25 @@ body.site-page {
         a {
             color: #0d6675;
             font-weight: 700;
+        }
+
+        .copy-link-button {
+            padding: 0.25rem;
+            border-radius: 4px;
+
+            img {
+                width: 16px;
+                height: 16px;
+            }
+        }
+
+        .catalog-patch-image {
+            display: block;
+            width: auto;
+            height: auto;
+            max-width: 128px;
+            max-height: 96px;
+            object-fit: contain;
         }
 
         .catalog-download-link {

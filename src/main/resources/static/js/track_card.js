@@ -81,6 +81,7 @@
         download.textContent = 'Download';
         actions.appendChild(download);
         actions.appendChild(window.createRateTrackButton(track));
+        actions.appendChild(window.createCopyLinkButton(titleLink.href, track.trackName));
         item.appendChild(actions);
 
         if (options.deletable) {

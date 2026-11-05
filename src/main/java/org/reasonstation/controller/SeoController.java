@@ -232,12 +232,15 @@ public class SeoController {
                     <script id="track-rating-data" type="application/json">%s</script>
                     <script src="/js/style_icons.js"></script>
                     <script src="/js/track_rating.js"></script>
+                    <script src="/js/copy_link.js"></script>
                     <script>
                         var track = JSON.parse(document.getElementById('track-rating-data').textContent);
                         document.getElementById('track-style-icon').replaceWith(
                             window.createMusicStyleIcon(track.musicStyle));
                         document.getElementById('track-rating-action').appendChild(
                             window.createRateTrackButton(track));
+                        document.querySelector('.track-card-actions').appendChild(
+                            window.createCopyLinkButton('/tracks/' + encodeURIComponent(track.trackid), track.trackName));
                     </script>
                 </body>
                 </html>
@@ -356,10 +359,13 @@ public class SeoController {
                     <script src="/js/image_zoom.js"></script>
                     <script id="patch-rating-data" type="application/json">%s</script>
                     <script src="/js/track_rating.js"></script>
+                    <script src="/js/copy_link.js"></script>
                     <script>
+                        var patch = JSON.parse(document.getElementById('patch-rating-data').textContent);
                         document.getElementById('patch-rating-action').appendChild(
-                            window.createRatePatchButton(JSON.parse(
-                                document.getElementById('patch-rating-data').textContent)));
+                            window.createRatePatchButton(patch));
+                        document.querySelector('.track-card-actions').appendChild(
+                            window.createCopyLinkButton('/patches/' + encodeURIComponent(patch.patchid), patch.patchName));
                     </script>
                 </body>
                 </html>

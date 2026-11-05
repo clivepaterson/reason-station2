@@ -6,9 +6,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.repository.PatchWithRating;
+import org.reasonstation.repository.HighestRatedPatch;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
 
@@ -16,6 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 class DiscoveryControllerTest {
@@ -44,6 +49,35 @@ class DiscoveryControllerTest {
         assertEquals(1, ((List<?>) response.getBody()).size());
         assertEquals(8.5, ((PatchWithRating) ((List<?>) response.getBody()).getFirst()).averagePatchRating());
         verify(patches).findWithRatingsByArtistAlias("Artist");
+    }
+
+    @Test
+    void listsTopTenHighestRatedPatches() throws Exception {
+        var patch = new HighestRatedPatch(7L, "Artist", "Warm Bass", 8.5, 12L);
+        when(patches.findHighestRatedPatches(10)).thenReturn(List.of(patch));
+
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/highest-rated-patches"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].patchid").value(7))
+                .andExpect(jsonPath("$[0].artistAlias").value("Artist"))
+                .andExpect(jsonPath("$[0].patchName").value("Warm Bass"))
+                .andExpect(jsonPath("$[0].averagePatchRating").value(8.5))
+                .andExpect(jsonPath("$[0].ratingCount").value(12));
+
+        verify(patches).findHighestRatedPatches(10);
+        verifyNoInteractions(tracks);
+    }
+
+    @Test
+    void returnsEmptyChartWhenNoPatchesHaveRatings() throws Exception {
+        when(patches.findHighestRatedPatches(10)).thenReturn(List.of());
+
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/highest-rated-patches"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test

@@ -95,6 +95,11 @@ public class DiscoveryController {
                 .toList();
     }
 
+    @GetMapping("/highest-rated-patches")
+    public Object highestRatedPatches() {
+        return patches.findHighestRatedPatches(10);
+    }
+
     @GetMapping("/newest-tracks")
     public Object newestTracks() {
         return tracks.findNewestTracks(10).stream()

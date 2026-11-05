@@ -52,6 +52,8 @@ class SeoControllerTest {
         assertTrue(html.contains("href=\"/index.html\">Home</a>"));
         assertTrue(html.contains("href=\"/api/tracks/42/download\""));
         assertTrue(html.contains("window.createRateTrackButton"));
+        assertTrue(html.contains("<script src=\"/js/copy_link.js\"></script>"));
+        assertTrue(html.contains("window.createCopyLinkButton('/tracks/' + encodeURIComponent(track.trackid), track.trackName)"));
         assertTrue(html.contains("\"trackid\":42"));
         assertTrue(html.contains("class=\"track-card-art\""));
         assertTrue(html.contains("<script src=\"/js/style_icons.js\"></script>"));
@@ -126,6 +128,8 @@ class SeoControllerTest {
         assertTrue(html.contains("<script src=\"/js/image_zoom.js\"></script>"));
         assertTrue(html.contains("<script src=\"/js/track_rating.js\"></script>"));
         assertTrue(html.contains("window.createRatePatchButton"));
+        assertTrue(html.contains("<script src=\"/js/copy_link.js\"></script>"));
+        assertTrue(html.contains("window.createCopyLinkButton('/patches/' + encodeURIComponent(patch.patchid), patch.patchName)"));
         assertTrue(html.contains("\"patchid\":15"));
         assertTrue(html.contains("\"patchName\":\"Warm & Deep\""));
     }

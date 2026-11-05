@@ -143,6 +143,7 @@ public class CatalogRepository {
                 SELECT patchid,
                        artist_alias,
                        patch_name,
+                       patch_img_uri,
                        description,
                        filename,
                        ext,
@@ -160,7 +161,8 @@ public class CatalogRepository {
                         resultSet.getString("description"),
                         resultSet.getString("filename"),
                         resultSet.getString("ext"),
-                        toInstant(resultSet.getTimestamp("date_uploaded"))));
+                        toInstant(resultSet.getTimestamp("date_uploaded")),
+                        resultSet.getString("patch_img_uri")));
         return page(items, page, pageSize, totalElements);
     }
 
@@ -219,7 +221,7 @@ public class CatalogRepository {
     }
 
     public record PatchListItem(Long patchid, String artistAlias, String patchName, String description,
-                                String filename, String ext, Instant dateUploaded) {
+                                String filename, String ext, Instant dateUploaded, String patchImgUri) {
     }
 
     public record PagedResult<T>(List<T> items, int page, int pageSize,

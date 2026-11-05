@@ -35,7 +35,10 @@ function loadDiscoveryList(url, selector, renderItem, emptyMessage) {
         });
 }
 
-function createSidebarTrackItem(track, options) {
+function createSidebarItem(media, options) {
+    var resource = options.resource || 'tracks';
+    var id = resource === 'patches' ? media.patchid : media.trackid;
+    var name = resource === 'patches' ? media.patchName : media.trackName;
     var item = document.createElement('li');
     item.className = 'sidebar-track-item';
 
@@ -45,19 +48,19 @@ function createSidebarTrackItem(track, options) {
 
     var title = document.createElement('a');
     title.className = 'sidebar-track-link';
-    title.href = '/tracks/' + encodeURIComponent(track.trackid);
-    title.textContent = track.trackName;
+    title.href = '/' + resource + '/' + encodeURIComponent(id);
+    title.textContent = name;
     details.appendChild(title);
 
     var meta = document.createElement('span');
-    meta.textContent = options.meta(track);
+    meta.textContent = options.meta(media);
     details.appendChild(meta);
 
     var download = document.createElement('a');
     download.className = 'sidebar-download-link';
-    download.href = '/api/tracks/' + encodeURIComponent(track.trackid) + '/download';
-    download.setAttribute('aria-label', 'Download ' + track.trackName + ' by ' + track.artistAlias);
-    download.title = 'Download ' + track.trackName;
+    download.href = '/api/' + resource + '/' + encodeURIComponent(id) + '/download';
+    download.setAttribute('aria-label', 'Download ' + name + ' by ' + media.artistAlias);
+    download.title = 'Download ' + name;
     download.textContent = 'Download';
     item.appendChild(download);
     return item;
@@ -154,7 +157,7 @@ window.loadDiscovery = function() {
     }, 'No tracks found.');
 
     loadDiscoveryList('/api/discovery/popular-tracks', '#popular-tracks', function(track) {
-        return createSidebarTrackItem(track, {
+        return createSidebarItem(track, {
             meta: function(item) {
                 return item.artistAlias + ' \u00b7 ' + item.downloadCount
                         + (item.downloadCount === 1 ? ' download' : ' downloads');
@@ -163,7 +166,7 @@ window.loadDiscovery = function() {
     }, 'No downloads recorded this week.');
 
     loadDiscoveryList('/api/discovery/highest-rated-tracks', '#highest-rated-tracks', function(track) {
-        return createSidebarTrackItem(track, {
+        return createSidebarItem(track, {
             meta: function(item) {
                 return item.artistAlias + ' \u00b7 ' + Number(item.averageTrackRating).toFixed(1)
                         + '/10 (' + item.ratingCount
@@ -171,6 +174,17 @@ window.loadDiscovery = function() {
             }
         });
     }, 'No ratings recorded this week.');
+
+    loadDiscoveryList('/api/discovery/highest-rated-patches', '#highest-rated-patches', function(patch) {
+        return createSidebarItem(patch, {
+            resource: 'patches',
+            meta: function(item) {
+                return item.artistAlias + ' \u00b7 ' + Number(item.averagePatchRating).toFixed(1)
+                        + '/10 (' + item.ratingCount
+                        + (item.ratingCount === 1 ? ' rating)' : ' ratings)');
+            }
+        });
+    }, 'No patches have been rated yet.');
 
     loadDiscoveryList('/api/discovery/popular-artists', '#popular-artists', function(artist) {
         var item = document.createElement('li');
@@ -187,7 +201,7 @@ window.loadDiscovery = function() {
     }, 'No artist downloads recorded this month.');
 
     loadDiscoveryList('/api/discovery/newest-tracks', '#newest-tracks', function(track) {
-        return createSidebarTrackItem(track, {
+        return createSidebarItem(track, {
             meta: function(item) {
                 return item.artistAlias + ' \u00b7 ' + formatUploadDate(item.dateUploaded);
             }
