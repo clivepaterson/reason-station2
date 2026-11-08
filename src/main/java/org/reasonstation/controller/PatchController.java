@@ -199,6 +199,10 @@ public class PatchController {
         if (!PatchFileFormat.matches(extension, patchBytes)) {
             String error = ".patch".equals(extension) || ".repatch".equals(extension)
                     ? "The patch must be valid XML with a JukeboxPatch root element and a deviceProductID containing propellerheads."
+                    : ".zyp".equals(extension)
+                    ? "The patch file must start with FORM or the Propellerheads Reason SubTractor Patch File header."
+                    : ".rx2".equals(extension)
+                    ? "The patch file must start with FORM or a CAT header with a REX2 type."
                     : "The patch file must start with FORM.";
             return ResponseEntity.badRequest().body(Map.of("error", error));
         }

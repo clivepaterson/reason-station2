@@ -332,10 +332,51 @@ class PatchControllerTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {".rx2", ".RX2"})
+    void uploadsRex2Patch(String extension) throws IOException {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/patches/upload");
+        when(patches.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        byte[] bytes = {'C', 'A', 'T', ' ', 0, 5, 0x6b, (byte) 0xbc,
+                'R', 'E', 'X', '2', 'H', 'E', 'A', 'D'};
+        var file = new MockMultipartFile("file", "fc01_lop_170bpm" + extension, "application/octet-stream", bytes);
+
+        var response = controller.uploadPatch(authentication, "Artist", "FC01 Loop", "", file, null);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(storage).upload(startsWith("patches/"), aryEq(bytes), eq("application/octet-stream"));
+        ArgumentCaptor<Patch> savedPatch = ArgumentCaptor.forClass(Patch.class);
+        verify(patches).save(savedPatch.capture());
+        assertEquals(".rx2", savedPatch.getValue().getExt());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".zyp", ".ZYP"})
+    void uploadsLegacySubtractorPatch(String extension) throws IOException {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(storage.upload(any(), any(), any())).thenReturn("s3://tracks/patches/upload");
+        when(patches.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        byte[] bytes = "Propellerheads Reason SubTractor Patch File\u001a\0\0\u00ff"
+                .getBytes(StandardCharsets.ISO_8859_1);
+        var file = new MockMultipartFile("file", "8-bit" + extension, "application/octet-stream", bytes);
+
+        var response = controller.uploadPatch(authentication, "Artist", "8-bit", "", file, null);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(storage).upload(startsWith("patches/"), aryEq(bytes), eq("application/octet-stream"));
+        ArgumentCaptor<Patch> savedPatch = ArgumentCaptor.forClass(Patch.class);
+        verify(patches).save(savedPatch.capture());
+        assertEquals(".zyp", savedPatch.getValue().getExt());
+    }
+
+    @ParameterizedTest
     @CsvSource({
             ".thor, FOR",
             ".cmb, prefixFORM",
             ".sxt, form",
+            ".rx2, CAT ",
+            ".rx2, CAT 1234WAVE",
+            ".zyp, Propellerheads Reason SubTractor Patch File",
             ".patch, FORM",
             ".repatch, FORM",
             ".patch, <JukeboxPatch deviceProductID=\"se.propellerheads.Mimic\">",
@@ -352,6 +393,10 @@ class PatchControllerTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(java.util.Map.of("error", extension.equals(".patch") || extension.equals(".repatch")
                 ? "The patch must be valid XML with a JukeboxPatch root element and a deviceProductID containing propellerheads."
+                : extension.equals(".zyp")
+                ? "The patch file must start with FORM or the Propellerheads Reason SubTractor Patch File header."
+                : extension.equals(".rx2")
+                ? "The patch file must start with FORM or a CAT header with a REX2 type."
                 : "The patch file must start with FORM."), response.getBody());
         verifyNoInteractions(storage, patches, image);
     }

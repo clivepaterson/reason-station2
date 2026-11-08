@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="446" height="100" viewBox="0 0 446 100">
+    <defs>
+        <pattern id="lines" width="2" height="2" patternUnits="userSpaceOnUse">
+            <path d="M0 1.5H2" stroke="#895E1E"/>
+        </pattern>
+        <linearGradient id="fade">
+            <stop offset="0.82" stop-color="#000"/>
+            <stop offset="1" stop-color="#fff"/>
+        </linearGradient>
+        <mask id="line-fade">
+            <rect width="446" height="100" fill="url(#fade)"/>
+        </mask>
+    </defs>
+    <path fill="#333333" d="M0 0H446V100H0z"/>
+    <path fill="url(#lines)" mask="url(#line-fade)" d="M0 0H446V100H0z"/>
+</svg>

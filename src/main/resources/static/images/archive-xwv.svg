@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+    <title>XWV synthesizer patch</title>
+    <defs>
+        <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+            <stop stop-color="#7b836b"/>
+            <stop offset="1" stop-color="#41483a"/>
+        </linearGradient>
+        <linearGradient id="green" x1="0" y1="0" x2="1" y2="0">
+            <stop stop-color="#64845b"/>
+            <stop offset="1" stop-color="#a6c398"/>
+        </linearGradient>
+    </defs>
+    <path d="M9 3H32L42 13V47H9Z" fill="#000" opacity=".2"/>
+    <path d="M8 1H31L41 11V46H8Z" fill="url(#paper)" stroke="#a0a58f"/>
+    <path d="M8 1L15 6V45L8 46Z" fill="#343b30"/>
+    <path d="M31 1V11H41Z" fill="#b8bda7"/>
+    <path d="M31 1V11H41" fill="none" stroke="#616b56"/>
+    <text x="21" y="16" text-anchor="middle" fill="#e7eedb"
+          font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="bold">M</text>
+    <path d="M15 16L36 29L15 42V33H9V24H15Z" fill="url(#green)" stroke="#465a3e" stroke-width=".6"/>
+    <path d="M9 24L15 28V33H9Z" fill="#c8d7b7"/>
+    <path d="M9 33L15 37V42L9 38Z" fill="#263226"/>
+    <text x="25" y="32" text-anchor="middle" fill="#fff"
+          font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="bold">XWV</text>
+</svg>

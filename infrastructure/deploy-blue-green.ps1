@@ -10,6 +10,8 @@ param(
     [int]$BakeTimeInMinutes = 1,
     [string]$ImageTag,
     [string]$BucketName,
+    [ValidatePattern("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")]
+    [string]$ArchiveBucketName = "reasonarchive",
     [string]$DomainName = "reasonstation2.net",
     [string]$HostedZoneId,
     [string]$SesIdentity = "reasonstation2.net",
@@ -326,6 +328,7 @@ Invoke-NativeCommand aws @(
     "ApplicationSecretArn=$applicationSecretArn",
     "ApplicationConfigVersion=$applicationConfigVersion",
     "FileStorageBucketArn=arn:aws:s3:::$BucketName",
+    "ArchiveStorageBucketName=$ArchiveBucketName",
     "SesIdentityArn=arn:aws:ses:${Region}:${accountId}:identity/$SesIdentity",
     "DesiredCount=$DesiredCount",
     "CapacityProvider=$CapacityProvider",

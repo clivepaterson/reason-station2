@@ -44,3 +44,6 @@ s3.json
 *.local.json
 sql/test_user.sql
 /.idea/vcs.xml
+
+### Collected archive binaries and local inventory ###
+/archive-files/

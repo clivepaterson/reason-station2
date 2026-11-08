@@ -13,6 +13,7 @@ import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 class S3StorageServiceTest {
@@ -43,6 +44,18 @@ class S3StorageServiceTest {
             assertTrue(imageUrl.getRawQuery().contains("response-content-disposition=inline"));
             assertTrue(imageUrl.getRawQuery().contains("X-Amz-Signature="));
             assertTrue(!imageUrl.getRawQuery().contains("response-content-type="));
+
+            String archiveKey = "songs/2007/vibrant energy #1%?.rps";
+            URI archiveUrl = storage.createArchiveDownloadUrl(
+                    "s3://reasonarchive/" + archiveKey, "vibrant energy #1%?.rps");
+            assertEquals("storage.example", archiveUrl.getHost());
+            assertEquals("/reasonarchive/" + archiveKey, archiveUrl.getPath());
+            assertTrue(archiveUrl.getRawQuery().contains("response-content-disposition="));
+            assertTrue(archiveUrl.getRawQuery().contains("X-Amz-Signature="));
+            assertThrows(IllegalArgumentException.class,
+                    () -> storage.createArchiveDownloadUrl("https://example.com/file", "file"));
+            assertThrows(IllegalArgumentException.class,
+                    () -> storage.createArchiveDownloadUrl("s3://reasonarchive/", "file"));
         }
     }
 }

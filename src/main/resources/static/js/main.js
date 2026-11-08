@@ -5,6 +5,8 @@ $(document).ready(async function() {
         'artist.html',
         'search.html',
         'catalog.html',
+        'archived-songs.html',
+        'archived-refills.html',
         'links.html',
         'tutorials.html',
         'tutorials/tutorial-oscillators.html',
@@ -77,6 +79,10 @@ $(document).ready(async function() {
             ? 'tracks-catalog-page'
             : url.searchParams.get('view') === 'patches'
             ? 'patches-page'
+            : url.searchParams.get('view') === 'archived-songs'
+            ? 'archived-songs-page'
+            : url.searchParams.get('view') === 'archived-refills'
+            ? 'archived-refills-page'
             : url.searchParams.has('artistAlias') ? 'artist-page'
             : url.searchParams.has('search') ? 'search-page' : 'home-page';
     }
@@ -166,6 +172,14 @@ $(document).ready(async function() {
             'patches-page': {
                 title: 'Patches | Reason Station',
                 description: 'Browse Reason instrument and effect patches shared by the community.'
+            },
+            'archived-songs-page': {
+                title: 'Archived Songs | Reason Station',
+                description: 'Browse the archive of classic Reason Station songs and music projects.'
+            },
+            'archived-refills-page': {
+                title: 'Archived Refills | Reason Station',
+                description: 'Browse the archive of classic Reason Station ReFills.'
             }
         }[pageId] || defaultMetadata;
         var shouldIndex = pageId !== 'search-page' && pageId !== 'my-tracks-page';
@@ -205,6 +219,10 @@ $(document).ready(async function() {
             canonicalUrl.searchParams.set('view', 'tracks');
         } else if (pageId === 'patches-page') {
             canonicalUrl.searchParams.set('view', 'patches');
+        } else if (pageId === 'archived-songs-page') {
+            canonicalUrl.searchParams.set('view', 'archived-songs');
+        } else if (pageId === 'archived-refills-page') {
+            canonicalUrl.searchParams.set('view', 'archived-refills');
         }
 
         document.title = pageMetadata.title;
@@ -249,8 +267,12 @@ $(document).ready(async function() {
             window.history.pushState({}, '', url.pathname + url.search + url.hash);
         }
 
-        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-oscillators-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-fm-bell-page, #tutorial-super-saw-page, #about-page, #artists-page, #tracks-catalog-page, #patches-page').attr('hidden', true);
+        $('#home-page, #my-tracks-page, #artist-page, #search-page, #links-page, #tutorials-page, #tutorial-oscillators-page, #tutorial-detail-page, #tutorial-hi-hat-page, #tutorial-open-hi-hat-page, #tutorial-snare-page, #tutorial-bass-page, #tutorial-pwm-lead-page, #tutorial-fm-synthesis-page, #tutorial-fm-bell-page, #tutorial-super-saw-page, #about-page, #artists-page, #tracks-catalog-page, #patches-page, #archived-songs-page, #archived-refills-page').attr('hidden', true);
         $('#' + pageId).removeAttr('hidden');
+        $('.catalog-nav a').removeAttr('aria-current')
+            .filter(function() {
+                return new URL(this.href).searchParams.get('view') === url.searchParams.get('view');
+            }).attr('aria-current', 'page');
         window.updateSearchButtonState();
         updatePageMetadata(pageId, url);
 
@@ -268,6 +290,10 @@ $(document).ready(async function() {
             window.loadCatalogPage('tracks', url);
         } else if (pageId === 'patches-page') {
             window.loadCatalogPage('patches', url);
+        } else if (pageId === 'archived-songs-page') {
+            window.loadCatalogPage('archived-songs', url);
+        } else if (pageId === 'archived-refills-page') {
+            window.loadCatalogPage('archived-refills', url);
         }
     };
 
@@ -284,7 +310,7 @@ $(document).ready(async function() {
 
     $(document).on('click', '.logo-title, .artist-discovery-item a, .sidebar-artist-item a, .catalog-table a:not(.catalog-download-link):not(.track-detail-link):not(.patch-detail-link), .tutorial-card, .tutorial-back-link',
         navigateInternalLink);
-    $('#my-tracks-link, #tutorials-link, #links-link, #about-link, #artists-link, #tracks-link, #patches-link')
+    $('#my-tracks-link, #tutorials-link, #links-link, #about-link, #artists-link, #tracks-link, #patches-link, #archived-songs-link, #archived-refills-link')
         .on('click', navigateInternalLink);
     window.addEventListener('popstate', function() {
         window.showPage(window.location.href, false);

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+    <title>CMB Combinator patch</title>
+    <defs>
+        <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+            <stop stop-color="#e3e3df"/>
+            <stop offset=".5" stop-color="#bcbdb9"/>
+            <stop offset="1" stop-color="#92958f"/>
+        </linearGradient>
+        <linearGradient id="dial" x1="0" y1="0" x2="1" y2="1">
+            <stop stop-color="#fafaf4"/>
+            <stop offset=".5" stop-color="#c1c7c8"/>
+            <stop offset="1" stop-color="#79878e"/>
+        </linearGradient>
+        <pattern id="brushed" width="2" height="2" patternUnits="userSpaceOnUse">
+            <path d="M0 1.5H2" stroke="#fff" stroke-opacity=".18"/>
+        </pattern>
+        <g id="control">
+            <circle r="3.6" fill="none" stroke="#424844" stroke-width=".8" stroke-dasharray=".45 .75"/>
+            <circle r="2.65" fill="url(#dial)" stroke="#4d5659" stroke-width=".65"/>
+            <path d="M0-2.2V.2" stroke="#293b46" stroke-width=".8" stroke-linecap="round"/>
+            <rect x="-2.2" y="6" width="4.4" height="2.8" rx=".6"
+                  fill="#eeeee3" stroke="#50544b" stroke-width=".65"/>
+        </g>
+    </defs>
+    <path d="M9 3H32L42 13V47H9Z" fill="#000" opacity=".2"/>
+    <path d="M8 1H31L41 11V46H8Z" fill="url(#metal)" stroke="#868b81"/>
+    <path d="M8 1H31L41 11V46H8Z" fill="url(#brushed)"/>
+    <path d="M8 1L11 4V45L8 46Z" fill="#73796f"/>
+    <path d="M31 1V11H41Z" fill="#f2f2e9"/>
+    <path d="M31 1V11H41" fill="none" stroke="#868b81"/>
+    <use href="#control" transform="translate(14 17)"/>
+    <use href="#control" transform="translate(21.5 17)"/>
+    <use href="#control" transform="translate(29 17)"/>
+    <use href="#control" transform="translate(36.5 17)"/>
+    <path d="M12 29H39" stroke="#7c8277" stroke-width=".7"/>
+    <rect x="11" y="32" width="28" height="11" rx="1" fill="#50594b" stroke="#d5d7cb" stroke-width=".6"/>
+    <text x="25" y="40.5" text-anchor="middle" fill="#f7f7ec"
+          font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="bold" letter-spacing=".5">CMB</text>
+</svg>

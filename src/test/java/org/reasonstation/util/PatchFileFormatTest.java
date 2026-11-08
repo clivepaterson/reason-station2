@@ -79,4 +79,65 @@ class PatchFileFormatTest {
     void acceptsFormHeaderFollowedByBinaryBytes() {
         assertTrue(PatchFileFormat.matches(".sxt", new byte[]{'F', 'O', 'R', 'M', 0, 1, (byte) 255}));
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".rx2", ".RX2"})
+    void acceptsRex2Container(String extension) {
+        byte[] content = {'C', 'A', 'T', ' ', 0, 5, 0x6b, (byte) 0xbc,
+                'R', 'E', 'X', '2', 'H', 'E', 'A', 'D'};
+
+        assertTrue(PatchFileFormat.matches(extension, content));
+        assertTrue(PatchFileFormat.matches(extension, "FORM".getBytes(StandardCharsets.US_ASCII)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "", "CAT ", "CAT \0\0\0", "CAT \0\0\0\0", "CAT \0\0\0\0REX",
+            "cat \0\0\0\0REX2", "CATX\0\0\0\0REX2", "CAT \0\0\0\0rex2",
+            "CAT \0\0\0\0WAVE", "CAT REX2", "prefixCAT \0\0\0\0REX2"
+    })
+    void rejectsInvalidRex2Headers(String content) {
+        assertFalse(PatchFileFormat.matches(".rx2", content.getBytes(StandardCharsets.US_ASCII)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".thor", ".sxt", ".zyp", ".rex", ".rcy", ".patch", ".repatch"})
+    void rejectsRex2ContainerForOtherFormats(String extension) {
+        byte[] content = "CAT \0\0\0\0REX2".getBytes(StandardCharsets.US_ASCII);
+
+        assertFalse(PatchFileFormat.matches(extension, content));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".zyp", ".ZYP"})
+    void acceptsLegacySubtractorHeader(String extension) {
+        byte[] content = "Propellerheads Reason SubTractor Patch File\u001a\0\0\u00ff"
+                .getBytes(StandardCharsets.ISO_8859_1);
+
+        assertTrue(PatchFileFormat.matches(extension, content));
+        assertTrue(PatchFileFormat.matches(extension, "FORM".getBytes(StandardCharsets.US_ASCII)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "",
+            "Propellerheads Reason SubTractor Patch",
+            "Propellerheads Reason SubTractor Patch File",
+            "Propellerheads Reason SubTractor Patch File\0",
+            "propellerheads Reason SubTractor Patch File\u001a",
+            "prefixPropellerheads Reason SubTractor Patch File\u001a",
+            "Propellerheads Reason Other Patch File\u001a"
+    })
+    void rejectsInvalidSubtractorHeaders(String content) {
+        assertFalse(PatchFileFormat.matches(".zyp", content.getBytes(StandardCharsets.US_ASCII)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".thor", ".sxt", ".patch", ".repatch"})
+    void rejectsLegacySubtractorHeaderForOtherFormats(String extension) {
+        byte[] content = "Propellerheads Reason SubTractor Patch File\u001a"
+                .getBytes(StandardCharsets.US_ASCII);
+
+        assertFalse(PatchFileFormat.matches(extension, content));
+    }
 }

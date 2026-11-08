@@ -1600,6 +1600,7 @@ body.site-page {
             justify-content: center;
             width: min(100% - 2rem, 1180px);
             min-height: $catalog-navbar-height;
+            flex-wrap: wrap;
         }
 
         a {
@@ -1615,12 +1616,14 @@ body.site-page {
             }
 
             &:hover,
+            &[aria-current="page"],
             &:focus-visible {
                 color: $station-deep;
                 background: $station-orange;
                 outline: none;
             }
         }
+
     }
 
     @media (max-width: 1100px) {
@@ -1877,11 +1880,236 @@ body.site-page {
         }
     }
 
+    .archive-page {
+        background: #707365;
+        color: #17202b;
+        font-family: Verdana, Geneva, sans-serif;
+        font-size: 0.85rem;
+        line-height: 1.4;
+
+        .container {
+            padding: clamp(1rem, 3vw, 2rem);
+            background: #fff;
+            border: 1px solid #55584e;
+            border-right: 12px solid #eeefdf;
+        }
+
+        h1 {
+            margin: 0.75rem 0 1rem;
+            color: #d65b13;
+            font-size: clamp(1.4rem, 3vw, 1.8rem);
+        }
+
+        .archive-breadcrumb,
+        .archive-note {
+            color: #606451;
+            font-size: 0.75rem;
+        }
+
+        .archive-intro {
+            margin-bottom: 1.25rem;
+        }
+
+        .catalog-toolbar {
+            flex-wrap: wrap;
+            padding: 0.75rem;
+            border: 1px solid #afb397;
+            background: #f4f4e9;
+        }
+
+        .catalog-filter {
+            flex-basis: 380px;
+
+            label {
+                color: #17202b;
+                margin-bottom: 0.25rem;
+            }
+
+            input,
+            button {
+                padding: 0.4rem 0.6rem;
+                border: 1px solid #8b8f79;
+                border-radius: 0;
+            }
+
+            button {
+                color: #17202b;
+                background: #d4d6c6;
+            }
+        }
+
+        .catalog-table-wrapper {
+            border: 1px solid #afb397;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .catalog-table {
+            th,
+            td {
+                padding: 0.6rem;
+                border-right: 1px dotted #d4d6c6;
+                border-bottom: 1px dotted #d4d6c6;
+            }
+
+            th {
+                color: #17202b;
+                background: #d4d6c6;
+                font-size: 0.75rem;
+            }
+
+            th button:hover,
+            th button:focus-visible {
+                color: #9e400b;
+                text-decoration: underline;
+            }
+
+            tbody tr:nth-child(even) {
+                background: #fafaf5;
+            }
+
+            tbody tr:hover {
+                background: #eeefdf;
+            }
+        }
+
+        .archive-entry {
+            display: flex;
+            gap: 0.75rem;
+            min-width: 220px;
+            overflow-wrap: anywhere;
+
+            img {
+                flex: 0 0 auto;
+                align-self: flex-start;
+                max-width: 48px;
+            }
+
+            span,
+            small,
+            strong {
+                display: block;
+            }
+        }
+
+        .archive-entry-title {
+            color: #686c58;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 1rem;
+        }
+
+        .archive-file {
+            min-width: 80px;
+
+            small {
+                display: block;
+            }
+        }
+
+        .archive-download-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.5rem;
+            color: #353a28;
+            background: #eeefdf;
+            border: 1px solid #8b8f79;
+            font: inherit;
+            white-space: nowrap;
+
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+        }
+
+        .catalog-pagination {
+            flex-wrap: wrap;
+            padding: 0.4rem;
+            background: #d4d6c6;
+            border: 1px solid #afb397;
+
+            .archive-page-links {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.25rem;
+
+                a,
+                span {
+                    padding: 0.25rem 0.5rem;
+                    color: #353a28;
+                }
+
+                a {
+                    text-decoration: underline;
+
+                    &:hover,
+                    &:focus-visible {
+                        background: #eeefdf;
+                    }
+                }
+
+                [aria-current="page"] {
+                    background: #eeefdf;
+                    font-weight: 700;
+                }
+            }
+
+            button {
+                padding: 0.25rem 0.6rem;
+                color: #353a28;
+                background: #eeefdf;
+                border: 1px solid #8b8f79;
+                border-radius: 0;
+            }
+        }
+
+        .archive-note {
+            margin-top: 1rem;
+        }
+    }
+
+    #archived-songs-page .catalog-toolbar,
+    #archived-refills-page .catalog-toolbar {
+        align-items: center;
+        color: #eeefdf;
+        background: #333333 url("/images/archive-toolbar.svg") no-repeat right top;
+        border-color: #895E1E;
+
+        .archive-toolbar-logo {
+            flex: 0 0 auto;
+            width: 154px;
+            height: 35px;
+            object-fit: contain;
+        }
+
+        .catalog-filter label {
+            color: #eeefdf;
+        }
+
+        .archive-page-size {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+
+            select {
+                padding: 0.4rem;
+                color: #17202b;
+                background: #eeefdf;
+                border: 1px solid #8b8f79;
+                font: inherit;
+            }
+        }
+    }
+
     @media (max-width: 700px) {
         .catalog-nav a {
             flex: 1;
             justify-content: center;
-            padding: 0 0.75rem;
+            min-height: $catalog-navbar-height;
+            padding: 0.5rem 0.75rem;
+            white-space: nowrap;
         }
 
         .catalog-page {

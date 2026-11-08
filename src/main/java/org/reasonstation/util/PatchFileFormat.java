@@ -10,6 +10,10 @@ import java.util.Arrays;
 
 public final class PatchFileFormat {
     private static final byte[] FORM_HEADER = "FORM".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] CAT_HEADER = "CAT ".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] REX2_TYPE = "REX2".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] SUBTRACTOR_HEADER =
+            "Propellerheads Reason SubTractor Patch File\u001a".getBytes(StandardCharsets.US_ASCII);
 
     private PatchFileFormat() {
     }
@@ -18,8 +22,19 @@ public final class PatchFileFormat {
         if (".patch".equalsIgnoreCase(extension) || ".repatch".equalsIgnoreCase(extension)) {
             return isJukeboxPatch(content);
         }
-        return content.length >= FORM_HEADER.length
-                && Arrays.equals(content, 0, FORM_HEADER.length, FORM_HEADER, 0, FORM_HEADER.length);
+        return startsWith(content, FORM_HEADER)
+                || (".rx2".equalsIgnoreCase(extension) && isRex2(content))
+                || (".zyp".equalsIgnoreCase(extension) && startsWith(content, SUBTRACTOR_HEADER));
+    }
+
+    private static boolean isRex2(byte[] content) {
+        return content.length >= 12 && startsWith(content, CAT_HEADER)
+                && Arrays.equals(content, 8, 12, REX2_TYPE, 0, REX2_TYPE.length);
+    }
+
+    private static boolean startsWith(byte[] content, byte[] header) {
+        return content.length >= header.length
+                && Arrays.equals(content, 0, header.length, header, 0, header.length);
     }
 
     private static boolean isJukeboxPatch(byte[] content) {

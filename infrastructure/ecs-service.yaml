@@ -48,6 +48,11 @@ Parameters:
     Type: String
     AllowedPattern: "^arn:[^:]+:s3:::[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
     Description: ARN of the existing S3 bucket used for uploaded files.
+  ArchiveStorageBucketName:
+    Type: String
+    Default: reasonarchive
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+    Description: Existing archive bucket; the application may only download songs and refills.
   SesIdentityArn:
     Type: String
     AllowedPattern: "^arn:[^:]+:ses:[^:]+:[0-9]{12}:identity/.+$"
@@ -134,10 +139,11 @@ Resources:
     Type: AWS::IAM::Role
     Metadata:
       com.aws.cloudformation.Context:
-        why: application runtime identity scoped to its secret, existing file bucket, and verified email identity
+        why: application runtime identity scoped to its secret, upload bucket, read-only archive prefixes, and verified email identity
         must:
           - Keep secret access scoped to ApplicationSecretArn
-          - Keep object access scoped to FileStorageBucketArn
+          - Keep upload management scoped to FileStorageBucketArn
+          - Archive access must remain read-only under songs/ and refills/ in ArchiveStorageBucketName
           - Keep email sending scoped to SesIdentityArn
           - Do not move image-pull or logging permissions here
         mutable: change-with-constraints
@@ -174,6 +180,15 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                 Resource: !Sub "${FileStorageBucketArn}/*"
+              - Sid: ReadArchivedFiles
+                Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:s3:::${ArchiveStorageBucketName}/songs/*"
+                  - !Sub "arn:${AWS::Partition}:s3:::${ArchiveStorageBucketName}/refills/*"
+                Condition:
+                  Bool:
+                    aws:SecureTransport: "true"
         - PolicyName: send-verification-email
           PolicyDocument:
             Version: "2012-10-17"

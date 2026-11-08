@@ -77,8 +77,81 @@
                         '/patches/' + encodeURIComponent(item.patchid), item.patchName))
                 ];
             }
-        }
+        },
+        'archived-songs': archiveConfig('songs'),
+        'archived-refills': archiveConfig('refills')
     };
+
+    function archiveConfig(type) {
+        var prefix = 'archived-' + type;
+        return {
+            endpoint: '/api/catalog/' + prefix,
+            pageId: prefix + '-page',
+            tableId: prefix + '-table',
+            statusId: prefix + '-status',
+            paginationId: prefix + '-pagination',
+            defaultSort: 'dateCreated',
+            label: type === 'songs' ? 'archived song' : 'archived refill',
+            filterFormId: prefix + '-filter-form',
+            filterInputId: prefix + '-filter-input',
+            pageSizeId: prefix + '-page-size',
+            cells: function(item) {
+                var extension = (item.extension || (item.filename || '').split('.').pop())
+                    .replace(/^\./, '').toLowerCase();
+                var icon = type === 'songs' && (extension === 'rns' || extension === 'rps')
+                    ? '/images/archive-' + extension + '.png' : '/images/icon-file.svg';
+                if (type === 'refills') {
+                    if (extension === 'cmb') {
+                        icon = '/images/archive-cmb.png';
+                    } else if (extension === 'rex' || extension === 'rx2') {
+                        icon = '/images/archive-rex.png';
+                    } else if (extension === 'zyp') {
+                        icon = '/images/archive-zyp.png';
+                    } else if (extension === 'xwv') {
+                        icon = '/images/archive-xwv.png';
+                    } else if (extension === 'sm4') {
+                        icon = '/images/archive-sm4.png';
+                    }
+                }
+                var details = $('<div>').addClass('archive-entry').append(
+                    $('<img>').attr({src: icon, alt: ''}),
+                    $('<div>').append(
+                        $('<strong>').addClass('archive-entry-title')
+                            .text(item.name || item.filename || 'Untitled'),
+                        $('<span>').text('by ' + (item.creator || 'Unknown creator')),
+                        $('<small>').text(item.filename || 'Filename unavailable')
+                    )
+                );
+                var file = $('<div>').addClass('archive-file').append(
+                    $('<span>').text(item.extension ? item.extension.toUpperCase() : 'Unknown type'),
+                    $('<small>').text(formatFileSize(item.filesize) || 'Size unavailable')
+                );
+                var cells = [details];
+                if (type === 'songs') {
+                    cells.push(item.style || 'Not recorded');
+                }
+                cells.push(file, item.dateCreated
+                    ? item.dateCreated.split('-').reverse().join('-') : 'Not recorded');
+                if (type === 'songs') {
+                    cells.push(formatRating(item.averageRating));
+                }
+                var label = item.name || item.filename || 'archive file';
+                cells.push(item.downloadAvailable
+                    ? $('<a>').addClass('catalog-download-link archive-download-button')
+                        .attr({
+                            href: '/api/catalog/' + prefix + '/download?'
+                                + new URLSearchParams({key: item.archiveKey}).toString(),
+                            download: item.filename || '',
+                            'aria-label': 'Download ' + label
+                        })
+                        .append($('<img>').attr({src: '/images/download.svg', alt: ''}), 'Download')
+                    : $('<button>').addClass('archive-download-button')
+                        .attr({type: 'button', title: 'No stored file is available for this archive entry.'})
+                        .prop('disabled', true).text('Unavailable'));
+                return cells;
+            }
+        };
+    }
 
     function artistLink(alias) {
         return $('<a>')
@@ -166,8 +239,35 @@
             page: Number.isInteger(page) && page > 0 ? page : 1,
             sort: sort,
             direction: direction === 'desc' ? 'desc' : 'asc',
+            pageSize: config.pageSizeId && url.searchParams.get('pageSize') === '100' ? 100 : 25,
             filter: config.filterInputId ? (url.searchParams.get('filter') || '') : ''
         };
+    }
+
+    function pageUrl(url, page) {
+        var target = new URL(url.href);
+        if (page === 1) {
+            target.searchParams.delete('page');
+        } else {
+            target.searchParams.set('page', page);
+        }
+        return target;
+    }
+
+    function updateArchivePagination(pagination, result, url) {
+        pagination.find('.archive-skip-back')
+            .prop('disabled', result.page <= 1)
+            .data('page', Math.max(1, result.page - 10));
+        pagination.find('.archive-skip-forward')
+            .prop('disabled', result.page >= result.totalPages)
+            .data('page', Math.min(result.totalPages, result.page + 10));
+        var links = pagination.find('.archive-page-links').empty();
+        links.append($('<span>').attr('aria-current', 'page').text(result.page));
+        for (var page = result.page + 1; page <= Math.min(result.page + 10, result.totalPages); page++) {
+            links.append($('<a>').addClass('archive-page-link')
+                .attr({href: pageUrl(url, page).href, 'aria-label': 'Page ' + page})
+                .data('page', page).text(page));
+        }
     }
 
     function updateSortHeaders(config, state) {
@@ -187,6 +287,7 @@
 
     window.loadCatalogPage = function(catalogName, url) {
         var config = catalogs[catalogName];
+        var requestId = config.requestId = (config.requestId || 0) + 1;
         var state = currentState(config, url);
         var tableBody = $('#' + config.tableId + ' tbody');
         var pagination = $('#' + config.paginationId);
@@ -197,6 +298,9 @@
         if (config.filterInputId) {
             $('#' + config.filterInputId).val(state.filter);
         }
+        if (config.pageSizeId) {
+            $('#' + config.pageSizeId).val(String(state.pageSize));
+        }
 
         var query = new URLSearchParams({
             page: state.page,
@@ -205,6 +309,9 @@
         });
         if (state.filter) {
             query.set('filter', state.filter);
+        }
+        if (config.pageSizeId) {
+            query.set('pageSize', state.pageSize);
         }
         fetch(config.endpoint + '?' + query.toString())
             .then(function(response) {
@@ -217,6 +324,9 @@
                 });
             })
             .then(function(result) {
+                if (config.requestId !== requestId) {
+                    return;
+                }
                 $('#' + config.statusId).text(result.totalElements.toLocaleString() + ' '
                     + config.label + (result.totalElements === 1 ? '' : 's') + '.');
                 result.items.forEach(function(item) {
@@ -243,8 +353,14 @@
                 pagination.find('.catalog-next-page')
                     .prop('disabled', result.page >= result.totalPages)
                     .data('page', result.page + 1);
+                if (config.pageSizeId) {
+                    updateArchivePagination(pagination, result, url);
+                }
             })
             .catch(function(error) {
+                if (config.requestId !== requestId) {
+                    return;
+                }
                 $('#' + config.statusId).text(error.message);
                 pagination.attr('hidden', true);
             });
@@ -265,16 +381,21 @@
                 window.showPage(url, true);
             });
             $('#' + config.paginationId).on(
-                'click', '.catalog-previous-page, .catalog-next-page', function() {
-                    var url = new URL(window.location.href);
-                    var page = $(this).data('page');
-                    if (page === 1) {
-                        url.searchParams.delete('page');
-                    } else {
-                        url.searchParams.set('page', page);
+                'click', '.catalog-previous-page, .catalog-next-page, .archive-skip-pages, .archive-page-link', function(event) {
+                    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) {
+                        return;
                     }
+                    event.preventDefault();
+                    var page = $(this).data('page');
+                    window.showPage(pageUrl(new URL(window.location.href), page), true);
+                });
+            if (config.pageSizeId) {
+                $('#' + config.pageSizeId).on('change', function() {
+                    var url = pageUrl(new URL(window.location.href), 1);
+                    url.searchParams.set('pageSize', $(this).val());
                     window.showPage(url, true);
                 });
+            }
             if (config.filterFormId) {
                 $('#' + config.filterInputId)
                     .on('beforeinput', function(event) {

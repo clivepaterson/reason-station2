@@ -1,0 +1,53 @@
+<section id="archived-songs-page" class="catalog-page archive-page" hidden>
+    <div class="container">
+        <p class="archive-breadcrumb">Reason Station &gt; songs &gt; browse</p>
+        <h1>Browse song archive</h1>
+        <p class="archive-intro">Classic songs and Reason projects preserved from the original Reason Station.</p>
+        <div class="catalog-toolbar">
+            <img class="archive-toolbar-logo" src="/images/archive-reasonstation.png"
+                 alt="Reason Station" width="154" height="35">
+            <p id="archived-songs-status" class="catalog-status" aria-live="polite"></p>
+            <form id="archived-songs-filter-form" class="catalog-filter" role="search">
+                <label for="archived-songs-filter-input">Filter archived songs</label>
+                <div>
+                    <input id="archived-songs-filter-input" name="filter" type="text"
+                           pattern="[A-Za-z0-9.]+" maxlength="100"
+                           title="Use only letters, numbers, and periods."
+                           placeholder="Song, creator, or filename">
+                    <button type="submit">Go</button>
+                </div>
+            </form>
+            <label class="archive-page-size" for="archived-songs-page-size">Show
+                <select id="archived-songs-page-size" name="pageSize">
+                    <option value="25">25 items</option>
+                    <option value="100">100 items</option>
+                </select>
+            </label>
+        </div>
+        <div class="catalog-table-wrapper">
+            <table id="archived-songs-table" class="catalog-table">
+                <caption class="visually-hidden">Archived songs. Select a column heading to sort.</caption>
+                <thead>
+                <tr>
+                    <th><button type="button" data-sort="name">Song / creator</button></th>
+                    <th>Style</th>
+                    <th><button type="button" data-sort="extension">File</button></th>
+                    <th><button type="button" data-sort="dateCreated">Date</button></th>
+                    <th>Rating</th>
+                    <th>Download</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <nav id="archived-songs-pagination" class="catalog-pagination" aria-label="Archived song pages" hidden>
+            <button class="archive-skip-pages archive-skip-back" type="button">Back 10 pages</button>
+            <button class="catalog-previous-page" type="button">Previous</button>
+            <span class="catalog-page-status"></span>
+            <span class="archive-page-links"></span>
+            <button class="catalog-next-page" type="button">Next</button>
+            <button class="archive-skip-pages archive-skip-forward" type="button">Forward 10 pages</button>
+        </nav>
+        <p class="archive-note">Archive metadata may be incomplete. Dates, styles, and ratings are shown where preserved.</p>
+    </div>
+</section>

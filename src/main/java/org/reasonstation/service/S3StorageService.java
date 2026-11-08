@@ -49,9 +49,23 @@ public class S3StorageService {
 
     public URI createDownloadUrl(String objectUri, String filename) {
         URI uri = URI.create(objectUri);
+        return presignDownload(uri.getHost(), uri.getPath().substring(1), filename);
+    }
+
+    public URI createArchiveDownloadUrl(String objectUri, String filename) {
+        // Archive imports store raw object keys, including spaces and reserved characters.
+        String[] parts = objectUri.split("/", 4);
+        if (parts.length != 4 || !parts[0].equals("s3:") || !parts[1].isEmpty()
+                || parts[2].isBlank() || parts[3].isBlank()) {
+            throw new IllegalArgumentException("Archive object reference must be s3://bucket/key.");
+        }
+        return presignDownload(parts[2], parts[3], filename);
+    }
+
+    private URI presignDownload(String bucketName, String objectKey, String filename) {
         GetObjectRequest request = GetObjectRequest.builder()
-                .bucket(uri.getHost())
-                .key(uri.getPath().substring(1))
+                .bucket(bucketName)
+                .key(objectKey)
                 .responseContentType("application/octet-stream")
                 .responseContentDisposition(ContentDisposition.attachment()
                         .filename(filename, StandardCharsets.UTF_8)

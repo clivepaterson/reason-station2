@@ -23,6 +23,8 @@ public class CatalogController {
             Set.of("artistAlias", "trackName", "musicStyle", "filename", "dateUploaded");
     private static final Set<String> PATCH_SORTS =
             Set.of("artistAlias", "patchName", "filename", "ext", "dateUploaded");
+    private static final Set<String> ARCHIVE_SORTS =
+            Set.of("name", "creator", "dateCreated", "filename", "extension");
     private static final Pattern CATALOG_FILTER_PATTERN = Pattern.compile("[A-Za-z0-9.]+");
 
     private final CatalogRepository catalog;
@@ -65,6 +67,39 @@ public class CatalogController {
         String normalizedFilter = normalizeFilter(filter);
         return catalog.findPatches(
                 page, PAGE_SIZE, sort, parseDirection(direction), normalizedFilter);
+    }
+
+    @GetMapping("/archived-songs")
+    public Object archivedSongs(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "sort", defaultValue = "dateCreated") String sort,
+            @RequestParam(value = "direction", defaultValue = "desc") String direction,
+            @RequestParam(value = "filter", defaultValue = "") String filter,
+            @RequestParam(value = "pageSize", defaultValue = "25") int pageSize) {
+        validate(page, sort, ARCHIVE_SORTS);
+        validateArchivePageSize(pageSize);
+        return catalog.findArchivedSongs(
+                page, pageSize, sort, parseDirection(direction), normalizeFilter(filter));
+    }
+
+    @GetMapping("/archived-refills")
+    public Object archivedRefills(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "sort", defaultValue = "dateCreated") String sort,
+            @RequestParam(value = "direction", defaultValue = "desc") String direction,
+            @RequestParam(value = "filter", defaultValue = "") String filter,
+            @RequestParam(value = "pageSize", defaultValue = "25") int pageSize) {
+        validate(page, sort, ARCHIVE_SORTS);
+        validateArchivePageSize(pageSize);
+        return catalog.findArchivedRefills(
+                page, pageSize, sort, parseDirection(direction), normalizeFilter(filter));
+    }
+
+    private void validateArchivePageSize(int pageSize) {
+        if (pageSize != 25 && pageSize != 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Archive page size must be 25 or 100.");
+        }
     }
 
     private String normalizeFilter(String filter) {

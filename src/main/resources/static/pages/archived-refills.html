@@ -1,0 +1,51 @@
+<section id="archived-refills-page" class="catalog-page archive-page" hidden>
+    <div class="container">
+        <p class="archive-breadcrumb">Reason Station &gt; refills &gt; browse</p>
+        <h1>Browse refill archive</h1>
+        <p class="archive-intro">Classic ReFills preserved from the original Reason Station.</p>
+        <div class="catalog-toolbar">
+            <img class="archive-toolbar-logo" src="/images/archive-reasonstation.png"
+                 alt="Reason Station" width="154" height="35">
+            <p id="archived-refills-status" class="catalog-status" aria-live="polite"></p>
+            <form id="archived-refills-filter-form" class="catalog-filter" role="search">
+                <label for="archived-refills-filter-input">Filter archived refills</label>
+                <div>
+                    <input id="archived-refills-filter-input" name="filter" type="text"
+                           pattern="[A-Za-z0-9.]+" maxlength="100"
+                           title="Use only letters, numbers, and periods."
+                           placeholder="Refill, creator, or filename">
+                    <button type="submit">Go</button>
+                </div>
+            </form>
+            <label class="archive-page-size" for="archived-refills-page-size">Show
+                <select id="archived-refills-page-size" name="pageSize">
+                    <option value="25">25 items</option>
+                    <option value="100">100 items</option>
+                </select>
+            </label>
+        </div>
+        <div class="catalog-table-wrapper">
+            <table id="archived-refills-table" class="catalog-table">
+                <caption class="visually-hidden">Archived refills. Select a column heading to sort.</caption>
+                <thead>
+                <tr>
+                    <th><button type="button" data-sort="name">Refill / creator</button></th>
+                    <th><button type="button" data-sort="extension">File</button></th>
+                    <th><button type="button" data-sort="dateCreated">Date</button></th>
+                    <th>Download</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <nav id="archived-refills-pagination" class="catalog-pagination" aria-label="Archived refill pages" hidden>
+            <button class="archive-skip-pages archive-skip-back" type="button">Back 10 pages</button>
+            <button class="catalog-previous-page" type="button">Previous</button>
+            <span class="catalog-page-status"></span>
+            <span class="archive-page-links"></span>
+            <button class="catalog-next-page" type="button">Next</button>
+            <button class="archive-skip-pages archive-skip-forward" type="button">Forward 10 pages</button>
+        </nav>
+        <p class="archive-note">Archive metadata may be incomplete. Creators and dates are shown where preserved.</p>
+    </div>
+</section>

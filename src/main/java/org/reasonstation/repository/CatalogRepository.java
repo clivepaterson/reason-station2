@@ -6,8 +6,10 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public class CatalogRepository {
@@ -26,6 +28,12 @@ public class CatalogRepository {
             "filename", "filename",
             "ext", "ext",
             "dateUploaded", "date_uploaded");
+    private static final Map<String, String> ARCHIVE_SORT_COLUMNS = Map.of(
+            "name", "COALESCE(NULLIF(name, ''), filename)",
+            "creator", "creator",
+            "dateCreated", "date_created",
+            "filename", "filename",
+            "extension", "extension");
 
     private final CatalogQueryExecutor queries;
 
@@ -168,6 +176,71 @@ public class CatalogRepository {
         return page(items, page, pageSize, totalElements);
     }
 
+    public PagedResult<ArchiveListItem> findArchivedSongs(
+            int page, int pageSize, String sort, SortDirection direction, String filter) {
+        return findArchive(true, page, pageSize, sort, direction, filter);
+    }
+
+    public PagedResult<ArchiveListItem> findArchivedRefills(
+            int page, int pageSize, String sort, SortDirection direction, String filter) {
+        return findArchive(false, page, pageSize, sort, direction, filter);
+    }
+
+    private PagedResult<ArchiveListItem> findArchive(
+            boolean songs, int page, int pageSize, String sort, SortDirection direction, String filter) {
+        String table = songs ? "archive_songs" : "archive_refills";
+        String orderBy = sortColumn(ARCHIVE_SORT_COLUMNS, sort);
+        String filterClause = """
+                WHERE :filter = ''
+                   OR COALESCE(name, '') ILIKE '%' || :filter || '%'
+                   OR COALESCE(creator, '') ILIKE '%' || :filter || '%'
+                   OR COALESCE(filename, '') ILIKE '%' || :filter || '%'
+                """;
+        long totalElements = queryCount(
+                "SELECT COUNT(*) FROM " + table + " " + filterClause, Map.of("filter", filter));
+        var parameters = paginationParameters(page, pageSize).addValue("filter", filter);
+        var items = queries.query("""
+                SELECT archive_key, name, creator, date_created, filename, extension, filesize,
+                       (NULLIF(BTRIM(s3_uri), '') IS NOT NULL) AS download_available,
+                       %s AS style, %s AS avr
+                FROM %s
+                %s
+                ORDER BY %s %s NULLS LAST, archive_key ASC
+                LIMIT :limit OFFSET :offset
+                """.formatted(songs ? "style" : "NULL", songs ? "avr" : "NULL",
+                table, filterClause, orderBy, direction.sql()), parameters,
+                (resultSet, rowNumber) -> new ArchiveListItem(
+                        resultSet.getString("archive_key"),
+                        resultSet.getString("name"),
+                        resultSet.getString("creator"),
+                        resultSet.getObject("date_created", LocalDate.class),
+                        resultSet.getString("filename"),
+                        resultSet.getString("extension"),
+                        resultSet.getObject("filesize", Long.class),
+                        resultSet.getString("style"),
+                        toDouble(resultSet.getBigDecimal("avr")),
+                        resultSet.getBoolean("download_available")));
+        return page(items, page, pageSize, totalElements);
+    }
+
+    public Optional<ArchiveDownload> findArchivedSongDownload(String archiveKey) {
+        return findArchiveDownload(true, archiveKey);
+    }
+
+    public Optional<ArchiveDownload> findArchivedRefillDownload(String archiveKey) {
+        return findArchiveDownload(false, archiveKey);
+    }
+
+    private Optional<ArchiveDownload> findArchiveDownload(boolean songs, String archiveKey) {
+        String table = songs ? "archive_songs" : "archive_refills";
+        return queries.query(
+                "SELECT s3_uri, filename FROM " + table + " WHERE archive_key = :archiveKey",
+                new MapSqlParameterSource("archiveKey", archiveKey),
+                (resultSet, rowNumber) -> new ArchiveDownload(
+                        resultSet.getString("s3_uri"), resultSet.getString("filename")))
+                .stream().findFirst();
+    }
+
     private MapSqlParameterSource paginationParameters(int page, int pageSize) {
         return new MapSqlParameterSource()
                 .addValue("limit", pageSize)
@@ -228,5 +301,13 @@ public class CatalogRepository {
 
     public record PagedResult<T>(List<T> items, int page, int pageSize,
                                  long totalElements, int totalPages) {
+    }
+
+    public record ArchiveListItem(String archiveKey, String name, String creator,
+                                  LocalDate dateCreated, String filename, String extension,
+                                  Long filesize, String style, Double averageRating, boolean downloadAvailable) {
+    }
+
+    public record ArchiveDownload(String objectUri, String filename) {
     }
 }

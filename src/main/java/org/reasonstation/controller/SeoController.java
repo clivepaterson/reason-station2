@@ -77,6 +77,7 @@ public class SeoController {
         List.of(
                 "/index.html", "/index.html?view=artists", "/index.html?view=tracks",
                 "/index.html?view=patches", "/index.html?view=tutorials",
+                "/index.html?view=archived-songs", "/index.html?view=archived-refills",
                 "/index.html?view=links", "/index.html?view=about"
         ).forEach(path -> appendSitemapUrl(xml, baseUrl + path, null));
 

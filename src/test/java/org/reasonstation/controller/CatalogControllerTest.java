@@ -3,6 +3,8 @@ package org.reasonstation.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.repository.CatalogRepository;
@@ -151,6 +153,64 @@ class CatalogControllerTest {
                 () -> controller.patches(1, "dateUploaded", "desc", "Bass patch"));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+    }
+
+    @Test
+    void listsArchivedSongsWithPaginationAndFiltering() {
+        var expected = new CatalogRepository.PagedResult<>(
+                List.<CatalogRepository.ArchiveListItem>of(), 2, 25, 30, 2);
+        when(catalog.findArchivedSongs(2, 25, "dateCreated", SortDirection.DESC, "Bass"))
+                .thenReturn(expected);
+
+        assertEquals(expected, controller.archivedSongs(2, "dateCreated", "desc", " Bass ", 25));
+        verify(catalog).findArchivedSongs(2, 25, "dateCreated", SortDirection.DESC, "Bass");
+    }
+
+    @Test
+    void listsArchivedRefillsWithNameSort() {
+        var expected = new CatalogRepository.PagedResult<>(
+                List.<CatalogRepository.ArchiveListItem>of(), 1, 25, 0, 0);
+        when(catalog.findArchivedRefills(1, 25, "name", SortDirection.ASC, ""))
+                .thenReturn(expected);
+
+        assertEquals(expected, controller.archivedRefills(1, "name", "asc", "", 25));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {25, 100})
+    void supportsArchivePageSizes(int pageSize) {
+        var expected = new CatalogRepository.PagedResult<>(
+                List.<CatalogRepository.ArchiveListItem>of(), 2, pageSize, 201, (201 + pageSize - 1) / pageSize);
+        when(catalog.findArchivedSongs(2, pageSize, "name", SortDirection.ASC, "Bass"))
+                .thenReturn(expected);
+        when(catalog.findArchivedRefills(2, pageSize, "name", SortDirection.ASC, "Bass"))
+                .thenReturn(expected);
+
+        assertEquals(expected, controller.archivedSongs(2, "name", "asc", "Bass", pageSize));
+        assertEquals(expected, controller.archivedRefills(2, "name", "asc", "Bass", pageSize));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0, 1, 50, 101, 1000})
+    void rejectsUnsupportedArchivePageSizes(int pageSize) {
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> controller.archivedSongs(1, "name", "asc", "", pageSize)).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> controller.archivedRefills(1, "name", "asc", "", pageSize)).getStatusCode());
+    }
+
+    @Test
+    void rejectsInvalidArchiveParameters() {
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> controller.archivedSongs(0, "dateCreated", "desc", "", 25)).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> controller.archivedSongs(1, "source_path", "desc", "", 25)).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> controller.archivedRefills(1, "name", "invalid", "", 25)).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> controller.archivedRefills(1, "name", "asc", "%", 25)).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> controller.archivedSongs(1, "name", "asc", "a".repeat(101), 25)).getStatusCode());
     }
 
     @Test
