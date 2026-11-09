@@ -19,6 +19,27 @@ on reruns. It does not delete old file records. Generated metadata-only records
 from earlier imports and specific duplicate-file records excluded by the
 collector are removed.
 
+## Duplicate-song cleanup
+
+Flyway migration `V11__delete_duplicate_archive_songs.sql` removes 148 redundant
+song rows from 105 filename/size groups in V10, leaving 326 songs. The migration
+lists every affected filename and byte size; the collected files within each
+group were confirmed identical using SHA-256. For example,
+`ph4n_-_ethereal_message.rps` has three copies and retains one.
+
+The migration prefers a row with a download destination and the most complete
+metadata, breaking ties by `archive_key`. Distinct file versions (including both
+sizes of `fs.rps`) and differently named empty-rack/template files are retained.
+It does not delete local files, S3 objects or refill rows, and is safe to rerun.
+V10 is unchanged to preserve its Flyway checksum.
+
+After a standalone import or refresh, reapply the cleanup because the import
+can restore the duplicate rows:
+
+```powershell
+psql -h localhost -U postgres -d mydb -v ON_ERROR_STOP=1 -f .\src\main\resources\db\migration\V11__delete_duplicate_archive_songs.sql
+```
+
 ## Collected files
 
 The ignored `archive-files` directory contains every matching local file,
