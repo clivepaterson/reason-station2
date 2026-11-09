@@ -2799,6 +2799,68 @@ body.site-page {
         }
     }
 
+    .about-contact {
+        margin-top: 1.25rem;
+        padding: clamp(1.25rem, 3vw, 2rem);
+
+        h2 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            color: $station-deep;
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.035em;
+        }
+    }
+
+    .about-contact-links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.25rem;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .about-contact-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        max-width: 100%;
+        padding: 0.5rem 0.75rem;
+        border-radius: 12px;
+        color: $station-deep;
+        background: $station-paper;
+        font-weight: 700;
+        text-decoration: none;
+        transition: background-color 0.25s ease;
+
+        svg {
+            flex: 0 0 auto;
+            width: 1.4rem;
+            height: 1.4rem;
+            color: $station-teal;
+        }
+
+        span {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        &:hover,
+        &:focus-visible {
+            color: $station-deep;
+            background: rgba($station-orange, 0.12);
+        }
+
+        &:focus-visible {
+            outline: 3px solid rgba($station-orange, 0.4);
+            outline-offset: 3px;
+        }
+    }
+
     .links-header {
         margin-bottom: 2rem;
 

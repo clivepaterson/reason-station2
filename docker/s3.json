@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "reasonstation",
+      "credentials": [
+        {
+          "accessKey": "reasonstation-access",
+          "secretKey": "reasonstation-secret"
+        }
+      ],
+      "actions": ["Read", "Write", "List", "Tagging"]
+    }
+  ]
+}
