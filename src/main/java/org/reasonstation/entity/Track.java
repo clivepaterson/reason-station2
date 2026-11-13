@@ -35,6 +35,12 @@ public class Track {
     @Column("audio_link")
     private String audioLink;
 
+    @Column("image_uri")
+    private String imageUri;
+
+    @Column("audio_uri")
+    private String audioUri;
+
     @Column("program_version")
     private String programVersion;
 
@@ -153,6 +159,22 @@ public class Track {
 
     public String getProgramVersion() {
         return programVersion;
+    }
+
+    public String getImageUri() {
+        return imageUri;
+    }
+
+    public void setImageUri(String imageUri) {
+        this.imageUri = imageUri;
+    }
+
+    public String getAudioUri() {
+        return audioUri;
+    }
+
+    public void setAudioUri(String audioUri) {
+        this.audioUri = audioUri;
     }
 
     public void setProgramVersion(String programVersion) {

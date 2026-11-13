@@ -1,0 +1,2 @@
+ALTER TABLE tracks ADD COLUMN image_uri VARCHAR(1024);
+ALTER TABLE tracks ADD COLUMN audio_uri VARCHAR(1024);

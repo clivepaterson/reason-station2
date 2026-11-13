@@ -7,6 +7,7 @@ import org.reasonstation.repository.PatchRatingRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
 import org.reasonstation.util.PatchFileFormat;
+import org.reasonstation.util.ImageFileFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Locale;
@@ -30,8 +30,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
-import javax.imageio.IIOException;
-import javax.imageio.ImageIO;
 
 @RestController
 @RequestMapping("/api/patches")
@@ -219,25 +217,9 @@ public class PatchController {
                         "Choose a .jpg, .jpeg, .png, .bmp, or .gif image no larger than 30 MB."));
             }
             imageBytes = image.getBytes();
-            try (var input = ImageIO.createImageInputStream(new ByteArrayInputStream(imageBytes))) {
-                var readers = ImageIO.getImageReaders(input);
-                if (!readers.hasNext()) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "The image file is invalid."));
-                }
-                var reader = readers.next();
-                try {
-                    if (!imageFormat.equalsIgnoreCase(reader.getFormatName())) {
-                        return ResponseEntity.badRequest().body(Map.of("error",
-                                "The image content must match its file extension."));
-                    }
-                    reader.setInput(input);
-                    reader.getWidth(0);
-                    reader.getHeight(0);
-                } finally {
-                    reader.dispose();
-                }
-            } catch (IIOException exception) {
-                return ResponseEntity.badRequest().body(Map.of("error", "The image file is invalid."));
+            if (!ImageFileFormat.matches(imageFormat, imageBytes)) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "The image file is invalid or its content does not match its file extension."));
             }
         }
 

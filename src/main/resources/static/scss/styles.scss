@@ -685,6 +685,29 @@ body {
     }
 }
 
+#upload-track-form {
+    width: min(850px, calc(100% - 2rem));
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+
+    .track-form-fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.5rem;
+    }
+
+    .track-form-column {
+        min-width: 0;
+    }
+
+    @media (max-width: 700px) {
+        .track-form-fields {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0;
+        }
+    }
+}
+
 #upload-patch-form {
     width: min(650px, calc(100% - 2rem));
 }
@@ -721,6 +744,7 @@ body {
     position: relative;
     padding: 0.75rem 0;
     border-top: 1px solid $light-bg;
+    overflow-wrap: anywhere;
 
     &:first-child {
         padding-top: 0;
@@ -884,6 +908,7 @@ body.site-page .track-detail-main {
         display: block;
         width: 100px;
         height: 100px;
+        object-fit: contain;
         border-radius: 16px;
         box-shadow: 0 4px 12px rgba(11, 60, 73, 0.18);
     }
@@ -900,6 +925,23 @@ body.site-page .track-detail-main {
         line-height: 1.25;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+}
+
+.track-card .track-card-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+    margin-bottom: 0.25rem;
+
+    h1, h3 {
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    .track-style-badge {
+        margin-bottom: 0;
     }
 }
 
@@ -994,6 +1036,22 @@ img[data-image-zoom] {
     }
 }
 
+.track-mp3-link {
+    display: block;
+
+    &::before {
+        width: auto;
+        height: auto;
+        margin-right: 0.5rem;
+        background: none;
+        content: "\266B";
+        color: #176678;
+        font-size: 1.15rem;
+        font-weight: 700;
+        vertical-align: baseline;
+    }
+}
+
 .track-audio-link {
     display: block;
 
@@ -1035,14 +1093,6 @@ img[data-image-zoom] {
 
 .patch-uploaded-meta {
     grid-area: uploaded;
-}
-
-.track-style-meta::before {
-    margin-right: 0.5rem;
-    content: "\266B";
-    color: #176678;
-    font-size: 1.15rem;
-    font-weight: 700;
 }
 
 .track-filesize-meta {

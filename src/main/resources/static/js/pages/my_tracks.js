@@ -262,13 +262,19 @@ window.initializeMyTracks = function() {
         }
     }
 
-    function uploadFile(file, artistAlias, trackName, musicStyle, audioLink) {
+    function uploadFile(file, artistAlias, trackName, musicStyle, audioLink, image, audio) {
         var formData = new FormData();
         formData.append('artistAlias', artistAlias);
         formData.append('trackName', trackName);
         formData.append('musicStyle', musicStyle);
         formData.append('audioLink', audioLink);
         formData.append('file', file);
+        if (image) {
+            formData.append('image', image);
+        }
+        if (audio) {
+            formData.append('audio', audio);
+        }
 
         if (activeUploads === 0) {
             uploadingItems.empty();
@@ -288,7 +294,13 @@ window.initializeMyTracks = function() {
             'aria-label': 'Cancel upload for ' + file.name,
             title: 'Cancel upload'
         }).html('&times;');
-        item.append($('<h3>').text(file.name));
+        item.append($('<p>').addClass('upload-item-file').text('Reason File: ' + file.name));
+        if (image) {
+            item.append($('<p>').addClass('upload-item-file').text('Image: ' + image.name));
+        }
+        if (audio) {
+            item.append($('<p>').addClass('upload-item-file').text('MP3: ' + audio.name));
+        }
         item.append(cancelButton);
         item.append(progress);
         item.append(status);
@@ -513,6 +525,8 @@ window.initializeMyTracks = function() {
         var trackName = $('#track-name').val().trim();
         var musicStyle = $('#music-style').val();
         var audioLink = $('#audio-link').val().trim();
+        var image = $('#track-image')[0].files[0];
+        var audio = $('#track-audio')[0].files[0];
         var invalidFile = files.find(function(file) {
             var filename = file.name.toLowerCase();
             return !allowedExtensions.some(function(extension) {
@@ -537,11 +551,24 @@ window.initializeMyTracks = function() {
             return;
         }
 
-        if (invalidFile) {
+        if (!files.length || invalidFile) {
             $('#upload-status')
                 .removeClass('success')
                 .addClass('error')
                 .text('Only .rps, .rns, and .reason files are allowed.');
+            return;
+        }
+
+        if (image && (!/\.(jpe?g|png|bmp|gif)$/i.test(image.name)
+                || image.size === 0 || image.size > 30 * 1024 * 1024)) {
+            $('#upload-status').removeClass('success').addClass('error')
+                .text('Choose a non-empty .jpg, .jpeg, .png, .bmp, or .gif image no larger than 30 MB.');
+            return;
+        }
+        if (audio && (!/\.mp3$/i.test(audio.name)
+                || audio.size === 0 || audio.size > 80 * 1024 * 1024)) {
+            $('#upload-status').removeClass('success').addClass('error')
+                .text('Choose a non-empty .mp3 audio file no larger than 80 MB.');
             return;
         }
 
@@ -550,10 +577,12 @@ window.initializeMyTracks = function() {
         trackName = trackName.trim();
         musicStyle = musicStyle.trim();
         $('#track-file').val('');
+        $('#track-image').val('');
+        $('#track-audio').val('');
         uploadForm.attr('hidden', true);
         uploadDialogBackdrop.attr('hidden', true);
         Promise.all(files.map(function(file) {
-            return uploadFile(file, artistAlias, trackName, musicStyle, audioLink);
+            return uploadFile(file, artistAlias, trackName, musicStyle, audioLink, image, audio);
         }))
             .then(function(results) {
                 var failures = results.filter(function(result) {

@@ -74,7 +74,7 @@ class TrackControllerTest {
         when(authentication.getName()).thenReturn("listener");
         when(users.findByAlias("listener")).thenReturn(Optional.of(user));
 
-        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", trackFile(), null);
+        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", trackFile(), null, null, null);
 
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(Map.of("error", "Verify your email address before uploading tracks."),
@@ -92,7 +92,7 @@ class TrackControllerTest {
         when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = controller.uploadTrack(
-                authentication, "Artist Name", "Track Name", "Rock", trackFile(), null);
+                authentication, "Artist Name", "Track Name", "Rock", trackFile(), null, null, null);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(storage).upload(any(), any(), any());
@@ -102,6 +102,8 @@ class TrackControllerTest {
         assertEquals("Track Name", savedTrack.getValue().getTrackName());
         assertEquals((long) trackFile().getSize(), savedTrack.getValue().getFilesize());
         assertEquals(null, savedTrack.getValue().getAudioLink());
+        assertEquals(null, savedTrack.getValue().getImageUri());
+        assertEquals(null, savedTrack.getValue().getAudioUri());
         assertEquals(null, savedTrack.getValue().getProgramVersion());
     }
 
@@ -127,7 +129,7 @@ class TrackControllerTest {
                 .putInt(version.length).put(version).array();
         var file = new MockMultipartFile("file", filename, "application/octet-stream", content);
 
-        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null);
+        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null, null, null);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         ArgumentCaptor<Track> savedTrack = ArgumentCaptor.forClass(Track.class);
@@ -152,7 +154,7 @@ class TrackControllerTest {
                 ByteBuffer.allocate(12 + content.length()).put(fileHeader(filename))
                         .put(content.getBytes(StandardCharsets.US_ASCII)).array());
 
-        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null);
+        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null, null, null);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         ArgumentCaptor<Track> savedTrack = ArgumentCaptor.forClass(Track.class);
@@ -169,7 +171,7 @@ class TrackControllerTest {
         var file = new MockMultipartFile("file", "song.reason", "application/octet-stream",
                 "X15_FILEPROGRAMVERSIONBODY".getBytes(StandardCharsets.US_ASCII));
 
-        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null);
+        var response = controller.uploadTrack(authentication, "Artist", "Track", "Rock", file, null, null, null);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         ArgumentCaptor<Track> savedTrack = ArgumentCaptor.forClass(Track.class);
@@ -215,7 +217,7 @@ class TrackControllerTest {
         when(tracks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = controller.uploadTrack(
-                authentication, "Artist", "Track", "Rock", trackFile(), audioLink);
+                authentication, "Artist", "Track", "Rock", trackFile(), audioLink, null, null);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         ArgumentCaptor<Track> savedTrack = ArgumentCaptor.forClass(Track.class);
@@ -245,13 +247,105 @@ class TrackControllerTest {
         String audioLink = "https://soundcloud.com/artist/song";
         when(tracks.findByUseridWithRating(7L)).thenReturn(java.util.List.of(
                 new TrackWithRating(42L, 7L, "Artist", "Track", "Rock", "song.reason", 3L,
-                        "s3://tracks/song", java.time.Instant.now(), null, 0, audioLink, "13.2.1")));
+                        "s3://tracks/song", java.time.Instant.now(), null, 0, audioLink, "13.2.1",
+                        "s3://tracks/track-images/cover", "s3://tracks/track-audio/preview")));
 
         standaloneSetup(controller).build()
                 .perform(get("/api/tracks/me").principal(authentication))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].audioLink").value(audioLink))
-                .andExpect(jsonPath("$[0].programVersion").value("13.2.1"));
+                .andExpect(jsonPath("$[0].programVersion").value("13.2.1"))
+                .andExpect(jsonPath("$[0].imageUri").value("s3://tracks/track-images/cover"))
+                .andExpect(jsonPath("$[0].audioUri").value("s3://tracks/track-audio/preview"));
+    }
+
+    @Test
+    void redirectsTrackAudioToSignedDownloadWithoutCountingAReasonDownload() throws Exception {
+        Track track = new Track();
+        track.setTrackName("Test Track");
+        track.setAudioUri("s3://tracks/track-audio/preview");
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+        URI url = URI.create("https://storage.example/preview?signature=test");
+        when(storage.createDownloadUrl(track.getAudioUri(), "Test Track.mp3")).thenReturn(url);
+
+        var response = standaloneSetup(controller).build()
+                .perform(get("/api/tracks/42/audio"))
+                .andExpect(status().isFound())
+                .andReturn().getResponse();
+
+        assertEquals(url.toString(), response.getHeader("Location"));
+        verifyNoInteractions(downloads);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void returnsNotFoundForTrackWithoutAudio(String audioUri) {
+        Track track = new Track();
+        track.setAudioUri(audioUri);
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+
+        assertEquals(HttpStatus.NOT_FOUND, controller.trackAudio(42L).getStatusCode());
+        verifyNoInteractions(storage, downloads);
+    }
+
+    @Test
+    void returnsNotFoundForAudioOfMissingTrack() {
+        when(tracks.findById(42L)).thenReturn(Optional.empty());
+
+        assertEquals(HttpStatus.NOT_FOUND, controller.trackAudio(42L).getStatusCode());
+        verifyNoInteractions(storage, downloads);
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, -1})
+    void rejectsInvalidTrackAudioId(long trackid) {
+        assertEquals(HttpStatus.BAD_REQUEST, controller.trackAudio(trackid).getStatusCode());
+        verifyNoInteractions(tracks, storage, downloads);
+    }
+
+    @Test
+    void redirectsTrackImageToSignedStorageUrl() throws Exception {
+        Track track = new Track();
+        track.setImageUri("s3://tracks/track-images/cover");
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+        URI url = URI.create("https://storage.example/cover?signature=test");
+        when(storage.createImageUrl(track.getImageUri())).thenReturn(url);
+
+        var response = standaloneSetup(controller).build()
+                .perform(get("/api/tracks/42/image"))
+                .andExpect(status().isFound())
+                .andReturn().getResponse();
+
+        assertEquals(url.toString(), response.getHeader("Location"));
+        verifyNoInteractions(downloads);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void returnsNotFoundForTrackWithoutImage(String imageUri) {
+        Track track = new Track();
+        track.setImageUri(imageUri);
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+
+        assertEquals(HttpStatus.NOT_FOUND, controller.trackImage(42L).getStatusCode());
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void returnsNotFoundForImageOfMissingTrack() {
+        when(tracks.findById(42L)).thenReturn(Optional.empty());
+
+        assertEquals(HttpStatus.NOT_FOUND, controller.trackImage(42L).getStatusCode());
+        verifyNoInteractions(storage);
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, -1})
+    void rejectsInvalidTrackImageId(long trackid) {
+        assertEquals(HttpStatus.BAD_REQUEST, controller.trackImage(trackid).getStatusCode());
+        verifyNoInteractions(tracks, storage);
     }
 
     @ParameterizedTest
@@ -270,7 +364,7 @@ class TrackControllerTest {
         when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
 
         var response = controller.uploadTrack(
-                authentication, "Artist", "Track", "Rock", trackFile(), audioLink);
+                authentication, "Artist", "Track", "Rock", trackFile(), audioLink, null, null);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verifyNoInteractions(storage, tracks);
@@ -309,7 +403,7 @@ class TrackControllerTest {
         when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
 
         var response = controller.uploadTrack(
-                authentication, "Artist", "T".repeat(256), "Rock", trackFile(), null);
+                authentication, "Artist", "T".repeat(256), "Rock", trackFile(), null, null, null);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(storage, never()).upload(any(), any(), any());
@@ -324,7 +418,7 @@ class TrackControllerTest {
                 "file", "../song.reason", "application/octet-stream", new byte[]{1});
 
         var response = controller.uploadTrack(
-                authentication, "Artist", "Track", "Rock", unsafeFile, null);
+                authentication, "Artist", "Track", "Rock", unsafeFile, null, null, null);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(storage, never()).upload(any(), any(), any());
@@ -341,7 +435,7 @@ class TrackControllerTest {
         when(oversizedFile.getSize()).thenReturn(80L * 1024 * 1024 + 1);
 
         var response = controller.uploadTrack(
-                authentication, "Artist", "Track", "Rock", oversizedFile, null);
+                authentication, "Artist", "Track", "Rock", oversizedFile, null, null, null);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(storage, never()).upload(any(), any(), any());

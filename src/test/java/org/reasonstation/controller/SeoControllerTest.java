@@ -2,6 +2,9 @@ package org.reasonstation.controller;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -57,11 +60,20 @@ class SeoControllerTest {
         assertTrue(html.contains("\"trackid\":42"));
         assertTrue(html.contains("class=\"track-card-art\""));
         assertTrue(html.contains("<script src=\"/js/style_icons.js\"></script>"));
-        assertTrue(html.contains("window.createMusicStyleIcon(track.musicStyle)"));
+        assertTrue(html.contains("window.createTrackArt(track)"));
+        assertTrue(html.contains("src=\"/images/style-icons/other.svg\""));
         assertTrue(html.contains("<a class=\"track-file-meta\" href=\"/api/tracks/42/download\""));
         assertTrue(html.contains("class=\"track-style-meta\">Style: Electronic"));
+        assertTrue(html.contains("""
+                <div class="track-card-heading">
+                                    <h1>Signal &amp; Noise</h1>
+                                    <span class="track-style-badge">Electronic</span>
+                                </div>"""));
         assertTrue(html.contains("class=\"track-filesize-meta\">Size: 1 Kb"));
         assertTrue(html.contains("class=\"track-downloads-meta\">Downloads: 12"));
+        assertTrue(html.contains("class=\"track-file-meta track-mp3-link\" href=\"/api/tracks/42/audio\""));
+        assertTrue(html.contains(">Download MP3</a>"));
+        assertTrue(html.contains("aria-label=\"Download MP3 for Signal &amp; Noise by A &amp; B\""));
         assertTrue(html.contains("class=\"track-rating-stars\""));
         assertTrue(html.contains("--rating-percent: 85.0%"));
         assertTrue(html.contains("class=\"track-rating-value\" aria-hidden=\"true\">8.5/10"));
@@ -76,7 +88,8 @@ class SeoControllerTest {
         when(tracks.findWithRatingById(42L)).thenReturn(Optional.of(new TrackWithRating(
                 track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
                 track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
-                track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), null, track.programVersion())));
+                track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), null, track.programVersion(),
+                track.imageUri(), track.audioUri())));
 
         assertFalse(controller.trackPage(42L).getBody().contains("track-audio-link"));
     }
@@ -94,7 +107,8 @@ class SeoControllerTest {
         when(tracks.findWithRatingById(42L)).thenReturn(Optional.of(new TrackWithRating(
                 track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
                 track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
-                track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), track.audioLink(), null)));
+                track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), track.audioLink(), null,
+                track.imageUri(), track.audioUri())));
 
         assertTrue(controller.trackPage(42L).getBody().contains(">signal.reason</a>"));
     }
@@ -107,6 +121,40 @@ class SeoControllerTest {
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertTrue(response.getBody().contains("<meta name=\"robots\" content=\"noindex, follow\">"));
+    }
+
+    @Test
+    void rendersUploadedTrackImageWithoutOverwritingItWithStyleIcon() {
+        TrackWithRating track = track();
+        when(tracks.findWithRatingById(42L)).thenReturn(Optional.of(new TrackWithRating(
+                track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
+                track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
+                track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), track.audioLink(),
+                track.programVersion(), "s3://tracks/track-images/cover", track.audioUri())));
+
+        String html = controller.trackPage(42L).getBody();
+
+        assertTrue(html.contains("src=\"/api/tracks/42/image\" alt=\"Image for Signal &amp; Noise\""));
+        assertTrue(html.contains("content=\"https://reasonstation.example/api/tracks/42/image\""));
+        assertTrue(html.contains("\"imageUri\":\"s3://tracks/track-images/cover\""));
+        assertTrue(html.contains("window.createTrackArt(track)"));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void omitsMp3LinkWhenTrackHasNoUploadedAudio(String audioUri) {
+        TrackWithRating track = track();
+        when(tracks.findWithRatingById(42L)).thenReturn(Optional.of(new TrackWithRating(
+                track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
+                track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
+                track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), track.audioLink(),
+                track.programVersion(), track.imageUri(), audioUri)));
+
+        String html = controller.trackPage(42L).getBody();
+
+        assertFalse(html.contains("track-mp3-link"));
+        assertTrue(html.contains("track-audio-link"));
     }
 
     @Test
@@ -231,6 +279,7 @@ class SeoControllerTest {
                 42L, 7L, "A & B", "Signal & Noise", "Electronic",
                 "signal.reason", 1024L, "s3://tracks/signal",
                 Instant.parse("2026-11-03T10:15:30Z"), 8.5, 12,
-                "https://soundcloud.com/artist/song?one=1&two=2", "13.2.1");
+                "https://soundcloud.com/artist/song?one=1&two=2", "13.2.1", null,
+                "s3://tracks/track-audio/preview");
     }
 }

@@ -19,20 +19,22 @@
         <div id="upload-dialog-backdrop" class="upload-dialog-backdrop" hidden></div>
         <form id="upload-track-form" class="track-form" hidden>
             <h2>Upload a track</h2>
-            <label for="artist-alias">
-                Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
-            </label>
-            <input id="artist-alias" name="artistAlias" type="text" required maxlength="100"
-                   pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
-                   title="Use only letters, numbers, spaces, and ()[]_.'+-">
-            <label for="track-name">Track name</label>
-            <input id="track-name" name="trackName" type="text" required maxlength="200"
-                   pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
-                   title="Use only letters, numbers, spaces, and ()[]_.'+-">
-            <label for="music-style">Music style</label>
-            <input id="music-style" name="musicStyle" type="text" required maxlength="100"
-                   list="music-style-options" autocomplete="off">
-            <datalist id="music-style-options">
+            <div class="track-form-fields">
+                <div class="track-form-column">
+                    <label for="artist-alias">
+                        Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
+                    </label>
+                    <input id="artist-alias" name="artistAlias" type="text" required maxlength="100"
+                           pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
+                           title="Use only letters, numbers, spaces, and ()[]_.'+-">
+                    <label for="track-name">Track name</label>
+                    <input id="track-name" name="trackName" type="text" required maxlength="200"
+                           pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
+                           title="Use only letters, numbers, spaces, and ()[]_.'+-">
+                    <label for="music-style">Music style</label>
+                    <input id="music-style" name="musicStyle" type="text" required maxlength="100"
+                           list="music-style-options" autocomplete="off">
+                    <datalist id="music-style-options">
                 <option value="Rock"><option value="Alternative Rock"><option value="Classic Rock">
                 <option value="Hard Rock"><option value="Soft Rock"><option value="Indie Rock">
                 <option value="Progressive Rock"><option value="Psychedelic Rock"><option value="Punk Rock">
@@ -91,17 +93,29 @@
                 <option value="Futuristic"><option value="Retro"><option value="Vintage"><option value="Minimal">
                 <option value="Acoustic"><option value="Live"><option value="Instrumental"><option value="Vocal">
                 <option value="Female Vocal"><option value="Male Vocal"><option value="Other">
-            </datalist>
-            <label for="audio-link">Audio link <span class="privacy-note">(optional)</span></label>
-            <input id="audio-link" name="audioLink" type="text"
-                   pattern="https://((on\.)?soundcloud|audiomack)\.com/[^\s\\]*"
-                   title="Use a link starting with https://soundcloud.com/, https://on.soundcloud.com/, or https://audiomack.com/ with no whitespace or backslashes."
-                   aria-describedby="audio-link-help">
-            <small id="audio-link-help" class="privacy-note">SoundCloud or Audiomack links only.</small>
-            <label for="track-file">Reason file</label>
-            <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason"
-                   aria-describedby="track-file-extensions" multiple required>
-            <small id="track-file-extensions" class="privacy-note">Allowed extensions: .rps, .rns, .reason. Maximum size: 80 MB.</small>
+                    </datalist>
+                    <label for="audio-link">Audio link <span class="privacy-note">(optional)</span></label>
+                    <input id="audio-link" name="audioLink" type="text"
+                           pattern="https://((on\.)?soundcloud|audiomack)\.com/[^\s\\]*"
+                           title="Use a link starting with https://soundcloud.com/, https://on.soundcloud.com/, or https://audiomack.com/ with no whitespace or backslashes."
+                           aria-describedby="audio-link-help">
+                    <small id="audio-link-help" class="privacy-note">SoundCloud or Audiomack links only.</small>
+                </div>
+                <div class="track-form-column">
+                    <label for="track-file">Reason file</label>
+                    <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason"
+                           aria-describedby="track-file-extensions" multiple required>
+                    <small id="track-file-extensions" class="privacy-note">Allowed extensions: .rps, .rns, .reason. Maximum size: 80 MB.</small>
+                    <label for="track-image">Track image <span class="privacy-note">(optional)</span></label>
+                    <input id="track-image" name="image" type="file" accept=".jpg,.jpeg,.png,.bmp,.gif"
+                           aria-describedby="track-image-help">
+                    <small id="track-image-help" class="privacy-note">Allowed extensions: .jpg, .jpeg, .png, .bmp, .gif. Maximum size: 30 MB. Applied to each selected track.</small>
+                    <label for="track-audio">MP3 audio <span class="privacy-note">(optional)</span></label>
+                    <input id="track-audio" name="audio" type="file" accept=".mp3"
+                           aria-describedby="track-audio-help">
+                    <small id="track-audio-help" class="privacy-note">Allowed extension: .mp3. Maximum size: 80 MB. Applied to each selected track.</small>
+                </div>
+            </div>
             <button class="cta-button" type="submit">Upload</button>
             <p id="upload-status" class="form-message" aria-live="polite"></p>
         </form>

@@ -99,7 +99,8 @@ public class SecurityConfig {
                                 "/oauth2/**", "/login/oauth2/**",
                                 "/api/verify-email",
                                 "/index.html", "/api/discovery/**", "/api/catalog/**",
-                                "/api/tracks/*/download", "/api/patches/*/download",
+                                "/api/tracks/*/download", "/api/tracks/*/image", "/api/tracks/*/audio",
+                                "/api/patches/*/download",
                                 "/api/tracks/*/rating", "/api/patches/*/rating", "/api/patches/*/image",
                                 "/error", "/hello").permitAll()
                         .requestMatchers("/api/**").authenticated()

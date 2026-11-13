@@ -100,28 +100,38 @@ class DiscoveryControllerTest {
     @ValueSource(strings = "13.2.1")
     void includesAudioLinksAndProgramVersionsInAllTrackCardFeeds(String programVersion) throws Exception {
         String audioLink = "https://audiomack.com/artist/song/track";
+        String imageUri = "s3://tracks/track-images/cover";
+        String audioUri = "s3://tracks/track-audio/preview";
         var track = new TrackWithRating(42L, 7L, "Artist", "Track", "Rock",
-                "song.reason", 3L, "s3://tracks/song", java.time.Instant.now(), 8.0, 2, audioLink, programVersion);
+                "song.reason", 3L, "s3://tracks/song", java.time.Instant.now(), 8.0, 2, audioLink, programVersion,
+                imageUri, audioUri);
         when(tracks.findRandomTracks(10)).thenReturn(List.of(track));
         when(tracks.findByArtistAlias("Artist")).thenReturn(List.of(track));
         when(tracks.searchByArtistAliasOrTrackName("Track", 20, 0)).thenReturn(List.of(
                 new TrackSearchResult(track.trackid(), track.artistAlias(), track.trackName(),
                         track.musicStyle(), track.filename(), track.filesize(), track.dateUploaded(),
-                        track.averageTrackRating(), track.downloadCount(), audioLink, track.programVersion())));
+                        track.averageTrackRating(), track.downloadCount(), audioLink, track.programVersion(),
+                        imageUri, audioUri)));
         when(tracks.countByArtistAliasOrTrackName("Track")).thenReturn(1L);
         var mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         mockMvc.perform(get("/api/discovery/tracks"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].audioLink").value(audioLink))
+                .andExpect(jsonPath("$[0].imageUri").value(imageUri))
+                .andExpect(jsonPath("$[0].audioUri").value(audioUri))
                 .andExpect(jsonPath("$[0].programVersion").value(programVersion));
         mockMvc.perform(get("/api/discovery/artist-tracks").param("artistAlias", "Artist"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].audioLink").value(audioLink))
+                .andExpect(jsonPath("$[0].imageUri").value(imageUri))
+                .andExpect(jsonPath("$[0].audioUri").value(audioUri))
                 .andExpect(jsonPath("$[0].programVersion").value(programVersion));
         mockMvc.perform(get("/api/discovery/search").param("query", "Track"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.results[0].audioLink").value(audioLink))
+                .andExpect(jsonPath("$.results[0].imageUri").value(imageUri))
+                .andExpect(jsonPath("$.results[0].audioUri").value(audioUri))
                 .andExpect(jsonPath("$.results[0].programVersion").value(programVersion));
     }
 

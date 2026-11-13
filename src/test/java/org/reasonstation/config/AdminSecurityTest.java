@@ -85,6 +85,12 @@ class AdminSecurityTest {
         assertEquals(302, request("/api/me", null, false).getStatus());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"image", "audio"})
+    void allowsAnonymousTrackMediaRequests(String mediaType) throws Exception {
+        assertEquals(200, request("/api/tracks/42/" + mediaType, null, true).getStatus());
+    }
+
     @Test
     void hidesAdminPagesFromNonLocalAdminAlias() throws Exception {
         for (String path : List.of("/admin", "/admin/index.html", "/api/admin/users")) {

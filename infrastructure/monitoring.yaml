@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  Emails Reason Station ECS CPU and PostgreSQL capacity and failure alerts -
+  Emails Reason Station service health, HTTP errors, ECS CPU, and PostgreSQL alerts -
   separate monitoring resources avoid restarting workloads.
 
 Metadata:
   AWSToolsMetrics:
     AWSAgentToolkit: aws-cloudformation@3
   com.aws.cloudformation.Context:
-    arch: native ECS and RDS metrics -> CloudWatch alarms -> encrypted SNS -> email
+    arch: native ALB, ECS, and RDS metrics -> CloudWatch alarms -> encrypted SNS -> email
     must:
       - Use native metrics without enabling paid Container Insights or Enhanced Monitoring
       - Email recipients must confirm their SNS subscription before delivery starts
@@ -27,6 +27,18 @@ Parameters:
     Type: String
     MinLength: 1
     Description: Existing ECS service name, not its ARN.
+  LoadBalancerFullName:
+    Type: String
+    AllowedPattern: "^app/[^/]+/[^/]+$"
+    Description: ALB metric dimension (app/name/id), not its ARN or DNS name.
+  TargetGroupFullName:
+    Type: String
+    AllowedPattern: "^targetgroup/[^/]+/[^/]+$"
+    Description: Primary target group metric dimension (targetgroup/name/id).
+  AlternateTargetGroupFullName:
+    Type: String
+    AllowedPattern: "^targetgroup/[^/]+/[^/]+$"
+    Description: Alternate blue/green target group metric dimension (targetgroup/name/id).
   DatabaseInstanceIdentifier:
     Type: String
     MinLength: 1
@@ -177,6 +189,161 @@ Resources:
       Threshold: 50
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: missing
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  ServiceHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: readiness includes database and storage connectivity; CPU and RDS capacity cannot detect a broken application connection pool
+        must:
+          - Combine both blue/green groups because either can serve production
+          - Missing metrics count as zero healthy targets, including when no tasks are registered
+          - Do not attach workload-changing actions
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-service-unavailable"
+      AlarmDescription: No healthy readiness targets across either blue/green group in two of three minutes; check ECS logs and database connectivity.
+      Metrics:
+        - Id: healthy
+          Expression: FILL(primary, 0) + FILL(alternate, 0)
+          Label: Healthy readiness targets across blue/green groups
+          ReturnData: true
+        - Id: primary
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/ApplicationELB
+              MetricName: HealthyHostCount
+              Dimensions:
+                - Name: LoadBalancer
+                  Value: !Ref LoadBalancerFullName
+                - Name: TargetGroup
+                  Value: !Ref TargetGroupFullName
+            Period: 60
+            Stat: Minimum
+        - Id: alternate
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/ApplicationELB
+              MetricName: HealthyHostCount
+              Dimensions:
+                - Name: LoadBalancer
+                  Value: !Ref LoadBalancerFullName
+                - Name: TargetGroup
+                  Value: !Ref AlternateTargetGroupFullName
+            Period: 60
+            Stat: Minimum
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  ApplicationErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: catches application failures even when readiness remains healthy
+        must:
+          - Use ALB-wide dimensions so monitoring follows blue/green traffic switches
+          - Missing error counts are normal; no traffic must not trigger an error-rate alert
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-application-5xx-high"
+      AlarmDescription: Application HTTP 5xx exceeds 5% of routed requests in two of three minutes.
+      Metrics:
+        - Id: rate
+          Expression: IF(requests > 0, 100 * FILL(errors, 0) / requests, 0)
+          Label: Application HTTP 5xx percentage
+          ReturnData: true
+        - Id: errors
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/ApplicationELB
+              MetricName: HTTPCode_Target_5XX_Count
+              Dimensions:
+                - Name: LoadBalancer
+                  Value: !Ref LoadBalancerFullName
+            Period: 60
+            Stat: Sum
+        - Id: requests
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/ApplicationELB
+              MetricName: RequestCount
+              Dimensions:
+                - Name: LoadBalancer
+                  Value: !Ref LoadBalancerFullName
+            Period: 60
+            Stat: Sum
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopic
+      OKActions:
+        - !Ref AlertTopic
+
+  LoadBalancerErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlertTopicPolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: catches ALB-generated gateway errors and unavailable targets that never return an application response
+        must:
+          - Include ALB errors in the denominator because RequestCount excludes requests without a chosen target
+          - Missing error counts are normal; no traffic must not trigger an error-rate alert
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-load-balancer-5xx-high"
+      AlarmDescription: ALB HTTP 5xx exceeds 5% of routed requests plus ALB errors in two of three minutes.
+      Metrics:
+        - Id: rate
+          Expression: IF(total > 0, 100 * FILL(errors, 0) / total, 0)
+          Label: Load balancer HTTP 5xx percentage
+          ReturnData: true
+        - Id: total
+          Expression: FILL(requests, 0) + FILL(errors, 0)
+          ReturnData: false
+        - Id: errors
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/ApplicationELB
+              MetricName: HTTPCode_ELB_5XX_Count
+              Dimensions:
+                - Name: LoadBalancer
+                  Value: !Ref LoadBalancerFullName
+            Period: 60
+            Stat: Sum
+        - Id: requests
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/ApplicationELB
+              MetricName: RequestCount
+              Dimensions:
+                - Name: LoadBalancer
+                  Value: !Ref LoadBalancerFullName
+            Period: 60
+            Stat: Sum
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
       AlarmActions:
         - !Ref AlertTopic
       OKActions:

@@ -31,4 +31,19 @@
     }
 
     window.createMusicStyleIcon = createMusicStyleIcon;
+
+    window.createTrackArt = function(track) {
+        if (!track.imageUri || !track.imageUri.trim()) {
+            return createMusicStyleIcon(track.musicStyle);
+        }
+        var image = document.createElement('img');
+        image.className = 'track-card-art';
+        image.src = '/api/tracks/' + encodeURIComponent(track.trackid) + '/image';
+        image.alt = 'Image for ' + track.trackName;
+        image.width = 96;
+        image.height = 96;
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        return image;
+    };
 })();

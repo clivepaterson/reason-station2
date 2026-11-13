@@ -10,6 +10,8 @@ import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
 import org.reasonstation.util.ReasonFileFormat;
 import org.reasonstation.util.ReasonFileMetadata;
+import org.reasonstation.util.ImageFileFormat;
+import org.reasonstation.util.Mp3FileFormat;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -40,6 +42,9 @@ public class TrackController {
     private static final int MAX_TRACK_NAME_LENGTH = 255;
     private static final int MAX_FILENAME_LENGTH = 255;
     private static final long MAX_FILE_SIZE = 80L * 1024 * 1024;
+    private static final long MAX_IMAGE_SIZE = 30L * 1024 * 1024;
+    private static final Map<String, String> IMAGE_TYPES = Map.of(
+            ".jpg", "jpeg", ".jpeg", "jpeg", ".png", "png", ".bmp", "bmp", ".gif", "gif");
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".rps", ".rns", ".reason");
     private static final Set<String> MUSIC_STYLES = Set.of(
             "Rock", "Alternative Rock", "Classic Rock", "Hard Rock", "Soft Rock",
@@ -134,6 +139,12 @@ public class TrackController {
 
                     Track track = tracks.findById(trackid).orElseThrow();
                     storage.delete(track.getTrackUri());
+                    if (track.getImageUri() != null) {
+                        storage.delete(track.getImageUri());
+                    }
+                    if (track.getAudioUri() != null) {
+                        storage.delete(track.getAudioUri());
+                    }
                     tracks.deleteByTrackidAndUserid(trackid, user.getUserid());
                     return ResponseEntity.noContent().build();
                 })
@@ -158,6 +169,38 @@ public class TrackController {
         downloads.recordDownload(trackid, request.getRemoteAddr());
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(downloadUrl)
+                .build();
+    }
+
+    @GetMapping("/{trackid}/audio")
+    public ResponseEntity<?> trackAudio(@PathVariable Long trackid) {
+        if (trackid == null || trackid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Track ID must be a positive integer."));
+        }
+        var track = tracks.findById(trackid);
+        if (track.isEmpty() || track.get().getAudioUri() == null || track.get().getAudioUri().isBlank()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Track audio not found."));
+        }
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(storage.createDownloadUrl(track.get().getAudioUri(), track.get().getTrackName() + ".mp3"))
+                .build();
+    }
+
+    @GetMapping("/{trackid}/image")
+    public ResponseEntity<?> trackImage(@PathVariable Long trackid) {
+        if (trackid == null || trackid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Track ID must be a positive integer."));
+        }
+        var track = tracks.findById(trackid);
+        if (track.isEmpty() || track.get().getImageUri() == null || track.get().getImageUri().isBlank()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Track image not found."));
+        }
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(storage.createImageUrl(track.get().getImageUri()))
                 .build();
     }
 
@@ -199,7 +242,9 @@ public class TrackController {
             @RequestParam("trackName") String trackName,
             @RequestParam("musicStyle") String musicStyle,
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "audioLink", required = false) String audioLink) throws IOException {
+            @RequestParam(value = "audioLink", required = false) String audioLink,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "audio", required = false) MultipartFile audio) throws IOException {
         var currentUser = findCurrentUser(authentication);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -248,8 +293,33 @@ public class TrackController {
                     .body(Map.of("error", "Choose a music style from the provided list."));
         }
 
-        String objectKey = "tracks/" + UUID.randomUUID();
-        String trackUri;
+        byte[] imageBytes = null;
+        String imageFormat = null;
+        if (hasSelectedFile(image)) {
+            imageFormat = IMAGE_TYPES.get(extension(image.getOriginalFilename()));
+            if (!validMediaFilename(image, MAX_IMAGE_SIZE) || imageFormat == null) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "Choose a .jpg, .jpeg, .png, .bmp, or .gif image no larger than 30 MB."));
+            }
+            imageBytes = image.getBytes();
+            if (!ImageFileFormat.matches(imageFormat, imageBytes)) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "The image file is invalid or its content does not match its file extension."));
+            }
+        }
+        byte[] audioBytes = null;
+        if (hasSelectedFile(audio)) {
+            if (!validMediaFilename(audio, MAX_FILE_SIZE)
+                    || !".mp3".equals(extension(audio.getOriginalFilename()))) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "Choose an .mp3 audio file no larger than 80 MB."));
+            }
+            audioBytes = audio.getBytes();
+            if (!Mp3FileFormat.matches(audioBytes)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "The audio file must contain MP3 audio."));
+            }
+        }
+
         byte[] content;
         try {
             content = file.getBytes();
@@ -258,13 +328,12 @@ public class TrackController {
                         .body(Map.of("error", "File contents do not match the " +
                                 "expected Reason format for its extension."));
             }
-            trackUri = storage.upload(objectKey, content, file.getContentType());
         } catch (IOException exception) {
             throw new TrackUploadException(exception);
         }
 
         Track track = new Track(currentUser.get().getUserid(), trimmedArtistAlias, trimmedTrackName,
-                trimmedMusicStyle, filename, file.getSize(), trackUri);
+                trimmedMusicStyle, filename, file.getSize(), null);
         track.setAudioLink(trimmedAudioLink.isEmpty() ? null : trimmedAudioLink);
         String lowercaseFilename = filename.toLowerCase(Locale.ROOT);
         if (lowercaseFilename.endsWith(".rps")) {
@@ -272,8 +341,49 @@ public class TrackController {
         } else if (lowercaseFilename.endsWith(".reason")) {
             track.setProgramVersion(ReasonFileMetadata.programVersion(content).orElse(null));
         }
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(TrackResponse.from(tracks.save(track), 0));
+        try {
+            track.setTrackUri(storage.upload("tracks/" + UUID.randomUUID(), content, file.getContentType()));
+            if (imageBytes != null) {
+                track.setImageUri(storage.upload(
+                        "track-images/" + UUID.randomUUID(), imageBytes, "image/" + imageFormat));
+            }
+            if (audioBytes != null) {
+                track.setAudioUri(storage.upload(
+                        "track-audio/" + UUID.randomUUID(), audioBytes, "audio/mpeg"));
+            }
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(TrackResponse.from(tracks.save(track), 0));
+        } catch (RuntimeException exception) {
+            for (String uri : new String[]{track.getTrackUri(), track.getImageUri(), track.getAudioUri()}) {
+                if (uri != null) {
+                    try {
+                        storage.delete(uri);
+                    } catch (RuntimeException cleanupException) {
+                        exception.addSuppressed(cleanupException);
+                    }
+                }
+            }
+            throw exception;
+        }
+    }
+
+    private static boolean validMediaFilename(MultipartFile file, long maxSize) {
+        String filename = file.getOriginalFilename();
+        return filename != null && !filename.isBlank() && filename.length() <= MAX_FILENAME_LENGTH
+                && !filename.contains("/") && !filename.contains("\\")
+                && file.getSize() > 0 && file.getSize() <= maxSize;
+    }
+
+    private static boolean hasSelectedFile(MultipartFile file) {
+        return file != null && (!file.isEmpty()
+                || (file.getOriginalFilename() != null && !file.getOriginalFilename().isBlank()));
+    }
+
+    private static String extension(String filename) {
+        if (filename == null || filename.lastIndexOf('.') < 0) {
+            return "";
+        }
+        return filename.substring(filename.lastIndexOf('.')).toLowerCase(Locale.ROOT);
     }
 
     private boolean hasAllowedExtension(String filename) {
@@ -292,18 +402,20 @@ public class TrackController {
 
     private record TrackResponse(Long trackid, String artistAlias, String trackName, String musicStyle,
                                  String filename, Long filesize, long downloadCount, Double averageTrackRating,
-                                 java.time.Instant dateUploaded, String audioLink, String programVersion) {
+                                 java.time.Instant dateUploaded, String audioLink, String programVersion,
+                                 String imageUri, String audioUri) {
         private static TrackResponse from(TrackWithRating track) {
             return new TrackResponse(track.trackid(), track.artistAlias(), track.trackName(),
                     track.musicStyle(), track.filename(), track.filesize(), track.downloadCount(),
-                    track.averageTrackRating(), track.dateUploaded(), track.audioLink(), track.programVersion());
+                    track.averageTrackRating(), track.dateUploaded(), track.audioLink(), track.programVersion(),
+                    track.imageUri(), track.audioUri());
         }
 
         private static TrackResponse from(Track track, int downloadCount) {
             return new TrackResponse(track.getTrackid(), track.getArtistAlias(),
                     track.getTrackName(), track.getMusicStyle(), track.getFilename(),
                     track.getFilesize(), downloadCount, null, track.getDateUploaded(), track.getAudioLink(),
-                    track.getProgramVersion());
+                    track.getProgramVersion(), track.getImageUri(), track.getAudioUri());
         }
     }
 

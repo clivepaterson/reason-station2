@@ -54,6 +54,26 @@ if ($clusterName.Count -ne 1 -or $serviceArn.Count -ne 1) {
 }
 $serviceName = ($serviceArn[0] -split "/")[-1]
 
+$loadBalancerResourcesJson = Invoke-MonitoringAws @(
+    "cloudformation", "describe-stack-resources",
+    "--stack-name", "$StackPrefix-load-balancer",
+    "--region", $Region,
+    "--output", "json"
+)
+$loadBalancerResources = ($loadBalancerResourcesJson | ConvertFrom-Json).StackResources
+$metricDimensions = @{}
+foreach ($resource in @(
+    @{ LogicalId = "ApplicationLoadBalancer"; Parameter = "LoadBalancerFullName"; Pattern = "^arn:[^:]+:elasticloadbalancing:[^:]+:[0-9]{12}:loadbalancer/(app/[^/]+/[^/]+)$" },
+    @{ LogicalId = "ApplicationTargetGroup"; Parameter = "TargetGroupFullName"; Pattern = "^arn:[^:]+:elasticloadbalancing:[^:]+:[0-9]{12}:(targetgroup/[^/]+/[^/]+)$" },
+    @{ LogicalId = "AlternateTargetGroup"; Parameter = "AlternateTargetGroupFullName"; Pattern = "^arn:[^:]+:elasticloadbalancing:[^:]+:[0-9]{12}:(targetgroup/[^/]+/[^/]+)$" }
+)) {
+    $physicalIds = @($loadBalancerResources | Where-Object LogicalResourceId -eq $resource.LogicalId | Select-Object -ExpandProperty PhysicalResourceId)
+    if ($physicalIds.Count -ne 1 -or $physicalIds[0] -notmatch $resource.Pattern) {
+        throw "Load balancer stack must contain a valid $($resource.LogicalId) ARN. Deploy the load balancer stack first."
+    }
+    $metricDimensions[$resource.Parameter] = $Matches[1]
+}
+
 $databaseId = Invoke-MonitoringAws @(
     "cloudformation", "describe-stack-resource",
     "--stack-name", "$StackPrefix-postgres",
@@ -76,6 +96,9 @@ Invoke-MonitoringAws @(
     "AlertEmail=$AlertEmail",
     "ClusterName=$($clusterName[0])",
     "ServiceName=$serviceName",
+    "LoadBalancerFullName=$($metricDimensions.LoadBalancerFullName)",
+    "TargetGroupFullName=$($metricDimensions.TargetGroupFullName)",
+    "AlternateTargetGroupFullName=$($metricDimensions.AlternateTargetGroupFullName)",
     "DatabaseInstanceIdentifier=$databaseId",
     "DatabaseConnectionsThreshold=$DatabaseConnectionsThreshold",
     "--no-fail-on-empty-changeset"

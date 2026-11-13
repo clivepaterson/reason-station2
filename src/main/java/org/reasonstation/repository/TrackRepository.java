@@ -24,6 +24,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_uri,
                    t.audio_link,
                    t.program_version,
+                   t.image_uri,
+                   t.audio_uri,
                    t.date_uploaded,
                    (SELECT AVG(r.rating)
                     FROM track_ratings r
@@ -47,6 +49,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_uri,
                    t.audio_link,
                    t.program_version,
+                   t.image_uri,
+                   t.audio_uri,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(d.ip_address) AS download_count
@@ -63,6 +67,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.track_uri,
                      t.audio_link,
                      t.program_version,
+                     t.image_uri,
+                     t.audio_uri,
                      t.date_uploaded
             ORDER BY RANDOM()
             LIMIT :limit
@@ -175,6 +181,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_uri,
                    t.audio_link,
                    t.program_version,
+                   t.image_uri,
+                   t.audio_uri,
                    t.date_uploaded,
                    (SELECT AVG(r.rating)
                     FROM track_ratings r
@@ -210,6 +218,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_uri,
                    t.audio_link,
                    t.program_version,
+                   t.image_uri,
+                   t.audio_uri,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(d.ip_address) AS download_count
@@ -227,6 +237,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.track_uri,
                      t.audio_link,
                      t.program_version,
+                     t.image_uri,
+                     t.audio_uri,
                      t.date_uploaded
             ORDER BY t.date_uploaded DESC
             """)
@@ -251,6 +263,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.filesize,
                    t.audio_link,
                    t.program_version,
+                   t.image_uri,
+                   t.audio_uri,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(*) AS download_count
@@ -267,6 +281,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.filesize,
                      t.audio_link,
                      t.program_version,
+                     t.image_uri,
+                     t.audio_uri,
                      t.date_uploaded
             ORDER BY t.artist_alias,
                      t.track_name,

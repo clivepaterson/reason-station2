@@ -33,7 +33,7 @@
 
         var item = document.createElement(options.tagName || 'article');
         item.className = ['track-card', options.className].filter(Boolean).join(' ');
-        item.appendChild(window.createMusicStyleIcon(track.musicStyle));
+        item.appendChild(window.createTrackArt(track));
 
         var downloadUrl = '/api/tracks/' + encodeURIComponent(track.trackid) + '/download';
         var downloadLabel = 'Download ' + track.trackName
@@ -42,12 +42,16 @@
         content.className = 'track-card-content';
         item.appendChild(content);
 
+        var heading = document.createElement('div');
+        heading.className = 'track-card-heading';
         var title = document.createElement('h3');
         var titleLink = document.createElement('a');
         titleLink.href = '/tracks/' + encodeURIComponent(track.trackid);
         titleLink.textContent = track.trackName;
         title.appendChild(titleLink);
-        content.appendChild(title);
+        heading.appendChild(title);
+        appendTextElement(heading, 'span', 'track-style-badge', track.musicStyle);
+        content.appendChild(heading);
 
         if (options.showArtist) {
             var artist = document.createElement('a');
@@ -57,14 +61,21 @@
             content.appendChild(artist);
         }
 
-        appendTextElement(content, 'span', 'track-style-badge', track.musicStyle);
-
         var filename = document.createElement('a');
         filename.className = 'track-file-meta';
         filename.href = downloadUrl;
         filename.setAttribute('aria-label', downloadLabel);
         filename.textContent = window.formatTrackFilename(track, options.filenameFallback);
         content.appendChild(filename);
+
+        if (track.audioUri && track.audioUri.trim()) {
+            var mp3Link = document.createElement('a');
+            mp3Link.className = 'track-file-meta track-mp3-link';
+            mp3Link.href = '/api/tracks/' + encodeURIComponent(track.trackid) + '/audio';
+            mp3Link.textContent = 'Download MP3';
+            mp3Link.setAttribute('aria-label', 'Download MP3 for ' + track.trackName + ' by ' + track.artistAlias);
+            content.appendChild(mp3Link);
+        }
 
         if (track.audioLink) {
             var audioLink = document.createElement('a');

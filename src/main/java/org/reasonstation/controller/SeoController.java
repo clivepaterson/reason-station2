@@ -127,7 +127,9 @@ public class SeoController {
                 ? "" : " (Reason " + escape(track.programVersion()) + ")");
         String downloadUrl = "/api/tracks/" + track.trackid() + "/download";
         String canonicalUrl = baseUrl + "/tracks/" + track.trackid();
-        String imageUrl = baseUrl + "/images/logo_by_chatgpt.jpg";
+        String imageUrl = track.imageUri() == null || track.imageUri().isBlank()
+                ? baseUrl + "/images/logo_by_chatgpt.jpg"
+                : baseUrl + "/api/tracks/" + track.trackid() + "/image";
         String description = "Download " + track.trackName() + " by " + track.artistAlias()
                 + ", a " + track.musicStyle() + " Reason music project shared on Reason Station.";
         String escapedDescription = escape(description);
@@ -165,7 +167,8 @@ public class SeoController {
                 "trackid", track.trackid(),
                 "trackName", track.trackName(),
                 "artistAlias", track.artistAlias(),
-                "musicStyle", track.musicStyle()));
+                "musicStyle", track.musicStyle(),
+                "imageUri", track.imageUri() == null ? "" : track.imageUri()));
 
         return """
                 <!DOCTYPE html>
@@ -211,12 +214,15 @@ public class SeoController {
                         </nav>
                         <article class="track-card track-detail-card">
                             <img id="track-style-icon" class="track-card-art"
-                                 src="/images/style-icons/other.svg" alt="">
+                                 src="%s" alt="%s">
                             <div class="track-card-content">
-                                <h1>%s</h1>
+                                <div class="track-card-heading">
+                                    <h1>%s</h1>
+                                    <span class="track-style-badge">%s</span>
+                                </div>
                                 <a class="track-artist-link" href="%s">by %s</a>
-                                <span class="track-style-badge">%s</span>
                                 <a class="track-file-meta" href="%s" aria-label="Download %s by %s">%s</a>
+                                %s
                                 %s
                                 <div class="track-card-meta">
                                     <span class="track-style-meta">Style: %s</span>
@@ -240,7 +246,7 @@ public class SeoController {
                     <script>
                         var track = JSON.parse(document.getElementById('track-rating-data').textContent);
                         document.getElementById('track-style-icon').replaceWith(
-                            window.createMusicStyleIcon(track.musicStyle));
+                            window.createTrackArt(track));
                         document.getElementById('track-rating-action').appendChild(
                             window.createRateTrackButton(track));
                         document.querySelector('.track-card-actions').appendChild(
@@ -252,8 +258,15 @@ public class SeoController {
                 title, escapedDescription, artistAlias, canonicalUrl,
                 title, escapedDescription, canonicalUrl, imageUrl, artistAlias,
                 title, escapedDescription, imageUrl, toJson(structuredData),
-                trackName, escape(artistUrl), artistAlias, musicStyle,
+                track.imageUri() == null || track.imageUri().isBlank()
+                        ? "/images/style-icons/other.svg" : "/api/tracks/" + track.trackid() + "/image",
+                track.imageUri() == null || track.imageUri().isBlank() ? "" : "Image for " + trackName,
+                trackName, musicStyle, escape(artistUrl), artistAlias,
                 downloadUrl, trackName, artistAlias, filename,
+                track.audioUri() == null || track.audioUri().isBlank() ? ""
+                        : "<a class=\"track-file-meta track-mp3-link\" href=\"/api/tracks/" + track.trackid()
+                                + "/audio\" aria-label=\"Download MP3 for " + trackName + " by " + artistAlias
+                                + "\">Download MP3</a>",
                 track.audioLink() == null || track.audioLink().isBlank() ? ""
                         : "<a class=\"track-file-meta track-audio-link\" href=\"" + escape(track.audioLink())
                                 + "\" target=\"_blank\" rel=\"noopener noreferrer\">"

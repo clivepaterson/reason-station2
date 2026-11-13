@@ -13,5 +13,7 @@ public record TrackSearchResult(
         Double averageTrackRating,
         long downloadCount,
         String audioLink,
-        String programVersion) {
+        String programVersion,
+        String imageUri,
+        String audioUri) {
 }
