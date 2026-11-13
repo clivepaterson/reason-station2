@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My tracks editing regression tests</title>
+</head>
+<body>
+<pre id="results">Running...</pre>
+<div id="fixture"></div>
+<div id="uploading-list" hidden><div id="uploading-items"></div></div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    window.createTrackArt = function() { return document.createElement('div'); };
+    window.enableImageZoom = function() {};
+    window.addTrackRatingMeta = window.addPatchRatingMeta = function() {};
+    window.createRateTrackButton = window.createRatePatchButton = window.createCopyLinkButton =
+        function() { return document.createElement('button'); };
+    window.bindTrackAudioLink = function() {};
+</script>
+<script src="../../main/resources/static/js/track_card.js"></script>
+<script src="../../main/resources/static/js/patch_card.js"></script>
+<script src="../../main/resources/static/js/pages/my_tracks.js"></script>
+<script>
+    (async function() {
+        var assertions = 0;
+        var originalFetch = window.fetch;
+        var requests = [];
+        var rejectSave = false;
+        var finishSave;
+        var track = {
+            trackid: 1, artistAlias: 'Artist', trackName: 'Original track', musicStyle: 'Electronic',
+            audioLink: 'https://soundcloud.com/artist/song', filename: 'song.reason',
+            imageUri: 'old-image', audioUri: 'old-audio', filesize: 1024, downloadCount: 7
+        };
+        var patch = {
+            patchid: 2, artistAlias: 'Patch artist', patchName: 'Original patch',
+            description: 'Original description', filename: 'sound.cmb', ext: '.cmb',
+            patchImgUri: 'old-patch-image', filesize: 100
+        };
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message);
+            }
+            assertions++;
+        }
+        function tick() { return new Promise(function(resolve) { setTimeout(resolve, 30); }); }
+        function response(body, ok) {
+            return {
+                ok: ok !== false,
+                headers: new Headers({'Content-Type': 'application/json'}),
+                json: function() { return Promise.resolve(body); }
+            };
+        }
+        function selectFile(id, name) {
+            var files = new DataTransfer();
+            files.items.add(new File(['replacement'], name));
+            document.getElementById(id).files = files.files;
+        }
+        try {
+            var html = await originalFetch('../../main/resources/static/pages/my-tracks.html')
+                .then(function(result) { return result.text(); });
+            document.getElementById('fixture').innerHTML = html;
+            $('#my-tracks-page').removeAttr('hidden');
+            window.fetch = function(url, options) {
+                if (options && options.method === 'PUT') {
+                    requests.push({url: url, data: options.body});
+                    return new Promise(function(resolve) {
+                        finishSave = function() {
+                            if (rejectSave) {
+                                resolve(response({error: 'Invalid replacement file.'}, false));
+                                return;
+                            }
+                            var record = url.indexOf('/tracks/') !== -1 ? track : patch;
+                            options.body.forEach(function(value, key) {
+                                if (typeof value === 'string') {
+                                    record[key] = value;
+                                }
+                            });
+                            resolve(response(record));
+                        };
+                    });
+                }
+                if (url === '/api/me') {
+                    return Promise.resolve(response({username: 'Owner', emailVerified: true}));
+                }
+                if (url === '/api/tracks/me') {
+                    return Promise.resolve(response([track]));
+                }
+                if (url === '/api/patches/me') {
+                    return Promise.resolve(response([patch]));
+                }
+                return Promise.reject(new Error('Unexpected request: ' + url));
+            };
+            window.XMLHttpRequest = function() {
+                var request = new EventTarget();
+                request.upload = new EventTarget();
+                request.open = function(method, url) {
+                    request.method = method;
+                    request.url = url;
+                };
+                request.send = function(data) {
+                    request.data = data;
+                    requests.push(request);
+                };
+                request.finish = function(status, body) {
+                    request.status = status;
+                    request.responseText = JSON.stringify(body || {});
+                    request.dispatchEvent(new Event('load'));
+                };
+                request.abort = function() { request.dispatchEvent(new Event('abort')); };
+                return request;
+            };
+            window.initializeMyTracks();
+            await tick();
+            assert($('.edit-track-button').length === 1 && $('.edit-patch-button').length === 1,
+                'Owner lists have edit buttons');
+            $('.edit-track-button')[0].click();
+            assert(!$('#upload-track-form').is('[hidden]'), 'Track edit opens dialog');
+            assert($('#artist-alias').val() === track.artistAlias
+                && $('#track-name').val() === track.trackName
+                && $('#music-style').val() === track.musicStyle
+                && $('#audio-link').val() === track.audioLink, 'Track properties are prefilled');
+            assert(!$('#track-file').prop('required') && !$('#track-file').prop('multiple'),
+                'Editing allows one optional replacement Reason file');
+            assert($('label[for="track-file"] .edit-file-optional').is(':visible'),
+                'Reason file label shows optional when editing');
+            $('#track-name').val('Updated track');
+            $('#upload-track-form').trigger('submit');
+            assert(requests[0].url === '/api/tracks/1'
+                && requests[0].data.get('trackName') === 'Updated track', 'Track edits use PUT and updated properties');
+            assert(!requests[0].data.has('file') && !requests[0].data.has('image')
+                && !requests[0].data.has('audio'), 'Unselected replacements are omitted');
+            $('#upload-dialog-backdrop').trigger('mousedown');
+            assert(!$('#upload-track-form').is('[hidden]'), 'Saving prevents accidental dismissal');
+            assert($('#track-name').prop('disabled'), 'Saving prevents concurrent form changes');
+            finishSave();
+            await tick();
+            assert($('#upload-track-form').is('[hidden]') && $('#tracks-list h3').text() === 'Updated track',
+                'Saving closes dialog and refreshes card');
+            $('.edit-track-button')[0].click();
+            selectFile('track-file', 'replacement.reason');
+            selectFile('track-image', 'replacement.png');
+            selectFile('track-audio', 'replacement.mp3');
+            $('#upload-track-form').trigger('submit');
+            assert(requests[1].data.get('file').name === 'replacement.reason'
+                && requests[1].data.get('image').name === 'replacement.png'
+                && requests[1].data.get('audio').name === 'replacement.mp3',
+                'All track replacement files are submitted');
+            assert(requests[1].method === 'PUT' && $('#upload-track-form').is('[hidden]')
+                && !$('#uploading-list').is('[hidden]'), 'Track replacements upload in the background');
+            assert($('#uploading-items').text().includes('replacement.reason')
+                && $('#uploading-items').text().includes('replacement.png')
+                && $('#uploading-items').text().includes('replacement.mp3'),
+                'Upload list names all replacement files');
+            requests[1].upload.dispatchEvent(new ProgressEvent('progress', {
+                lengthComputable: true, loaded: 50, total: 100
+            }));
+            assert($('#uploading-items progress').val() === 50, 'Background update reports upload progress');
+            $('#upload-patch-button')[0].click();
+            assert(!$('#upload-patch-form').is('[hidden]'), 'Other dialogs remain usable during upload');
+            $('.cancel-upload-dialog:visible')[0].click();
+            requests[1].finish(400, {error: 'Invalid replacement file.'});
+            await tick();
+            assert(!$('#uploading-list').is('[hidden]')
+                && $('#uploading-items .error').text().includes('Invalid replacement file.'),
+                'Failed background update remains visible with server error');
+            $('#upload-track-button')[0].click();
+            assert($('#track-file').prop('required') && $('#track-file').prop('multiple')
+                && $('#track-form-title').text() === 'Upload a track' && $('#track-name').val() === '',
+                'Upload mode is restored after editing');
+            assert($('label[for="track-file"] .edit-file-optional').is('[hidden]'),
+                'Reason file is not labelled optional for new uploads');
+            $('.cancel-upload-dialog:visible')[0].click();
+            $('.edit-patch-button')[0].click();
+            assert($('#patch-artist-alias').val() === patch.artistAlias
+                && $('#patch-name').val() === patch.patchName
+                && $('#patch-description').val() === patch.description, 'Patch properties are prefilled');
+            assert(!$('#patch-file').prop('required'), 'Patch replacement is optional');
+            assert($('label[for="patch-file"] .edit-file-optional').is(':visible'),
+                'Patch file label shows optional when editing');
+            $('#patch-name').val('Updated patch');
+            $('#upload-patch-form').trigger('submit');
+            assert(requests[2].url === '/api/patches/2' && !requests[2].data.has('file')
+                && !requests[2].data.has('image'), 'Patch properties save without replacing files');
+            rejectSave = false;
+            finishSave();
+            await tick();
+            assert($('#my-patches-list h3').text() === 'Updated patch', 'Updated patch card is refreshed');
+            $('.edit-patch-button')[0].click();
+            selectFile('patch-file', 'replacement.cmb');
+            selectFile('patch-image', 'replacement.gif');
+            $('#upload-patch-form').trigger('submit');
+            assert(requests[3].data.get('file').name === 'replacement.cmb'
+                && requests[3].data.get('image').name === 'replacement.gif', 'Patch replacements are submitted');
+            assert(requests[3].method === 'PUT' && requests[3].url === '/api/patches/2'
+                && $('#upload-patch-form').is('[hidden]'), 'Patch replacements upload in the background');
+            requests[3].finish(200);
+            await tick();
+            assert($('#uploading-list').is('[hidden]'), 'Successful background completion hides finished list');
+            $('.edit-track-button')[0].click();
+            selectFile('track-image', 'only-image.png');
+            $('#upload-track-form').trigger('submit');
+            assert(!requests[4].data.has('file') && requests[4].data.get('image').name === 'only-image.png',
+                'Image-only replacements use the background list');
+            $('#uploading-items .upload-cancel-button')[0].click();
+            assert(!$('#uploading-list').is('[hidden]')
+                && $('#uploading-items .error').text().includes('cancelled'),
+                'Background update can be cancelled with visible status');
+            $('#upload-patch-button')[0].click();
+            assert($('#patch-file').prop('required') && $('#patch-name').val() === '',
+                'Patch upload remains separate from edit mode');
+            $(document).trigger($.Event('keydown', {key: 'Escape'}));
+            assert($('#upload-patch-form').is('[hidden]'), 'Escape dismisses dialog');
+            $('#upload-track-button')[0].click();
+            $('#artist-alias').val('Artist');
+            $('#track-name').val('New track');
+            $('#music-style').val('Electronic');
+            selectFile('track-file', 'new.reason');
+            $('#upload-track-form').trigger('submit');
+            assert(requests[5].method === 'POST' && requests[5].url === '/api/tracks',
+                'New track uploads still use POST through the background list');
+            requests[5].finish(201);
+            await tick();
+            $('#upload-patch-button')[0].click();
+            $('#patch-artist-alias').val('Artist');
+            $('#patch-name').val('New patch');
+            selectFile('patch-file', 'new.cmb');
+            $('#upload-patch-form').trigger('submit');
+            assert(requests[6].method === 'POST' && requests[6].url === '/api/patches',
+                'New patch uploads still use POST through the background list');
+            requests[6].finish(201);
+            await tick();
+            $('.edit-track-button')[0].click();
+            $('#track-name').val('Metadata retry');
+            $('#upload-track-form').trigger('submit');
+            rejectSave = true;
+            finishSave();
+            await tick();
+            assert(!$('#upload-track-form').is('[hidden]') && $('#upload-status').hasClass('error'),
+                'Metadata-only errors still remain in the edit dialog');
+            $('.cancel-upload-dialog:visible')[0].click();
+            $('.edit-track-button')[0].click();
+            selectFile('track-audio', 'only-audio.mp3');
+            $('#upload-track-form').trigger('submit');
+            $('.edit-patch-button')[0].click();
+            selectFile('patch-image', 'only-patch-image.png');
+            $('#upload-patch-form').trigger('submit');
+            assert($('#uploading-items .upload-item').length === 2 && requests[8].data.has('audio')
+                && !requests[8].data.has('file') && !requests[9].data.has('file'),
+                'Concurrent MP3-only and patch-image-only updates share the upload list');
+            requests[8].finish(200);
+            assert(!$('#uploading-list').is('[hidden]'), 'List stays open while another update is running');
+            requests[9].dispatchEvent(new Event('error'));
+            assert($('#uploading-items .error').text().includes('Unable to upload'),
+                'Network failures are shown in the upload list');
+            $('#uploading-items .error .upload-cancel-button')[0].click();
+            assert($('#uploading-list').is('[hidden]'), 'Failed upload messages can be dismissed');
+            document.getElementById('results').textContent = 'PASS: ' + assertions + ' assertions';
+        } catch (error) {
+            document.getElementById('results').textContent = 'FAIL: ' + error.stack;
+        }
+    }());
+</script>
+</body>
+</html>

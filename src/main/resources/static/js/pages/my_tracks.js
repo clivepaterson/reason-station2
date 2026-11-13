@@ -21,10 +21,17 @@ window.initializeMyTracks = function() {
     var trackTextPattern = /^[A-Za-z0-9()\[\]_.'+\- ]+$/;
     var artistAliasAndPatchNamePattern = /^[A-Za-z0-9()\[\]_.'+\- ]+$/;
     var descriptionInvalidCharacters = /[^A-Za-z0-9()\[\]_.'+\- \r\n]/g;
+    var editingTrack = null;
+    var editingPatch = null;
+    var savingEdit = false;
+    var dialogTrigger = null;
+
     function closeUploadForm() {
-        if (!uploadForm.length) {
+        if (!uploadForm.length || savingEdit) {
             return;
         }
+        editingTrack = null;
+        editingPatch = null;
         uploadForm[0].reset();
         uploadSubmitButton.prop('disabled', false);
         $('#upload-status').removeClass('error success').text('');
@@ -37,6 +44,82 @@ window.initializeMyTracks = function() {
         $('#patch-description-count').text('0 / 200');
         uploadPatchForm.attr('hidden', true);
         uploadDialogBackdrop.attr('hidden', true);
+        $('#track-form-title').text('Upload a track');
+        $('#patch-form-title').text('Upload a patch');
+        uploadSubmitButton.text('Upload');
+        uploadPatchForm.find('button[type="submit"]').text('Upload');
+        $('#track-file').prop('required', true).prop('multiple', true);
+        $('#patch-file').prop('required', true);
+        $('.edit-file-help, .edit-file-optional, #track-current-files, #patch-current-files').attr('hidden', true);
+        if (dialogTrigger) {
+            dialogTrigger.focus();
+            dialogTrigger = null;
+        }
+    }
+
+    function addEditButton(item, kind, data) {
+        var button = $('<button>').attr({
+            type: 'button',
+            'aria-label': 'Edit ' + kind + ' ' + (data.trackName || data.patchName)
+        }).addClass('rate-track-button edit-' + kind + '-button').text('Edit');
+        button.data('record', data);
+        item.find('.track-card-actions').prepend(button);
+    }
+
+    function saveEdit(form, url, status, refresh) {
+        var formData = new FormData(form[0]);
+        ['file', 'image', 'audio'].forEach(function(name) {
+            var input = form.find('input[name="' + name + '"]')[0];
+            if (!input || !input.files.length) {
+                formData.delete(name);
+            }
+        });
+        if (formData.has('description')) {
+            formData.set('description', formData.get('description').replace(/\r\n|\r|\n/g, ' '));
+        }
+        if (['file', 'image', 'audio'].some(function(name) { return formData.has(name); })) {
+            var isTrack = form.is(uploadForm);
+            var name = formData.get(isTrack ? 'trackName' : 'patchName');
+            closeUploadForm();
+            uploadInBackground(formData, 'PUT', url, 'Update ' + (isTrack ? 'track: ' : 'patch: ') + name,
+                isTrack ? refreshTracksIfVisible : refreshPatchesIfVisible);
+            return;
+        }
+        savingEdit = true;
+        form.find('input, textarea, button').prop('disabled', true);
+        form.attr('aria-busy', 'true');
+        status.removeClass('error success').text('Saving changes...');
+        fetch(url, {method: 'PUT', body: formData})
+            .then(function(response) {
+                if (response.ok) {
+                    return;
+                }
+                var contentType = response.headers.get('Content-Type') || '';
+                if (contentType.indexOf('application/json') !== -1) {
+                    return response.json().then(function(body) {
+                        throw new Error(body.error || 'Unable to save changes.');
+                    });
+                }
+                throw new Error('Unable to save changes.');
+            })
+            .then(function() {
+                savingEdit = false;
+                closeUploadForm();
+                return refresh();
+            })
+            .catch(function(error) {
+                if (form.is('[hidden]')) {
+                    (form.is(uploadForm) ? tracksStatus : patchesStatus)
+                        .text('Changes saved, but the list could not be refreshed: ' + error.message);
+                } else {
+                    status.removeClass('success').addClass('error').text(error.message);
+                }
+            })
+            .finally(function() {
+                savingEdit = false;
+                form.find('input, textarea, button').prop('disabled', false);
+                form.removeAttr('aria-busy');
+            });
     }
 
     function showTracks(tracks) {
@@ -52,6 +135,7 @@ window.initializeMyTracks = function() {
                 includeArtistInDownloadLabel: false,
                 showArtist: true
             }));
+            addEditButton(item, 'track', track);
             tracksList.append(item);
         });
     }
@@ -84,7 +168,9 @@ window.initializeMyTracks = function() {
                     return;
                 }
                 patches.forEach(function(patch) {
-                    patchesList.append(window.createPatchCard(patch));
+                    var item = $(window.createPatchCard(patch));
+                    addEditButton(item, 'patch', patch);
+                    patchesList.append(item);
                 });
             });
     }
@@ -173,7 +259,11 @@ window.initializeMyTracks = function() {
     });
 
     uploadButton.off('click.siteTracks').on('click.siteTracks', function() {
+            if (savingEdit) {
+                return;
+            }
             closeUploadForm();
+            dialogTrigger = this;
             uploadForm[0].reset();
             uploadSubmitButton.prop('disabled', false);
             $('#upload-status').removeClass('error success').text('');
@@ -183,7 +273,11 @@ window.initializeMyTracks = function() {
     });
 
     uploadPatchButton.off('click.siteTracks').on('click.siteTracks', function() {
+        if (savingEdit) {
+            return;
+        }
         closeUploadForm();
+        dialogTrigger = this;
         uploadPatchForm[0].reset();
         uploadPatchForm.find('button[type="submit"]').prop('disabled', false);
         $('#patch-upload-status').removeClass('error success').text('');
@@ -191,6 +285,52 @@ window.initializeMyTracks = function() {
         uploadDialogBackdrop.removeAttr('hidden');
         $('#patch-artist-alias').trigger('focus');
     });
+
+    tracksList.off('click.siteTracks', '.edit-track-button').on('click.siteTracks', '.edit-track-button', function() {
+        if (savingEdit) {
+            return;
+        }
+        closeUploadForm();
+        dialogTrigger = this;
+        editingTrack = $(this).data('record');
+        $('#artist-alias').val(editingTrack.artistAlias);
+        $('#track-name').val(editingTrack.trackName);
+        $('#music-style').val(editingTrack.musicStyle);
+        $('#audio-link').val(editingTrack.audioLink || '');
+        $('#track-file').prop('required', false).prop('multiple', false);
+        $('#track-form-title').text('Edit track');
+        uploadSubmitButton.text('Save changes');
+        $('#track-current-files').text('Current Reason file: ' + editingTrack.filename
+            + '. Image: ' + (editingTrack.imageUri ? 'uploaded' : 'none')
+            + '. MP3: ' + (editingTrack.audioUri ? 'uploaded' : 'none') + '.').removeAttr('hidden');
+        uploadForm.find('.edit-file-help, .edit-file-optional').removeAttr('hidden');
+        uploadForm.removeAttr('hidden');
+        uploadDialogBackdrop.removeAttr('hidden');
+        $('#artist-alias').trigger('focus');
+    });
+
+    patchesList.off('click.siteTracks', '.edit-patch-button').on('click.siteTracks', '.edit-patch-button', function() {
+        if (savingEdit) {
+            return;
+        }
+        closeUploadForm();
+        dialogTrigger = this;
+        editingPatch = $(this).data('record');
+        $('#patch-artist-alias').val(editingPatch.artistAlias);
+        $('#patch-name').val(editingPatch.patchName);
+        $('#patch-description').val(editingPatch.description || '').trigger('input');
+        $('#patch-file').prop('required', false);
+        $('#patch-form-title').text('Edit patch');
+        uploadPatchForm.find('button[type="submit"]').text('Save changes');
+        $('#patch-current-files').text('Current patch file: ' + editingPatch.filename
+            + '. Image: ' + (editingPatch.patchImgUri ? 'uploaded' : 'none') + '.').removeAttr('hidden');
+        uploadPatchForm.find('.edit-file-help, .edit-file-optional').removeAttr('hidden');
+        uploadPatchForm.removeAttr('hidden');
+        uploadDialogBackdrop.removeAttr('hidden');
+        $('#patch-artist-alias').trigger('focus');
+    });
+
+    $('.cancel-upload-dialog').off('click.siteTracks').on('click.siteTracks', closeUploadForm);
 
     $('#patch-description').off('input.siteTracks').on('input.siteTracks', function() {
         var input = this;
@@ -251,13 +391,34 @@ window.initializeMyTracks = function() {
             closeUploadForm();
         }
     });
+    $(document).off('keydown.siteTracks').on('keydown.siteTracks', function(event) {
+        var dialog = !uploadForm.is('[hidden]') ? uploadForm : uploadPatchForm;
+        if (dialog.is('[hidden]')) {
+            return;
+        }
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeUploadForm();
+        } else if (event.key === 'Tab') {
+            var fields = dialog.find('input, textarea, button').filter(':visible:enabled');
+            var first = fields[0];
+            var last = fields[fields.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    });
 
     var activeUploads = 0;
     var uploadingList = $('#uploading-list');
     var uploadingItems = $('#uploading-items');
 
     function hideUploadingListWhenComplete() {
-        if (activeUploads === 0) {
+        if (activeUploads === 0 && !uploadingItems.find('.error').length) {
             uploadingList.attr('hidden', true);
         }
     }
@@ -276,6 +437,10 @@ window.initializeMyTracks = function() {
             formData.append('audio', audio);
         }
 
+        return uploadInBackground(formData, 'POST', '/api/tracks', file.name, refreshTracksIfVisible);
+    }
+
+    function uploadInBackground(formData, method, url, label, refresh) {
         if (activeUploads === 0) {
             uploadingItems.empty();
         }
@@ -287,28 +452,44 @@ window.initializeMyTracks = function() {
         var progress = $('<progress>').attr({
             max: 100,
             value: 0,
-            'aria-label': 'Upload progress for ' + file.name
+            'aria-label': 'Upload progress for ' + label
         });
         var cancelButton = $('<button>').addClass('upload-cancel-button').attr({
             type: 'button',
-            'aria-label': 'Cancel upload for ' + file.name,
+            'aria-label': 'Cancel upload for ' + label,
             title: 'Cancel upload'
         }).html('&times;');
-        item.append($('<p>').addClass('upload-item-file').text('Reason File: ' + file.name));
-        if (image) {
-            item.append($('<p>').addClass('upload-item-file').text('Image: ' + image.name));
-        }
-        if (audio) {
-            item.append($('<p>').addClass('upload-item-file').text('MP3: ' + audio.name));
-        }
+        item.append($('<h3>').text(label));
+        [
+            ['file', url.indexOf('/api/patches') === 0 ? 'Patch file: ' : 'Reason file: '],
+            ['image', 'Image: '],
+            ['audio', 'MP3: ']
+        ].forEach(function(field) {
+            var file = formData.get(field[0]);
+            if (file) {
+                item.append($('<p>').addClass('upload-item-file').text(field[1] + file.name));
+            }
+        });
         item.append(cancelButton);
         item.append(progress);
         item.append(status);
         uploadingItems.append(item);
 
+        function showFailure(message) {
+            status.text(message);
+            item.addClass('error');
+            cancelButton.prop('disabled', false).attr({
+                'aria-label': 'Dismiss upload message for ' + label,
+                title: 'Dismiss upload message'
+            }).off('click').on('click', function() {
+                item.remove();
+                hideUploadingListWhenComplete();
+            });
+        }
+
         return new Promise(function(resolve) {
             var request = new XMLHttpRequest();
-            request.open('POST', '/api/tracks');
+            request.open(method, url);
             cancelButton.on('click', function() {
                 cancelButton.prop('disabled', true);
                 status.text('Cancelling...');
@@ -325,41 +506,36 @@ window.initializeMyTracks = function() {
             });
             request.addEventListener('load', function() {
                 activeUploads--;
-                cancelButton.remove();
                 if (request.status >= 200 && request.status < 300) {
+                    cancelButton.remove();
                     progress.val(100);
                     status.text('Complete');
-                    refreshTracksIfVisible();
+                    refresh();
                     resolve({success: true});
                 } else {
-                    var errorMessage = 'Unable to upload "' + file.name + '".';
+                    var errorMessage = 'Unable to upload "' + label + '".';
                     try {
                         var error = JSON.parse(request.responseText);
                         errorMessage = error.error || errorMessage;
                     } catch (parseError) {
                         // Use the generic message when the server does not return JSON.
                     }
-                    status.text(errorMessage);
-                    item.addClass('error');
+                    showFailure(errorMessage);
                     resolve({success: false, message: errorMessage});
                 }
                 hideUploadingListWhenComplete();
             });
             request.addEventListener('error', function() {
                 activeUploads--;
-                cancelButton.remove();
-                var errorMessage = 'Unable to upload "' + file.name + '".';
-                status.text(errorMessage);
-                item.addClass('error');
+                var errorMessage = 'Unable to upload "' + label + '".';
+                showFailure(errorMessage);
                 resolve({success: false, message: errorMessage});
                 hideUploadingListWhenComplete();
             });
             request.addEventListener('abort', function() {
                 activeUploads--;
-                cancelButton.remove();
-                var errorMessage = 'Upload cancelled for "' + file.name + '".';
-                status.text(errorMessage);
-                item.addClass('error');
+                var errorMessage = 'Upload cancelled for "' + label + '".';
+                showFailure(errorMessage);
                 resolve({success: false, message: errorMessage});
                 hideUploadingListWhenComplete();
             });
@@ -377,89 +553,7 @@ window.initializeMyTracks = function() {
             formData.append('image', image);
         }
 
-        if (activeUploads === 0) {
-            uploadingItems.empty();
-        }
-        activeUploads++;
-        uploadingList.removeAttr('hidden');
-
-        var item = $('<article>').addClass('upload-item');
-        var status = $('<p>').addClass('upload-item-status').text('Starting...');
-        var progress = $('<progress>').attr({
-            max: 100,
-            value: 0,
-            'aria-label': 'Upload progress for ' + file.name
-        });
-        var cancelButton = $('<button>').addClass('upload-cancel-button').attr({
-            type: 'button',
-            'aria-label': 'Cancel upload for ' + file.name,
-            title: 'Cancel upload'
-        }).html('&times;');
-        item.append($('<h3>').text(file.name));
-        item.append(cancelButton);
-        item.append(progress);
-        item.append(status);
-        uploadingItems.append(item);
-
-        return new Promise(function(resolve) {
-            var request = new XMLHttpRequest();
-            request.open('POST', '/api/patches');
-            cancelButton.on('click', function() {
-                cancelButton.prop('disabled', true);
-                status.text('Cancelling...');
-                request.abort();
-            });
-            request.upload.addEventListener('progress', function(event) {
-                if (!event.lengthComputable) {
-                    status.text('Uploading...');
-                    return;
-                }
-                var percentage = Math.round((event.loaded / event.total) * 100);
-                progress.val(percentage);
-                status.text('Uploading... ' + percentage + '%');
-            });
-            request.addEventListener('load', function() {
-                activeUploads--;
-                cancelButton.remove();
-                if (request.status >= 200 && request.status < 300) {
-                    progress.val(100);
-                    status.text('Complete');
-                    refreshPatchesIfVisible();
-                    resolve({success: true});
-                } else {
-                    var errorMessage = 'Unable to upload "' + file.name + '".';
-                    try {
-                        var error = JSON.parse(request.responseText);
-                        errorMessage = error.error || errorMessage;
-                    } catch (parseError) {
-                        // Use the generic message when the server does not return JSON.
-                    }
-                    status.text(errorMessage);
-                    item.addClass('error');
-                    resolve({success: false, message: errorMessage});
-                }
-                hideUploadingListWhenComplete();
-            });
-            request.addEventListener('error', function() {
-                activeUploads--;
-                cancelButton.remove();
-                var errorMessage = 'Unable to upload "' + file.name + '".';
-                status.text(errorMessage);
-                item.addClass('error');
-                resolve({success: false, message: errorMessage});
-                hideUploadingListWhenComplete();
-            });
-            request.addEventListener('abort', function() {
-                activeUploads--;
-                cancelButton.remove();
-                var errorMessage = 'Upload cancelled for "' + file.name + '".';
-                status.text(errorMessage);
-                item.addClass('error');
-                resolve({success: false, message: errorMessage});
-                hideUploadingListWhenComplete();
-            });
-            request.send(formData);
-        });
+        return uploadInBackground(formData, 'POST', '/api/patches', file.name, refreshPatchesIfVisible);
     }
 
     uploadPatchForm.off('submit.siteTracks').on('submit.siteTracks', function(event) {
@@ -482,16 +576,26 @@ window.initializeMyTracks = function() {
                 .text("Artist alias and patch name are required, and may contain only letters, numbers, spaces, and ()[]_.'+-.");
             return;
         }
-        if (!file || !hasAllowedExtension) {
+        if ((!file && !editingPatch) || (file && (!hasAllowedExtension
+                || file.size === 0 || file.size > 30 * 1024 * 1024))) {
             patchUploadStatus.removeClass('success').addClass('error')
                 .text('Choose a supported Reason patch file.');
             return;
         }
 
         if (image && (!/\.(jpe?g|png|bmp|gif)$/i.test(image.name)
-                || image.size > 30 * 1024 * 1024)) {
+                || image.size === 0 || image.size > 30 * 1024 * 1024)) {
             patchUploadStatus.removeClass('success').addClass('error')
                 .text('Choose a .jpg, .jpeg, .png, .bmp, or .gif image no larger than 30 MB.');
+            return;
+        }
+
+        if (savingEdit) {
+            return;
+        }
+        if (editingPatch) {
+            saveEdit(uploadPatchForm, '/api/patches/' + encodeURIComponent(editingPatch.patchid),
+                patchUploadStatus, loadPatches);
             return;
         }
 
@@ -529,7 +633,7 @@ window.initializeMyTracks = function() {
         var audio = $('#track-audio')[0].files[0];
         var invalidFile = files.find(function(file) {
             var filename = file.name.toLowerCase();
-            return !allowedExtensions.some(function(extension) {
+            return file.size === 0 || file.size > 80 * 1024 * 1024 || !allowedExtensions.some(function(extension) {
                 return filename.endsWith(extension);
             });
         });
@@ -551,11 +655,11 @@ window.initializeMyTracks = function() {
             return;
         }
 
-        if (!files.length || invalidFile) {
+        if ((!files.length && !editingTrack) || invalidFile) {
             $('#upload-status')
                 .removeClass('success')
                 .addClass('error')
-                .text('Only .rps, .rns, and .reason files are allowed.');
+                .text('Choose a non-empty .rps, .rns, or .reason file no larger than 80 MB.');
             return;
         }
 
@@ -569,6 +673,15 @@ window.initializeMyTracks = function() {
                 || audio.size === 0 || audio.size > 80 * 1024 * 1024)) {
             $('#upload-status').removeClass('success').addClass('error')
                 .text('Choose a non-empty .mp3 audio file no larger than 80 MB.');
+            return;
+        }
+
+        if (savingEdit) {
+            return;
+        }
+        if (editingTrack) {
+            saveEdit(uploadForm, '/api/tracks/' + encodeURIComponent(editingTrack.trackid),
+                $('#upload-status'), loadTracks);
             return;
         }
 

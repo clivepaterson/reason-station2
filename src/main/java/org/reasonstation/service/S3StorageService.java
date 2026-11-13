@@ -9,6 +9,7 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -90,6 +91,14 @@ public class S3StorageService {
                 .signatureDuration(downloadUrlTtl)
                 .getObjectRequest(request)
                 .build()).url().toString());
+    }
+
+    public long getFilesize(String objectUri) {
+        URI uri = URI.create(objectUri);
+        return client.headObject(HeadObjectRequest.builder()
+                .bucket(uri.getHost())
+                .key(uri.getPath().substring(1))
+                .build()).contentLength();
     }
 
     public void delete(String trackUri) {

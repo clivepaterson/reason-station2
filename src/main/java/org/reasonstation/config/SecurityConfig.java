@@ -100,6 +100,7 @@ public class SecurityConfig {
                                 "/api/verify-email",
                                 "/index.html", "/api/discovery/**", "/api/catalog/**",
                                 "/api/tracks/*/download", "/api/tracks/*/image", "/api/tracks/*/audio",
+                                "/api/tracks/*/audio/metadata",
                                 "/api/patches/*/download",
                                 "/api/tracks/*/rating", "/api/patches/*/rating", "/api/patches/*/image",
                                 "/error", "/hello").permitAll()

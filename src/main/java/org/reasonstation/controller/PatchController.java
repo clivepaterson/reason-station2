@@ -15,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -144,6 +145,39 @@ public class PatchController {
             @RequestParam(value = "description", defaultValue = "") String description,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "image", required = false) MultipartFile image) throws IOException {
+        return savePatch(authentication, artistAlias, patchName, description, file, image, null);
+    }
+
+    @PutMapping(value = "/{patchid}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updatePatch(
+            Authentication authentication, @PathVariable Long patchid,
+            @RequestParam("artistAlias") String artistAlias,
+            @RequestParam("patchName") String patchName,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "image", required = false) MultipartFile image) throws IOException {
+        if (patchid == null || patchid < 1) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Patch ID must be a positive integer."));
+        }
+        var user = users.findByAlias(authentication.getName());
+        if (user.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "The authenticated user was not found."));
+        }
+        var existing = patches.findById(patchid)
+                .filter(patch -> user.get().getUserid().equals(patch.getUserid()));
+        if (existing.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Patch not found."));
+        }
+        return savePatch(authentication, artistAlias, patchName,
+                description == null ? existing.get().getDescription() : description,
+                file == null || file.isEmpty() ? null : file,
+                image == null || image.isEmpty() ? null : image, existing.get());
+    }
+
+    private ResponseEntity<?> savePatch(Authentication authentication, String artistAlias, String patchName,
+                                        String description, MultipartFile file, MultipartFile image,
+                                        Patch existing) throws IOException {
         Optional<User> currentUser = users.findByAlias(authentication.getName());
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -158,7 +192,7 @@ public class PatchController {
         String trimmedPatchName = patchName == null ? "" : patchName.trim();
         String trimmedDescription = description == null ? "" : description.trim();
         if (trimmedArtistAlias.isEmpty() || trimmedPatchName.isEmpty()
-                || file == null || file.isEmpty()) {
+                || (existing == null && (file == null || file.isEmpty()))) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Artist alias, patch name, and a file are required."));
         }
@@ -181,20 +215,20 @@ public class PatchController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Description must be 200 characters or fewer and may contain only letters, numbers, and ()[]_.'+-."));
         }
-        String filename = file.getOriginalFilename();
-        if (filename == null || filename.isBlank() || filename.length() > MAX_FILENAME_LENGTH
-                || filename.contains("/") || filename.contains("\\") || file.getSize() > MAX_FILE_SIZE) {
+        String filename = file == null ? existing.getFilename() : file.getOriginalFilename();
+        if (file != null && (filename == null || filename.isBlank() || filename.length() > MAX_FILENAME_LENGTH
+                || filename.contains("/") || filename.contains("\\") || file.getSize() > MAX_FILE_SIZE)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "File name is invalid or the file exceeds 30 MB."));
         }
-        String extension = getExtension(filename);
-        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+        String extension = file == null ? existing.getExt() : getExtension(filename);
+        if (file != null && !ALLOWED_EXTENSIONS.contains(extension)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "The selected file type is not a supported patch format."));
         }
 
-        byte[] patchBytes = file.getBytes();
-        if (!PatchFileFormat.matches(extension, patchBytes)) {
+        byte[] patchBytes = file == null ? null : file.getBytes();
+        if (file != null && !PatchFileFormat.matches(extension, patchBytes)) {
             String error = ".patch".equals(extension) || ".repatch".equals(extension)
                     ? "The patch must be valid XML with a JukeboxPatch root element and a deviceProductID containing propellerheads."
                     : ".zyp".equals(extension)
@@ -223,28 +257,62 @@ public class PatchController {
             }
         }
 
-        String patchUri = storage.upload(
-                "patches/" + UUID.randomUUID(), patchBytes, file.getContentType());
         Patch patch = new Patch(currentUser.get().getUserid(), trimmedArtistAlias, trimmedPatchName,
                 trimmedDescription.isEmpty() ? null : trimmedDescription,
-                filename, extension, file.getSize(), patchUri);
+                filename, extension, file == null ? existing.getFilesize() : file.getSize(), null);
+        if (existing != null) {
+            patch.setPatchid(existing.getPatchid());
+            patch.setDateUploaded(existing.getDateUploaded());
+            patch.setPatchUri(existing.getPatchUri());
+            patch.setPatchImgUri(existing.getPatchImgUri());
+        }
+        var uploaded = new java.util.ArrayList<String>();
+        Patch saved;
         try {
+            if (file != null) {
+                patch.setPatchUri(storage.upload(
+                        "patches/" + UUID.randomUUID(), patchBytes, file.getContentType()));
+                uploaded.add(patch.getPatchUri());
+            }
             if (imageBytes != null) {
                 patch.setPatchImgUri(storage.upload(
                         "patch-images/" + UUID.randomUUID(), imageBytes, "image/" + imageFormat));
+                uploaded.add(patch.getPatchImgUri());
             }
-            return ResponseEntity.status(HttpStatus.CREATED).body(PatchResponse.from(patches.save(patch)));
+            saved = patches.save(patch);
         } catch (RuntimeException exception) {
-            try {
-                storage.delete(patchUri);
-                if (patch.getPatchImgUri() != null) {
-                    storage.delete(patch.getPatchImgUri());
+            for (String uri : uploaded) {
+                try {
+                    storage.delete(uri);
+                } catch (RuntimeException cleanupException) {
+                    exception.addSuppressed(cleanupException);
                 }
-            } catch (RuntimeException cleanupException) {
-                exception.addSuppressed(cleanupException);
             }
             throw exception;
         }
+        // Delete old objects only after the repository transaction has completed successfully.
+        if (existing != null) {
+            RuntimeException cleanupFailure = null;
+            for (String uri : new String[]{file == null ? null : existing.getPatchUri(),
+                    imageBytes == null ? null : existing.getPatchImgUri()}) {
+                if (uri != null && !uri.isBlank()) {
+                    try {
+                        storage.delete(uri);
+                    } catch (RuntimeException exception) {
+                        if (cleanupFailure == null) {
+                            cleanupFailure = exception;
+                        } else {
+                            cleanupFailure.addSuppressed(exception);
+                        }
+                    }
+                }
+            }
+            if (cleanupFailure != null) {
+                throw cleanupFailure;
+            }
+        }
+        return ResponseEntity.status(existing == null ? HttpStatus.CREATED : HttpStatus.OK)
+                .body(PatchResponse.from(saved));
     }
 
     private String getExtension(String filename) {

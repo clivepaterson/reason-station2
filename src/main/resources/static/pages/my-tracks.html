@@ -17,18 +17,20 @@
         </div>
 
         <div id="upload-dialog-backdrop" class="upload-dialog-backdrop" hidden></div>
-        <form id="upload-track-form" class="track-form" hidden>
-            <h2>Upload a track</h2>
+        <form id="upload-track-form" class="track-form" role="dialog" aria-modal="true" aria-labelledby="track-form-title" hidden>
+            <h2 id="track-form-title">Upload a track</h2>
+            <p class="edit-file-help" hidden>Leave file fields empty to keep existing files. New uploads replace the existing files.</p>
+            <p id="track-current-files" class="privacy-note" hidden></p>
             <div class="track-form-fields">
                 <div class="track-form-column">
                     <label for="artist-alias">
                         Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
                     </label>
-                    <input id="artist-alias" name="artistAlias" type="text" required maxlength="100"
+                    <input id="artist-alias" name="artistAlias" type="text" required maxlength="255"
                            pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
                            title="Use only letters, numbers, spaces, and ()[]_.'+-">
                     <label for="track-name">Track name</label>
-                    <input id="track-name" name="trackName" type="text" required maxlength="200"
+                    <input id="track-name" name="trackName" type="text" required maxlength="255"
                            pattern="[A-Za-z0-9\(\)\[\]_.'+\- ]+"
                            title="Use only letters, numbers, spaces, and ()[]_.'+-">
                     <label for="music-style">Music style</label>
@@ -102,7 +104,7 @@
                     <small id="audio-link-help" class="privacy-note">SoundCloud or Audiomack links only.</small>
                 </div>
                 <div class="track-form-column">
-                    <label for="track-file">Reason file</label>
+                    <label for="track-file">Reason file <span class="privacy-note edit-file-optional" hidden>(optional)</span></label>
                     <input id="track-file" name="file" type="file" accept=".rps,.rns,.reason"
                            aria-describedby="track-file-extensions" multiple required>
                     <small id="track-file-extensions" class="privacy-note">Allowed extensions: .rps, .rns, .reason. Maximum size: 80 MB.</small>
@@ -117,11 +119,14 @@
                 </div>
             </div>
             <button class="cta-button" type="submit">Upload</button>
+            <button class="cancel-upload-dialog" type="button">Cancel</button>
             <p id="upload-status" class="form-message" aria-live="polite"></p>
         </form>
 
-        <form id="upload-patch-form" class="track-form" hidden>
-            <h2>Upload a patch</h2>
+        <form id="upload-patch-form" class="track-form" role="dialog" aria-modal="true" aria-labelledby="patch-form-title" hidden>
+            <h2 id="patch-form-title">Upload a patch</h2>
+            <p class="edit-file-help" hidden>Leave file fields empty to keep existing files. New uploads replace the existing files.</p>
+            <p id="patch-current-files" class="privacy-note" hidden></p>
             <label for="patch-artist-alias">
                 Artist alias <span class="privacy-note">(you can have multiple artist names)</span>
             </label>
@@ -137,7 +142,7 @@
                       title="Use only letters, numbers, spaces, Enter, and ()[]_.'+-"
                       aria-describedby="patch-description-count"></textarea>
             <small id="patch-description-count" class="character-count" aria-live="polite">0 / 200</small>
-            <label for="patch-file">Patch file</label>
+            <label for="patch-file">Patch file <span class="privacy-note edit-file-optional" hidden>(optional)</span></label>
             <input id="patch-file" name="file" type="file"
                    accept=".sxt,.xwv,.smp,.drex,.drum,.rv7,.sm4,.echo,.pulver,.gator,.cmb,.thor,.kong,.drp,.zyp,.patch,.repatch,.sf2,.rx2,.rcy,.rex"
                    aria-describedby="patch-file-extensions" required>
@@ -153,14 +158,15 @@
                 Allowed extensions: .jpg, .jpeg, .png, .bmp, .gif. Maximum size: 30 MB.
             </small>
             <button class="cta-button" type="submit">Upload</button>
+            <button class="cancel-upload-dialog" type="button">Cancel</button>
             <p id="patch-upload-status" class="form-message" aria-live="polite"></p>
         </form>
 
-        <section>
+        <section class="uploaded-section">
             <h2>Uploaded tracks</h2>
             <div id="tracks-list" class="tracks-list"></div>
         </section>
-        <section>
+        <section class="uploaded-section">
             <h2>Uploaded patches</h2>
             <p id="my-patches-status" aria-live="polite"></p>
             <div id="my-patches-list" class="tracks-list"></div>

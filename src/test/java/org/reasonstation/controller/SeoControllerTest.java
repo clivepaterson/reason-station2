@@ -61,15 +61,18 @@ class SeoControllerTest {
         assertTrue(html.contains("class=\"track-card-art\""));
         assertTrue(html.contains("<script src=\"/js/style_icons.js\"></script>"));
         assertTrue(html.contains("window.createTrackArt(track)"));
+        assertTrue(html.contains("<script src=\"/js/mp3_player.js\"></script>"));
+        assertTrue(html.contains("window.bindTrackAudioLink(mp3Link, track)"));
         assertTrue(html.contains("src=\"/images/style-icons/other.svg\""));
         assertTrue(html.contains("<a class=\"track-file-meta\" href=\"/api/tracks/42/download\""));
-        assertTrue(html.contains("class=\"track-style-meta\">Style: Electronic"));
+        assertFalse(html.contains("class=\"track-style-meta\""));
         assertTrue(html.contains("""
                 <div class="track-card-heading">
                                     <h1>Signal &amp; Noise</h1>
                                     <span class="track-style-badge">Electronic</span>
                                 </div>"""));
-        assertTrue(html.contains("class=\"track-filesize-meta\">Size: 1 Kb"));
+        assertTrue(html.contains("class=\"track-link-filesize\"> (1 Kb)</span></a>"));
+        assertFalse(html.contains("class=\"track-filesize-meta\""));
         assertTrue(html.contains("class=\"track-downloads-meta\">Downloads: 12"));
         assertTrue(html.contains("class=\"track-file-meta track-mp3-link\" href=\"/api/tracks/42/audio\""));
         assertTrue(html.contains(">Download MP3</a>"));
@@ -98,7 +101,8 @@ class SeoControllerTest {
     void showsProgramVersionAfterFilenameWhenAvailable() {
         when(tracks.findWithRatingById(42L)).thenReturn(Optional.of(track()));
 
-        assertTrue(controller.trackPage(42L).getBody().contains(">signal.reason (Reason 13.2.1)</a>"));
+        assertTrue(controller.trackPage(42L).getBody().contains(
+                ">signal.reason (Reason 13.2.1)<span class=\"track-link-filesize\"> (1 Kb)</span></a>"));
     }
 
     @Test
@@ -110,7 +114,8 @@ class SeoControllerTest {
                 track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), track.audioLink(), null,
                 track.imageUri(), track.audioUri())));
 
-        assertTrue(controller.trackPage(42L).getBody().contains(">signal.reason</a>"));
+        assertTrue(controller.trackPage(42L).getBody().contains(
+                ">signal.reason<span class=\"track-link-filesize\"> (1 Kb)</span></a>"));
     }
 
     @Test
@@ -153,7 +158,7 @@ class SeoControllerTest {
 
         String html = controller.trackPage(42L).getBody();
 
-        assertFalse(html.contains("track-mp3-link"));
+        assertFalse(html.contains("class=\"track-file-meta track-mp3-link\""));
         assertTrue(html.contains("track-audio-link"));
     }
 

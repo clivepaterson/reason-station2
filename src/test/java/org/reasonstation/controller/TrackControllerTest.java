@@ -43,6 +43,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
@@ -277,6 +278,28 @@ class TrackControllerTest {
         verifyNoInteractions(downloads);
     }
 
+    @Test
+    void audioMetadataReflectsReplacementWithoutAllowingCachedResponses() throws Exception {
+        Track track = new Track();
+        track.setAudioUri("s3://tracks/track-audio/old");
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+        when(storage.getFilesize("s3://tracks/track-audio/old")).thenReturn(100L);
+        when(storage.getFilesize("s3://tracks/track-audio/new")).thenReturn(200L);
+        var mvc = standaloneSetup(controller).build();
+
+        mvc.perform(get("/api/tracks/42/audio/metadata"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filesize").value(100))
+                .andExpect(header().string("Cache-Control", "no-cache"));
+
+        track.setAudioUri("s3://tracks/track-audio/new");
+        mvc.perform(get("/api/tracks/42/audio/metadata"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filesize").value(200))
+                .andExpect(header().string("Cache-Control", "no-cache"));
+        verifyNoInteractions(downloads);
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
@@ -286,6 +309,7 @@ class TrackControllerTest {
         when(tracks.findById(42L)).thenReturn(Optional.of(track));
 
         assertEquals(HttpStatus.NOT_FOUND, controller.trackAudio(42L).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, controller.trackAudioMetadata(42L).getStatusCode());
         verifyNoInteractions(storage, downloads);
     }
 
@@ -294,6 +318,7 @@ class TrackControllerTest {
         when(tracks.findById(42L)).thenReturn(Optional.empty());
 
         assertEquals(HttpStatus.NOT_FOUND, controller.trackAudio(42L).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, controller.trackAudioMetadata(42L).getStatusCode());
         verifyNoInteractions(storage, downloads);
     }
 
@@ -301,7 +326,26 @@ class TrackControllerTest {
     @ValueSource(longs = {0, -1})
     void rejectsInvalidTrackAudioId(long trackid) {
         assertEquals(HttpStatus.BAD_REQUEST, controller.trackAudio(trackid).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, controller.trackAudioMetadata(trackid).getStatusCode());
         verifyNoInteractions(tracks, storage, downloads);
+    }
+
+    @Test
+    void returnsAudioFilesizeWithoutDownloadingOrCountingAReasonDownload() throws Exception {
+        Track track = new Track();
+        track.setAudioUri("s3://tracks/track-audio/preview");
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+        when(storage.getFilesize(track.getAudioUri())).thenReturn(1572864L);
+
+        var response = standaloneSetup(controller).build()
+                .perform(get("/api/tracks/42/audio/metadata"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filesize").value(1572864))
+                .andReturn().getResponse();
+
+        assertEquals("no-cache", response.getHeader("Cache-Control"));
+        verify(storage).getFilesize(track.getAudioUri());
+        verifyNoInteractions(downloads);
     }
 
     @Test

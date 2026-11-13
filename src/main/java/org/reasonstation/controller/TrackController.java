@@ -13,6 +13,7 @@ import org.reasonstation.util.ReasonFileMetadata;
 import org.reasonstation.util.ImageFileFormat;
 import org.reasonstation.util.Mp3FileFormat;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -188,6 +190,22 @@ public class TrackController {
                 .build();
     }
 
+    @GetMapping("/{trackid}/audio/metadata")
+    public ResponseEntity<?> trackAudioMetadata(@PathVariable Long trackid) {
+        if (trackid == null || trackid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Track ID must be a positive integer."));
+        }
+        var track = tracks.findById(trackid);
+        if (track.isEmpty() || track.get().getAudioUri() == null || track.get().getAudioUri().isBlank()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Track audio not found."));
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noCache())
+                .body(Map.of("filesize", storage.getFilesize(track.get().getAudioUri())));
+    }
+
     @GetMapping("/{trackid}/image")
     public ResponseEntity<?> trackImage(@PathVariable Long trackid) {
         if (trackid == null || trackid < 1) {
@@ -245,6 +263,41 @@ public class TrackController {
             @RequestParam(value = "audioLink", required = false) String audioLink,
             @RequestParam(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "audio", required = false) MultipartFile audio) throws IOException {
+        return saveTrack(authentication, artistAlias, trackName, musicStyle, file, audioLink, image, audio, null);
+    }
+
+    @PutMapping(value = "/{trackid}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateTrack(
+            Authentication authentication, @PathVariable Long trackid,
+            @RequestParam("artistAlias") String artistAlias,
+            @RequestParam("trackName") String trackName,
+            @RequestParam("musicStyle") String musicStyle,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "audioLink", required = false) String audioLink,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "audio", required = false) MultipartFile audio) throws IOException {
+        if (trackid == null || trackid < 1) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Track ID must be a positive integer."));
+        }
+        var user = findCurrentUser(authentication);
+        if (user.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "The authenticated user was not found."));
+        }
+        var existing = tracks.findById(trackid)
+                .filter(track -> user.get().getUserid().equals(track.getUserid()));
+        if (existing.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Track not found."));
+        }
+        return saveTrack(authentication, artistAlias, trackName, musicStyle,
+                file == null || file.isEmpty() ? null : file, audioLink,
+                image == null || image.isEmpty() ? null : image,
+                audio == null || audio.isEmpty() ? null : audio, existing.get());
+    }
+
+    private ResponseEntity<?> saveTrack(Authentication authentication, String artistAlias, String trackName,
+                                        String musicStyle, MultipartFile file, String audioLink,
+                                        MultipartFile image, MultipartFile audio, Track existing) throws IOException {
         var currentUser = findCurrentUser(authentication);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -258,13 +311,15 @@ public class TrackController {
         String trimmedArtistAlias = artistAlias == null ? "" : artistAlias.trim();
         String trimmedTrackName = trackName == null ? "" : trackName.trim();
         String trimmedMusicStyle = musicStyle == null ? "" : musicStyle.trim();
-        String trimmedAudioLink = audioLink == null ? "" : audioLink.trim();
+        String trimmedAudioLink = audioLink == null
+                ? (existing == null || existing.getAudioLink() == null ? "" : existing.getAudioLink())
+                : audioLink.trim();
         if (!trimmedAudioLink.isEmpty() && !AUDIO_LINK_PATTERN.matcher(trimmedAudioLink).matches()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Audio link must start with https://soundcloud.com/, https://on.soundcloud.com/, or https://audiomack.com/ and contain no whitespace or backslashes."));
         }
         if (trimmedArtistAlias.isEmpty() || trimmedTrackName.isEmpty()
-                || trimmedMusicStyle.isEmpty() || file == null || file.isEmpty()) {
+                || trimmedMusicStyle.isEmpty() || (existing == null && (file == null || file.isEmpty()))) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Artist alias, track name, music style, and a file are required."));
         }
@@ -278,13 +333,13 @@ public class TrackController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Artist alias and track name may contain only letters, numbers, spaces, and ()[]_.'+-."));
         }
-        String filename = file.getOriginalFilename();
-        if (filename == null || filename.isBlank() || filename.length() > MAX_FILENAME_LENGTH
-                || filename.contains("/") || filename.contains("\\") || file.getSize() > MAX_FILE_SIZE) {
+        String filename = file == null ? existing.getFilename() : file.getOriginalFilename();
+        if (file != null && (filename == null || filename.isBlank() || filename.length() > MAX_FILENAME_LENGTH
+                || filename.contains("/") || filename.contains("\\") || file.getSize() > MAX_FILE_SIZE)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "File name is invalid or the file exceeds 80 MB."));
         }
-        if (!hasAllowedExtension(filename)) {
+        if (file != null && !hasAllowedExtension(filename)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Only .rps, .rns, and .reason files are allowed."));
         }
@@ -320,10 +375,12 @@ public class TrackController {
             }
         }
 
-        byte[] content;
+        byte[] content = null;
         try {
-            content = file.getBytes();
-            if (!ReasonFileFormat.matches(filename, content)) {
+            if (file != null) {
+                content = file.getBytes();
+            }
+            if (file != null && !ReasonFileFormat.matches(filename, content)) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "File contents do not match the " +
                                 "expected Reason format for its extension."));
@@ -333,28 +390,44 @@ public class TrackController {
         }
 
         Track track = new Track(currentUser.get().getUserid(), trimmedArtistAlias, trimmedTrackName,
-                trimmedMusicStyle, filename, file.getSize(), null);
+                trimmedMusicStyle, filename, file == null ? existing.getFilesize() : file.getSize(), null);
+        if (existing != null) {
+            track.setTrackid(existing.getTrackid());
+            track.setDateUploaded(existing.getDateUploaded());
+            track.setTrackUri(existing.getTrackUri());
+            track.setImageUri(existing.getImageUri());
+            track.setAudioUri(existing.getAudioUri());
+            track.setProgramVersion(existing.getProgramVersion());
+        }
         track.setAudioLink(trimmedAudioLink.isEmpty() ? null : trimmedAudioLink);
         String lowercaseFilename = filename.toLowerCase(Locale.ROOT);
-        if (lowercaseFilename.endsWith(".rps")) {
+        if (file != null && lowercaseFilename.endsWith(".rps")) {
             track.setProgramVersion(ReasonFileMetadata.programVersion(content).orElse("1.0.0"));
-        } else if (lowercaseFilename.endsWith(".reason")) {
+        } else if (file != null && lowercaseFilename.endsWith(".reason")) {
             track.setProgramVersion(ReasonFileMetadata.programVersion(content).orElse(null));
+        } else if (file != null) {
+            track.setProgramVersion(null);
         }
+        var uploaded = new java.util.ArrayList<String>();
+        Track saved;
         try {
-            track.setTrackUri(storage.upload("tracks/" + UUID.randomUUID(), content, file.getContentType()));
+            if (file != null) {
+                track.setTrackUri(storage.upload("tracks/" + UUID.randomUUID(), content, file.getContentType()));
+                uploaded.add(track.getTrackUri());
+            }
             if (imageBytes != null) {
                 track.setImageUri(storage.upload(
                         "track-images/" + UUID.randomUUID(), imageBytes, "image/" + imageFormat));
+                uploaded.add(track.getImageUri());
             }
             if (audioBytes != null) {
                 track.setAudioUri(storage.upload(
                         "track-audio/" + UUID.randomUUID(), audioBytes, "audio/mpeg"));
+                uploaded.add(track.getAudioUri());
             }
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(TrackResponse.from(tracks.save(track), 0));
+            saved = tracks.save(track);
         } catch (RuntimeException exception) {
-            for (String uri : new String[]{track.getTrackUri(), track.getImageUri(), track.getAudioUri()}) {
+            for (String uri : uploaded) {
                 if (uri != null) {
                     try {
                         storage.delete(uri);
@@ -365,6 +438,30 @@ public class TrackController {
             }
             throw exception;
         }
+        // Persistence has committed; cleanup failures must never delete the newly referenced objects.
+        if (existing != null) {
+            RuntimeException cleanupFailure = null;
+            for (String uri : new String[]{file == null ? null : existing.getTrackUri(),
+                    imageBytes == null ? null : existing.getImageUri(),
+                    audioBytes == null ? null : existing.getAudioUri()}) {
+                if (uri != null && !uri.isBlank()) {
+                    try {
+                        storage.delete(uri);
+                    } catch (RuntimeException exception) {
+                        if (cleanupFailure == null) {
+                            cleanupFailure = exception;
+                        } else {
+                            cleanupFailure.addSuppressed(exception);
+                        }
+                    }
+                }
+            }
+            if (cleanupFailure != null) {
+                throw cleanupFailure;
+            }
+        }
+        return ResponseEntity.status(existing == null ? HttpStatus.CREATED : HttpStatus.OK)
+                .body(TrackResponse.from(saved, 0));
     }
 
     private static boolean validMediaFilename(MultipartFile file, long maxSize) {

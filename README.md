@@ -62,9 +62,26 @@ also deletes its uploaded media, and failed uploads clean up completed objects.
 Track cards use the uploaded image when present, otherwise the music-style icon.
 Images are served through `/api/tracks/{trackid}/image`, which redirects to a
 short-lived signed URL without making the bucket public.
-Tracks with uploaded MP3 audio also show a "Download MP3" link, served through
-`/api/tracks/{trackid}/audio` using a signed download URL. The optional external
-audio link remains visible independently.
+Tracks with uploaded MP3 audio show a "Play MP3" link. Clicking it opens the
+bottom-docked player and starts playback; further clicks while playing add tracks
+to its playlist without interrupting the current track. The player shows track
+artwork, artist, title, and style, with icon buttons for play/pause, previous track,
+and next track, plus volume and separate Reason-project and MP3 download buttons.
+The project button uses a reduced Reason icon and downloads the original
+`track_uri` through `/api/tracks/{trackid}/download`; the MP3 button uses a music-note
+icon. Both download buttons follow the currently selected track.
+Previous and next are disabled
+at the beginning and end of the playlist respectively.
+A timeline shows elapsed and total time once the audio metadata
+loads; click, drag, or use the arrow keys to seek without changing playback state.
+Select a playlist entry to play it directly. Tracks advance
+automatically, and closing the player stops playback and clears the playlist.
+Each playlist entry has a remove button. Removing another entry does not interrupt
+playback. Removing the current entry plays the next track (or the previous track if
+it was last); removing the final entry stops playback and closes the player.
+Playback continues during in-page navigation, but not across full page loads.
+MP3 playback and downloads use `/api/tracks/{trackid}/audio` with a signed download
+URL. The optional external audio link remains visible independently.
 
 Keep the bucket private, enable encryption at rest, use HTTPS in production,
 and scope the application's S3 permissions to the required bucket/prefixes.

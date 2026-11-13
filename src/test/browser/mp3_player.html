@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3 player browser regression tests</title>
+    <link rel="stylesheet" href="../../../target/classes/static/css/styles.css">
+</head>
+<body class="site-page">
+<pre id="results">Running...</pre>
+<script>
+    var mediaStates = new WeakMap();
+    var nextPlayError;
+    var deferPlay;
+    var rejectPendingPlay;
+    function mediaState(media) {
+        if (!mediaStates.has(media)) {
+            mediaStates.set(media, { paused: true, plays: 0, loads: 0 });
+        }
+        return mediaStates.get(media);
+    }
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', {
+        get: function() { return mediaState(this).paused; }
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'duration', {
+        get: function() {
+            var duration = mediaState(this).duration;
+            return duration === undefined ? NaN : duration;
+        }
+    });
+    HTMLMediaElement.prototype.play = function() {
+        var state = mediaState(this);
+        state.plays++;
+        if (nextPlayError) {
+            var error = nextPlayError;
+            nextPlayError = null;
+            return Promise.reject(error);
+        }
+        if (deferPlay) {
+            deferPlay = false;
+            return new Promise(function(resolve, reject) { rejectPendingPlay = reject; });
+        }
+        state.paused = false;
+        this.dispatchEvent(new Event('play'));
+        return Promise.resolve();
+    };
+    HTMLMediaElement.prototype.pause = function() {
+        mediaState(this).paused = true;
+        this.dispatchEvent(new Event('pause'));
+    };
+    HTMLMediaElement.prototype.load = function() {
+        mediaState(this).loads++;
+    };
+    window.addTrackRatingMeta = function() {};
+    window.createRateTrackButton = function() { return document.createElement('button'); };
+    window.createCopyLinkButton = function() { return document.createElement('button'); };
+    window.fetch = function(url) {
+        if (!/^\/api\/tracks\/\d+\/audio\/metadata$/.test(url)) {
+            return Promise.reject(new Error('Unexpected request: ' + url));
+        }
+        return Promise.resolve({
+            ok: true,
+            json: function() { return Promise.resolve({filesize: 1572864}); }
+        });
+    };
+</script>
+<script src="../../main/resources/static/js/style_icons.js"></script>
+<script src="../../main/resources/static/js/mp3_player.js"></script>
+<script src="../../main/resources/static/js/track_card.js"></script>
+<script>
+    (async function() {
+        var assertions = 0;
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message);
+            }
+            assertions++;
+        }
+        function frame() {
+            return new Promise(function(resolve) { setTimeout(resolve, 100); });
+        }
+        function track(id) {
+            return {
+                trackid: id, trackName: 'Track <' + id + '>', artistAlias: 'Artist & ' + id,
+                musicStyle: 'Electronic', imageUri: id === 1 ? 's3://tracks/image' : null,
+                audioUri: 's3://tracks/audio', filename: 'song.reason', filesize: 1024, downloadCount: 0,
+                dateUploaded: '2026-11-03T12:00:00Z'
+            };
+        }
+        function addCard(data) {
+            var card = window.createTrackCard(data, { showArtist: true });
+            document.body.appendChild(card);
+            return card;
+        }
+        try {
+            var first = addCard(track(1)).querySelector('.track-mp3-link');
+            var second = addCard(track(2)).querySelector('.track-mp3-link');
+            var noAudio = track(3);
+            noAudio.audioUri = null;
+            assert(!addCard(noAudio).querySelector('.track-mp3-link'), 'No player link without uploaded audio');
+            assert(!document.querySelector('.mp3-player'), 'Player is lazy and absent before playback');
+            assert(first.textContent === 'Play MP3', 'Card exposes playback action');
+            await frame();
+            assert(first.textContent === 'Play MP3 (1.5 Mb)', 'MP3 link shows its own file size');
+            var firstCard = first.closest('.track-card');
+            assert(firstCard.querySelector('a.track-file-meta').textContent === 'song.reason (1 Kb)',
+                'Reason download link shows its own file size');
+            assert(!firstCard.querySelector('.track-filesize-meta'), 'No duplicate file size metadata');
+            var uploaded = firstCard.querySelector('time.track-uploaded-meta');
+            assert(uploaded.dateTime === '2026-11-03T12:00:00Z', 'Upload date retains machine-readable timestamp');
+            assert(uploaded.textContent === 'Uploaded: '
+                + new Intl.DateTimeFormat(undefined, {dateStyle: 'medium'})
+                    .format(new Date('2026-11-03T12:00:00Z')), 'Upload date uses localized date formatting');
+            assert(getComputedStyle(uploaded).gridColumn === '1 / -1', 'Upload date spans the metadata row');
+            var undated = track(4);
+            undated.audioUri = null;
+            undated.dateUploaded = null;
+            assert(!addCard(undated).querySelector('.track-uploaded-meta'), 'Missing upload date is omitted');
+            var modified = new MouseEvent('click', { ctrlKey: true, cancelable: true });
+            first.addEventListener('click', function(event) {
+                if (event.ctrlKey) {
+                    assert(!event.defaultPrevented, 'Modified clicks retain native download navigation');
+                    event.preventDefault();
+                }
+            });
+            first.dispatchEvent(modified);
+            assert(!document.querySelector('.mp3-player'), 'Modified click does not create player');
+            first.click();
+            var player = document.querySelector('.mp3-player');
+            var audio = player.querySelector('audio');
+            function action(name) { return player.querySelector('[data-player-action="' + name + '"]'); }
+            function entries() { return player.querySelectorAll('.mp3-player-track'); }
+            function removeButtons() { return player.querySelectorAll('.mp3-player-remove-track'); }
+            function status() { return player.querySelector('[role="status"]').textContent; }
+            var seek = player.querySelector('.mp3-player-seek');
+            var elapsed = player.querySelector('.mp3-player-elapsed');
+            var duration = player.querySelector('.mp3-player-duration');
+            assert(seek.disabled && elapsed.textContent === '0:00' && duration.textContent === '--:--',
+                'Timeline disabled until duration is available');
+            mediaState(audio).duration = 185.5;
+            audio.dispatchEvent(new Event('loadedmetadata'));
+            assert(!seek.disabled && Number(seek.max) === 185.5 && duration.textContent === '3:05',
+                'Metadata enables seeking and displays duration');
+            audio.currentTime = 65;
+            audio.dispatchEvent(new Event('timeupdate'));
+            assert(Number(seek.value) === 65 && elapsed.textContent === '1:05', 'Timeline follows playback');
+            assert(seek.getAttribute('aria-valuetext') === '1:05 of 3:05', 'Timeline exposes readable time to assistive technology');
+            var seekPlays = mediaState(audio).plays;
+            seek.value = '100';
+            seek.dispatchEvent(new Event('input'));
+            assert(audio.currentTime === 100 && elapsed.textContent === '1:40', 'Seeking updates audio and elapsed time');
+            assert(!audio.paused && mediaState(audio).plays === seekPlays, 'Seeking does not restart playback');
+            action('play').click();
+            seek.value = '20';
+            seek.dispatchEvent(new Event('input'));
+            assert(audio.currentTime === 20 && audio.paused, 'Seeking while paused preserves pause');
+            action('play').click();
+            mediaState(audio).duration = 3665;
+            audio.currentTime = 3601;
+            audio.dispatchEvent(new Event('durationchange'));
+            assert(elapsed.textContent === '1:00:01' && duration.textContent === '1:01:05', 'Long tracks display hours');
+            [NaN, Infinity, 0].forEach(function(value) {
+                mediaState(audio).duration = value;
+                audio.dispatchEvent(new Event('durationchange'));
+                assert(seek.disabled && duration.textContent === '--:--', 'Unknown or invalid duration disables seeking');
+            });
+            mediaState(audio).duration = 185.5;
+            audio.currentTime = 0;
+            audio.dispatchEvent(new Event('loadedmetadata'));
+            assert(!player.hidden && !audio.paused, 'Click shows player and plays');
+            assert(audio.getAttribute('src') === '/api/tracks/1/audio', 'Uses stable audio endpoint');
+            assert(player.querySelector('.mp3-player-title').textContent === 'Track <1>', 'Title uses safe text');
+            assert(player.querySelector('.mp3-player-artist').textContent === 'Artist & 1', 'Artist displayed');
+            assert(player.querySelector('.mp3-player-style').textContent === 'Electronic', 'Style displayed');
+            assert(player.querySelector('.mp3-player-art').getAttribute('src') === '/api/tracks/1/image', 'Track artwork displayed');
+            var projectDownload = player.querySelector('.mp3-player-project-download');
+            var mp3Download = player.querySelector('.mp3-player-mp3-download');
+            assert(player.querySelectorAll('.mp3-player-download').length === 2, 'Player offers two download buttons');
+            assert(projectDownload.getAttribute('href') === '/api/tracks/1/download', 'Reason download uses project endpoint');
+            assert(mp3Download.getAttribute('href') === '/api/tracks/1/audio', 'MP3 download uses audio endpoint');
+            assert(projectDownload.querySelector('img').getAttribute('src') === '/images/reason-download.png',
+                'Reason download uses reduced supplied icon');
+            assert(mp3Download.querySelector('.mp3-player-music-note').textContent === '\u266b',
+                'MP3 download icon includes beamed eighth notes');
+            [projectDownload, mp3Download].forEach(function(link) {
+                assert(!!link.querySelector('svg[aria-hidden="true"]'), 'Download button includes download arrow');
+                assert(link.hasAttribute('download') && !!link.title && link.getAttribute('aria-label').includes('Track <1>'),
+                    'Download buttons have download semantics and accessible track-specific labels');
+            });
+            assert(!action('stop'), 'Stop button removed');
+            ['previous', 'play', 'next'].forEach(function(name) {
+                assert(!!action(name).querySelector('svg[aria-hidden="true"]')
+                    && !!action(name).getAttribute('aria-label') && !!action(name).title,
+                    'Playback controls use icons with accessible labels and tooltips');
+                assert(action(name).textContent === '', 'Playback controls have no visible text');
+            });
+            assert(action('previous').disabled, 'Previous disabled for first track');
+            assert(action('next').disabled, 'Next disabled for final track');
+            var queuedPlays = mediaState(audio).plays;
+            second.click();
+            assert(entries().length === 2 && mediaState(audio).plays === queuedPlays, 'Further click queues without restarting playback');
+            assert(status().includes('Added to playlist'), 'Enqueue announced');
+            assert(!action('next').disabled, 'Queuing a track enables Next');
+            action('next').click();
+            assert(audio.getAttribute('src') === '/api/tracks/2/audio', 'Skip plays next track');
+            assert(projectDownload.getAttribute('href') === '/api/tracks/2/download'
+                && mp3Download.getAttribute('href') === '/api/tracks/2/audio',
+                'Both download links follow the current track');
+            assert(projectDownload.getAttribute('aria-label').includes('Track <2>')
+                && mp3Download.getAttribute('aria-label').includes('Track <2>'),
+                'Download labels follow the current track');
+            assert(seek.disabled && Number(seek.value) === 0 && duration.textContent === '--:--', 'Track switch clears old timeline');
+            assert(!action('previous').disabled && action('next').disabled, 'Last track enables Previous and disables Next');
+            audio.currentTime = 12;
+            action('previous').click();
+            assert(audio.getAttribute('src') === '/api/tracks/1/audio' && audio.currentTime === 0,
+                'Previous plays preceding track from the beginning');
+            assert(action('previous').disabled && !action('next').disabled, 'First track disables Previous and enables Next');
+            assert(entries()[0].getAttribute('aria-current') === 'true', 'Previous updates playlist selection');
+            action('previous').click();
+            assert(audio.getAttribute('src') === '/api/tracks/1/audio', 'Disabled Previous does not wrap playlist');
+            action('next').click();
+            mediaState(audio).duration = 90;
+            audio.dispatchEvent(new Event('loadedmetadata'));
+            assert(player.querySelector('.mp3-player-art').getAttribute('src').includes('electronic.svg'), 'Missing art uses style fallback');
+            assert(entries()[1].getAttribute('aria-current') === 'true', 'Playlist marks current track');
+            var pauseIcon = action('play').querySelector('path').getAttribute('d');
+            action('play').click();
+            assert(audio.paused && action('play').getAttribute('aria-label') === 'Play track', 'Pause updates control');
+            assert(action('play').querySelector('path').getAttribute('d') !== pauseIcon, 'Pause switches to play icon');
+            action('play').click();
+            assert(!audio.paused && action('play').getAttribute('aria-label') === 'Pause track', 'Play resumes');
+            assert(action('play').querySelector('path').getAttribute('d') === pauseIcon, 'Playback restores pause icon');
+            audio.currentTime = 12;
+            action('play').click();
+            assert(audio.paused && audio.currentTime === 12, 'Pause preserves playback position');
+            action('play').click();
+            var volume = player.querySelector('.mp3-player-volume input');
+            volume.value = '0.25';
+            volume.dispatchEvent(new Event('input'));
+            assert(audio.volume === 0.25, 'Volume control changes audio volume');
+            volume.value = '0';
+            volume.dispatchEvent(new Event('input'));
+            assert(audio.volume === 0, 'Zero volume mutes');
+            entries()[0].click();
+            assert(audio.getAttribute('src') === '/api/tracks/1/audio', 'Playlist entry selects track');
+            audio.dispatchEvent(new Event('ended'));
+            assert(audio.getAttribute('src') === '/api/tracks/2/audio', 'Ending advances to next track');
+            audio.dispatchEvent(new Event('ended'));
+            assert(status() === 'Playlist finished.' && action('play').getAttribute('aria-label') === 'Play track',
+                'Final track finishes without looping');
+            first.click();
+            assert(audio.getAttribute('src') === '/api/tracks/1/audio', 'Idle card click starts selected track');
+            action('close').click();
+            await frame();
+            assert(player.hidden && !audio.hasAttribute('src') && audio.paused, 'Close hides player and releases audio');
+            assert(seek.disabled && duration.textContent === '--:--', 'Close resets timeline');
+            assert(document.activeElement === first, 'Close restores focus to initiating link');
+            assert(document.querySelector('.mp3-player-spacer').offsetHeight === 0, 'Close removes reserved space');
+
+            nextPlayError = new DOMException('Blocked', 'NotAllowedError');
+            second.click();
+            await Promise.resolve();
+            assert(entries().length === 1, 'Reopen starts with cleared playlist');
+            assert(status().includes('blocked by your browser'), 'Autoplay rejection surfaced');
+            assert(action('play').getAttribute('aria-label') === 'Play track', 'Blocked playback can be retried');
+            action('play').click();
+            assert(!audio.paused && !status(), 'Retry starts playback and clears error');
+            audio.dispatchEvent(new Event('error'));
+            assert(status().includes('Unable to load'), 'Media errors surfaced');
+            assert(seek.disabled, 'Media errors disable seeking');
+            action('close').click();
+
+            deferPlay = true;
+            first.click();
+            var plays = mediaState(audio).plays;
+            second.click();
+            assert(entries().length === 2 && mediaState(audio).plays === plays, 'Clicks during pending playback enqueue');
+            var pendingStatus = status();
+            action('play').click();
+            rejectPendingPlay(new DOMException('Interrupted', 'AbortError'));
+            await Promise.resolve();
+            assert(audio.paused && status() === pendingStatus && action('play').getAttribute('aria-label') === 'Play track',
+                'Stale play rejection does not replace paused state');
+            action('play').click();
+            await frame();
+            assert(getComputedStyle(player).position === 'fixed', 'Player is fixed');
+            assert(Math.abs(player.getBoundingClientRect().bottom - innerHeight) < 1, 'Player is bottom docked');
+            assert(player.scrollWidth <= player.clientWidth, 'Player fits viewport horizontally');
+            var reasonIcon = projectDownload.querySelector('img');
+            await reasonIcon.decode();
+            assert(reasonIcon.naturalWidth === 64 && reasonIcon.naturalHeight === 64,
+                'Reason icon loads as a small 64-pixel asset');
+            assert(document.querySelector('.mp3-player-spacer').offsetHeight === player.offsetHeight, 'Player reserves matching page space');
+            action('close').click();
+
+            first.click();
+            second.click();
+            addCard(track(3)).querySelector('.track-mp3-link').click();
+            assert(removeButtons().length === 3 && removeButtons()[1].getAttribute('aria-label').includes('Track <2>'),
+                'Each playlist entry has an accessible remove button');
+            var removalPlays = mediaState(audio).plays;
+            audio.currentTime = 25;
+            removeButtons()[1].click();
+            assert(entries().length === 2 && audio.getAttribute('src') === '/api/tracks/1/audio'
+                && audio.currentTime === 25 && mediaState(audio).plays === removalPlays,
+                'Removing queued track does not interrupt playback');
+            assert(player.querySelector('summary').textContent === 'Playlist (2)' && status().includes('Track <2>'),
+                'Removal updates count and announces removed track');
+            assert(document.activeElement === removeButtons()[1], 'Removal preserves focus on adjacent remove button');
+            action('next').click();
+            assert(audio.getAttribute('src') === '/api/tracks/3/audio', 'Next skips removed entry');
+            audio.currentTime = 15;
+            removalPlays = mediaState(audio).plays;
+            removeButtons()[0].click();
+            assert(entries().length === 1 && entries()[0].getAttribute('aria-current') === 'true'
+                && audio.getAttribute('src') === '/api/tracks/3/audio' && audio.currentTime === 15
+                && mediaState(audio).plays === removalPlays,
+                'Removing earlier entry adjusts current index without restarting');
+            assert(action('previous').disabled && action('next').disabled, 'Navigation updates after removal');
+            removeButtons()[0].click();
+            await frame();
+            assert(player.hidden && audio.paused && !audio.hasAttribute('src'),
+                'Removing final entry closes player and releases audio');
+            assert(document.querySelector('.mp3-player-spacer').offsetHeight === 0, 'Empty playlist releases reserved space');
+            assert(document.activeElement.classList.contains('track-mp3-link'), 'Empty playlist restores focus to trigger');
+
+            first.click();
+            second.click();
+            removeButtons()[0].click();
+            assert(!player.hidden && !audio.paused && audio.getAttribute('src') === '/api/tracks/2/audio',
+                'Removing playing track starts next track');
+            assert(seek.disabled && Number(seek.value) === 0 && projectDownload.getAttribute('href') === '/api/tracks/2/download',
+                'Removing current track updates timeline and downloads');
+            first.click();
+            action('next').click();
+            removeButtons()[1].click();
+            assert(!audio.paused && audio.getAttribute('src') === '/api/tracks/2/audio',
+                'Removing current final track plays previous track');
+            first.click();
+            action('play').click();
+            audio.currentTime = 17;
+            removalPlays = mediaState(audio).plays;
+            removeButtons()[1].click();
+            assert(audio.paused && audio.currentTime === 17 && mediaState(audio).plays === removalPlays,
+                'Removing another track preserves paused state and position');
+            action('close').click();
+
+            first.click();
+            first.click();
+            removeButtons()[1].click();
+            assert(entries().length === 1 && !audio.paused && audio.getAttribute('src') === '/api/tracks/1/audio',
+                'Removing duplicate affects only selected playlist entry');
+            action('close').click();
+            deferPlay = true;
+            first.click();
+            second.click();
+            removeButtons()[0].click();
+            rejectPendingPlay(new DOMException('Interrupted', 'AbortError'));
+            await Promise.resolve();
+            assert(!audio.paused && audio.getAttribute('src') === '/api/tracks/2/audio'
+                && action('play').getAttribute('aria-label') === 'Pause track',
+                'Removing a pending current track ignores stale play rejection');
+            action('close').click();
+            document.getElementById('results').textContent = 'PASS: ' + assertions + ' assertions; viewport ' + innerWidth;
+            document.title = 'PASS';
+        } catch (error) {
+            document.getElementById('results').textContent = 'FAIL: ' + error.stack;
+            document.title = 'FAIL';
+        }
+    }());
+</script>
+</body>
+</html>

@@ -221,12 +221,10 @@ public class SeoController {
                                     <span class="track-style-badge">%s</span>
                                 </div>
                                 <a class="track-artist-link" href="%s">by %s</a>
-                                <a class="track-file-meta" href="%s" aria-label="Download %s by %s">%s</a>
+                                <a class="track-file-meta" href="%s" aria-label="Download %s by %s">%s%s</a>
                                 %s
                                 %s
                                 <div class="track-card-meta">
-                                    <span class="track-style-meta">Style: %s</span>
-                                    %s
                                     <span class="track-downloads-meta">Downloads: %d</span>
                                     %s
                                     %s
@@ -241,6 +239,8 @@ public class SeoController {
                     </main>
                     <script id="track-rating-data" type="application/json">%s</script>
                     <script src="/js/style_icons.js"></script>
+                    <script src="/js/mp3_player.js"></script>
+                    <script src="/js/track_card.js"></script>
                     <script src="/js/track_rating.js"></script>
                     <script src="/js/copy_link.js"></script>
                     <script>
@@ -251,6 +251,10 @@ public class SeoController {
                             window.createRateTrackButton(track));
                         document.querySelector('.track-card-actions').appendChild(
                             window.createCopyLinkButton('/tracks/' + encodeURIComponent(track.trackid), track.trackName));
+                        var mp3Link = document.querySelector('.track-mp3-link');
+                        if (mp3Link) {
+                            window.bindTrackAudioLink(mp3Link, track);
+                        }
                     </script>
                 </body>
                 </html>
@@ -263,6 +267,8 @@ public class SeoController {
                 track.imageUri() == null || track.imageUri().isBlank() ? "" : "Image for " + trackName,
                 trackName, musicStyle, escape(artistUrl), artistAlias,
                 downloadUrl, trackName, artistAlias, filename,
+                track.filesize() == null || track.filesize() < 0 ? ""
+                        : "<span class=\"track-link-filesize\"> (" + formatFilesize(track.filesize()) + ")</span>",
                 track.audioUri() == null || track.audioUri().isBlank() ? ""
                         : "<a class=\"track-file-meta track-mp3-link\" href=\"/api/tracks/" + track.trackid()
                                 + "/audio\" aria-label=\"Download MP3 for " + trackName + " by " + artistAlias
@@ -271,8 +277,7 @@ public class SeoController {
                         : "<a class=\"track-file-meta track-audio-link\" href=\"" + escape(track.audioLink())
                                 + "\" target=\"_blank\" rel=\"noopener noreferrer\">"
                                 + escape(track.audioLink()) + "</a>",
-                musicStyle,
-                filesizeHtml(track.filesize()), track.downloadCount(), ratingHtml(track.averageTrackRating()),
+                track.downloadCount(), ratingHtml(track.averageTrackRating()),
                 visibleDate.isEmpty() ? "" : "<time class=\"track-uploaded-meta\" datetime=\"" + dateUploaded
                         + "\">Uploaded: " + escape(visibleDate) + "</time>",
                 track.trackid(), trackName, artistAlias, ratingTrackData);
@@ -416,6 +421,10 @@ public class SeoController {
         if (filesize == null || filesize < 0) {
             return "";
         }
+        return "<span class=\"track-filesize-meta\">Size: " + formatFilesize(filesize) + "</span>";
+    }
+
+    private String formatFilesize(long filesize) {
         var format = java.text.NumberFormat.getNumberInstance(java.util.Locale.US);
         format.setMaximumFractionDigits(1);
         String size;
@@ -426,7 +435,7 @@ public class SeoController {
             size = format.format(Math.round(filesize / divisor * 10) / 10.0)
                     + (filesize < 1024 * 1024 ? " Kb" : " Mb");
         }
-        return "<span class=\"track-filesize-meta\">Size: " + size + "</span>";
+        return size;
     }
 
     private String ratingHtml(Double rating) {

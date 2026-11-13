@@ -66,14 +66,17 @@
         filename.href = downloadUrl;
         filename.setAttribute('aria-label', downloadLabel);
         filename.textContent = window.formatTrackFilename(track, options.filenameFallback);
+        var formattedFilesize = window.formatFileSize(track.filesize);
+        if (formattedFilesize) {
+            appendTextElement(filename, 'span', 'track-link-filesize', ' (' + formattedFilesize + ')');
+        }
         content.appendChild(filename);
 
         if (track.audioUri && track.audioUri.trim()) {
             var mp3Link = document.createElement('a');
             mp3Link.className = 'track-file-meta track-mp3-link';
             mp3Link.href = '/api/tracks/' + encodeURIComponent(track.trackid) + '/audio';
-            mp3Link.textContent = 'Download MP3';
-            mp3Link.setAttribute('aria-label', 'Download MP3 for ' + track.trackName + ' by ' + track.artistAlias);
+            window.bindTrackAudioLink(mp3Link, track);
             content.appendChild(mp3Link);
         }
 
@@ -89,13 +92,14 @@
 
         var metadata = document.createElement('div');
         metadata.className = 'track-card-meta';
-        appendTextElement(metadata, 'span', 'track-style-meta', 'Style: ' + track.musicStyle);
-        var formattedFilesize = window.formatFileSize(track.filesize);
-        if (formattedFilesize) {
-            appendTextElement(metadata, 'span', 'track-filesize-meta', 'Size: ' + formattedFilesize);
-        }
         appendTextElement(metadata, 'span', 'track-downloads-meta', 'Downloads: ' + track.downloadCount);
         window.addTrackRatingMeta(metadata, track);
+        if (track.dateUploaded) {
+            var uploaded = appendTextElement(metadata, 'time', 'track-uploaded-meta', 'Uploaded: '
+                + new Intl.DateTimeFormat(undefined, {dateStyle: 'medium'})
+                    .format(new Date(track.dateUploaded)));
+            uploaded.dateTime = track.dateUploaded;
+        }
         content.appendChild(metadata);
 
         var actions = document.createElement('div');

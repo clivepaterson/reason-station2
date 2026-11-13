@@ -6,6 +6,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
@@ -15,8 +17,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 class S3StorageServiceTest {
+    @Test
+    void readsFilesizeFromObjectMetadata() {
+        S3Client client = mock(S3Client.class);
+        HeadObjectRequest request = HeadObjectRequest.builder()
+                .bucket("tracks").key("track-audio/preview").build();
+        when(client.headObject(request)).thenReturn(HeadObjectResponse.builder().contentLength(1572864L).build());
+        S3StorageService storage = new S3StorageService(
+                client, mock(S3Presigner.class), "tracks", Duration.ofMinutes(5));
+
+        assertEquals(1572864L, storage.getFilesize("s3://tracks/track-audio/preview"));
+        verify(client).headObject(request);
+    }
+
     @Test
     void createsPresignedDownloadUrlUsingPublicEndpoint() {
         try (S3Presigner presigner = S3Presigner.builder()
