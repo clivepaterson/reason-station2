@@ -118,7 +118,9 @@ public class TrackController {
         return findCurrentUser(authentication)
                 .<ResponseEntity<?>>map(user -> ResponseEntity.ok(
                         tracks.findByUseridWithRating(user.getUserid()).stream()
-                                .map(TrackResponse::from)
+                                .map(track -> TrackResponse.from(track,
+                                        track.imageUri() == null || track.imageUri().isBlank()
+                                                ? null : storage.createImageUrl(track.imageUri())))
                                 .toList()))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "The authenticated user was not found.")));
@@ -201,9 +203,14 @@ public class TrackController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "Track audio not found."));
         }
+        Long filesize = track.get().getAudioFilesize();
+        if (filesize == null) {
+            filesize = storage.getFilesize(track.get().getAudioUri());
+            tracks.storeMissingAudioFilesize(trackid, track.get().getAudioUri(), filesize);
+        }
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noCache())
-                .body(Map.of("filesize", storage.getFilesize(track.get().getAudioUri())));
+                .body(Map.of("filesize", filesize));
     }
 
     @GetMapping("/{trackid}/image")
@@ -397,6 +404,7 @@ public class TrackController {
             track.setTrackUri(existing.getTrackUri());
             track.setImageUri(existing.getImageUri());
             track.setAudioUri(existing.getAudioUri());
+            track.setAudioFilesize(existing.getAudioFilesize());
             track.setProgramVersion(existing.getProgramVersion());
         }
         track.setAudioLink(trimmedAudioLink.isEmpty() ? null : trimmedAudioLink);
@@ -423,6 +431,7 @@ public class TrackController {
             if (audioBytes != null) {
                 track.setAudioUri(storage.upload(
                         "track-audio/" + UUID.randomUUID(), audioBytes, "audio/mpeg"));
+                track.setAudioFilesize((long) audioBytes.length);
                 uploaded.add(track.getAudioUri());
             }
             saved = tracks.save(track);
@@ -500,19 +509,19 @@ public class TrackController {
     private record TrackResponse(Long trackid, String artistAlias, String trackName, String musicStyle,
                                  String filename, Long filesize, long downloadCount, Double averageTrackRating,
                                  java.time.Instant dateUploaded, String audioLink, String programVersion,
-                                 String imageUri, String audioUri) {
-        private static TrackResponse from(TrackWithRating track) {
+                                 String imageUri, String audioUri, Long audioFilesize, java.net.URI imageUrl) {
+        private static TrackResponse from(TrackWithRating track, java.net.URI imageUrl) {
             return new TrackResponse(track.trackid(), track.artistAlias(), track.trackName(),
                     track.musicStyle(), track.filename(), track.filesize(), track.downloadCount(),
                     track.averageTrackRating(), track.dateUploaded(), track.audioLink(), track.programVersion(),
-                    track.imageUri(), track.audioUri());
+                    track.imageUri(), track.audioUri(), track.audioFilesize(), imageUrl);
         }
 
         private static TrackResponse from(Track track, int downloadCount) {
             return new TrackResponse(track.getTrackid(), track.getArtistAlias(),
                     track.getTrackName(), track.getMusicStyle(), track.getFilename(),
                     track.getFilesize(), downloadCount, null, track.getDateUploaded(), track.getAudioLink(),
-                    track.getProgramVersion(), track.getImageUri(), track.getAudioUri());
+                    track.getProgramVersion(), track.getImageUri(), track.getAudioUri(), track.getAudioFilesize(), null);
         }
     }
 

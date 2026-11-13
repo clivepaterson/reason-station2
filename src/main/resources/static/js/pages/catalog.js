@@ -60,10 +60,10 @@
                 return [
                     artistLink(item.artistAlias),
                     patchLink(item, item.patchName),
-                    item.patchImgUri ? $('<img>')
+                    item.patchImgUri && item.patchImgUri.trim() ? $('<img>')
                         .addClass('catalog-patch-image')
                         .attr({
-                            src: '/api/patches/' + encodeURIComponent(item.patchid) + '/image',
+                            src: item.imageUrl || '/api/patches/' + encodeURIComponent(item.patchid) + '/image',
                             alt: 'Image for ' + item.patchName,
                             loading: 'lazy'
                         }) : '',

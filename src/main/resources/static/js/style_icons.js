@@ -38,7 +38,7 @@
         }
         var image = document.createElement('img');
         image.className = 'track-card-art';
-        image.src = '/api/tracks/' + encodeURIComponent(track.trackid) + '/image';
+        image.src = track.imageUrl || '/api/tracks/' + encodeURIComponent(track.trackid) + '/image';
         image.alt = 'Image for ' + track.trackName;
         image.width = 96;
         image.height = 96;

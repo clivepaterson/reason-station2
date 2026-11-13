@@ -163,12 +163,14 @@ public class SeoController {
                 "@type", "MediaObject",
                 "name", track.filename(),
                 "contentUrl", baseUrl + "/api/tracks/" + track.trackid() + "/download"));
-        String ratingTrackData = toJson(Map.of(
+        Map<String, Object> trackData = new LinkedHashMap<>(Map.of(
                 "trackid", track.trackid(),
                 "trackName", track.trackName(),
                 "artistAlias", track.artistAlias(),
                 "musicStyle", track.musicStyle(),
                 "imageUri", track.imageUri() == null ? "" : track.imageUri()));
+        trackData.put("audioFilesize", track.audioFilesize());
+        String ratingTrackData = toJson(trackData);
 
         return """
                 <!DOCTYPE html>

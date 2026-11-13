@@ -33,9 +33,14 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -105,6 +110,7 @@ class TrackControllerTest {
         assertEquals(null, savedTrack.getValue().getAudioLink());
         assertEquals(null, savedTrack.getValue().getImageUri());
         assertEquals(null, savedTrack.getValue().getAudioUri());
+        assertEquals(null, savedTrack.getValue().getAudioFilesize());
         assertEquals(null, savedTrack.getValue().getProgramVersion());
     }
 
@@ -246,10 +252,12 @@ class TrackControllerTest {
         when(authentication.getName()).thenReturn("listener");
         when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
         String audioLink = "https://soundcloud.com/artist/song";
+        String imageUrl = "https://storage.example/cover?signature=test";
+        when(storage.createImageUrl("s3://tracks/track-images/cover")).thenReturn(URI.create(imageUrl));
         when(tracks.findByUseridWithRating(7L)).thenReturn(java.util.List.of(
                 new TrackWithRating(42L, 7L, "Artist", "Track", "Rock", "song.reason", 3L,
                         "s3://tracks/song", java.time.Instant.now(), null, 0, audioLink, "13.2.1",
-                        "s3://tracks/track-images/cover", "s3://tracks/track-audio/preview")));
+                        "s3://tracks/track-images/cover", "s3://tracks/track-audio/preview", 1572864L)));
 
         standaloneSetup(controller).build()
                 .perform(get("/api/tracks/me").principal(authentication))
@@ -257,7 +265,28 @@ class TrackControllerTest {
                 .andExpect(jsonPath("$[0].audioLink").value(audioLink))
                 .andExpect(jsonPath("$[0].programVersion").value("13.2.1"))
                 .andExpect(jsonPath("$[0].imageUri").value("s3://tracks/track-images/cover"))
-                .andExpect(jsonPath("$[0].audioUri").value("s3://tracks/track-audio/preview"));
+                .andExpect(jsonPath("$[0].imageUrl").value(imageUrl))
+                .andExpect(jsonPath("$[0].audioUri").value("s3://tracks/track-audio/preview"))
+                .andExpect(jsonPath("$[0].audioFilesize").value(1572864));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "   ")
+    void listsCurrentUserTracksWithoutSigningMissingImages(String imageUri) throws Exception {
+        when(authentication.getName()).thenReturn("listener");
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(tracks.findByUseridWithRating(7L)).thenReturn(java.util.List.of(
+                new TrackWithRating(42L, 7L, "Artist", "Track", "Rock", "song.reason", 3L,
+                        "s3://tracks/song", java.time.Instant.now(), null, 0, null, null,
+                        imageUri, null, null)));
+
+        standaloneSetup(controller).build()
+                .perform(get("/api/tracks/me").principal(authentication))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].imageUrl").doesNotExist());
+
+        verifyNoInteractions(storage);
     }
 
     @Test
@@ -282,9 +311,8 @@ class TrackControllerTest {
     void audioMetadataReflectsReplacementWithoutAllowingCachedResponses() throws Exception {
         Track track = new Track();
         track.setAudioUri("s3://tracks/track-audio/old");
+        track.setAudioFilesize(100L);
         when(tracks.findById(42L)).thenReturn(Optional.of(track));
-        when(storage.getFilesize("s3://tracks/track-audio/old")).thenReturn(100L);
-        when(storage.getFilesize("s3://tracks/track-audio/new")).thenReturn(200L);
         var mvc = standaloneSetup(controller).build();
 
         mvc.perform(get("/api/tracks/42/audio/metadata"))
@@ -293,11 +321,13 @@ class TrackControllerTest {
                 .andExpect(header().string("Cache-Control", "no-cache"));
 
         track.setAudioUri("s3://tracks/track-audio/new");
+        track.setAudioFilesize(200L);
         mvc.perform(get("/api/tracks/42/audio/metadata"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filesize").value(200))
                 .andExpect(header().string("Cache-Control", "no-cache"));
-        verifyNoInteractions(downloads);
+        verifyNoInteractions(storage, downloads);
+        verify(tracks, never()).storeMissingAudioFilesize(anyLong(), any(), anyLong());
     }
 
     @ParameterizedTest
@@ -331,7 +361,7 @@ class TrackControllerTest {
     }
 
     @Test
-    void returnsAudioFilesizeWithoutDownloadingOrCountingAReasonDownload() throws Exception {
+    void storesMissingAudioFilesizeWithoutDownloadingOrCountingAReasonDownload() throws Exception {
         Track track = new Track();
         track.setAudioUri("s3://tracks/track-audio/preview");
         when(tracks.findById(42L)).thenReturn(Optional.of(track));
@@ -345,6 +375,58 @@ class TrackControllerTest {
 
         assertEquals("no-cache", response.getHeader("Cache-Control"));
         verify(storage).getFilesize(track.getAudioUri());
+        verify(tracks).storeMissingAudioFilesize(42L, track.getAudioUri(), 1572864L);
+        verifyNoMoreInteractions(storage);
+        verifyNoInteractions(downloads);
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 1572864})
+    void returnsStoredAudioFilesizeWithoutAccessingStorage(long filesize) throws Exception {
+        Track track = new Track();
+        track.setAudioUri("s3://tracks/track-audio/preview");
+        track.setAudioFilesize(filesize);
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+
+        standaloneSetup(controller).build()
+                .perform(get("/api/tracks/42/audio/metadata"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filesize").value(filesize))
+                .andExpect(header().string("Cache-Control", "no-cache"));
+
+        verify(tracks, never()).storeMissingAudioFilesize(anyLong(), any(), anyLong());
+        verifyNoInteractions(storage, downloads);
+    }
+
+    @Test
+    void failedAudioFilesizeLookupDoesNotStoreSize() {
+        Track track = new Track();
+        track.setAudioUri("s3://tracks/track-audio/preview");
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+        var failure = new IllegalStateException("Storage unavailable");
+        when(storage.getFilesize(track.getAudioUri())).thenThrow(failure);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> controller.trackAudioMetadata(42L)));
+
+        verify(tracks, never()).storeMissingAudioFilesize(anyLong(), any(), anyLong());
+        verify(storage).getFilesize(track.getAudioUri());
+        verifyNoMoreInteractions(storage);
+        verifyNoInteractions(downloads);
+    }
+
+    @Test
+    void propagatesAudioFilesizePersistenceFailure() {
+        Track track = new Track();
+        track.setAudioUri("s3://tracks/track-audio/preview");
+        when(tracks.findById(42L)).thenReturn(Optional.of(track));
+        when(storage.getFilesize(track.getAudioUri())).thenReturn(1572864L);
+        var failure = new IllegalStateException("Database unavailable");
+        doThrow(failure).when(tracks).storeMissingAudioFilesize(42L, track.getAudioUri(), 1572864L);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> controller.trackAudioMetadata(42L)));
+
+        verify(storage).getFilesize(track.getAudioUri());
+        verifyNoMoreInteractions(storage);
         verifyNoInteractions(downloads);
     }
 

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -80,6 +81,8 @@ class PatchControllerTest {
                 "bass.thor", ".thor", 3L, "s3://tracks/patch-images/bass",
                 java.time.Instant.now(), 8.5);
         when(patches.findWithRatingsByUserid(7L)).thenReturn(List.of(patch));
+        String imageUrl = "https://storage.example/bass?signature=test";
+        when(storage.createImageUrl(patch.patchImgUri())).thenReturn(URI.create(imageUrl));
         MockMvc mvc = standaloneSetup(controller).build();
 
         mvc.perform(get("/api/patches/me").principal(authentication))
@@ -94,9 +97,27 @@ class PatchControllerTest {
                 .andExpect(jsonPath("$[0].averagePatchRating").value(8.5))
                 .andExpect(jsonPath("$[0].dateUploaded").exists())
                 .andExpect(jsonPath("$[0].patchImgUri").value("s3://tracks/patch-images/bass"))
+                .andExpect(jsonPath("$[0].imageUrl").value(imageUrl))
                 .andExpect(jsonPath("$[0].userid").doesNotExist());
 
         verify(patches).findWithRatingsByUserid(7L);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "   ")
+    void listsPatchesWithoutSigningMissingImages(String imageUri) throws Exception {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(patches.findWithRatingsByUserid(7L)).thenReturn(List.of(
+                new PatchWithRating(4L, "Artist", "Bass", "Warm bass",
+                        "bass.thor", ".thor", 3L, imageUri, java.time.Instant.now(), 8.5)));
+
+        standaloneSetup(controller).build()
+                .perform(get("/api/patches/me").principal(authentication))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].imageUrl").doesNotExist());
+
+        verifyNoInteractions(storage);
     }
 
     @Test

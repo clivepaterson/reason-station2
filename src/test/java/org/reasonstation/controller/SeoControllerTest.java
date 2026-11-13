@@ -58,6 +58,7 @@ class SeoControllerTest {
         assertTrue(html.contains("<script src=\"/js/copy_link.js\"></script>"));
         assertTrue(html.contains("window.createCopyLinkButton('/tracks/' + encodeURIComponent(track.trackid), track.trackName)"));
         assertTrue(html.contains("\"trackid\":42"));
+        assertTrue(html.contains("\"audioFilesize\":1572864"));
         assertTrue(html.contains("class=\"track-card-art\""));
         assertTrue(html.contains("<script src=\"/js/style_icons.js\"></script>"));
         assertTrue(html.contains("window.createTrackArt(track)"));
@@ -92,7 +93,7 @@ class SeoControllerTest {
                 track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
                 track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
                 track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), null, track.programVersion(),
-                track.imageUri(), track.audioUri())));
+                track.imageUri(), track.audioUri(), track.audioFilesize())));
 
         assertFalse(controller.trackPage(42L).getBody().contains("track-audio-link"));
     }
@@ -112,7 +113,7 @@ class SeoControllerTest {
                 track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
                 track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
                 track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), track.audioLink(), null,
-                track.imageUri(), track.audioUri())));
+                track.imageUri(), track.audioUri(), track.audioFilesize())));
 
         assertTrue(controller.trackPage(42L).getBody().contains(
                 ">signal.reason<span class=\"track-link-filesize\"> (1 Kb)</span></a>"));
@@ -135,7 +136,7 @@ class SeoControllerTest {
                 track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
                 track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
                 track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), track.audioLink(),
-                track.programVersion(), "s3://tracks/track-images/cover", track.audioUri())));
+                track.programVersion(), "s3://tracks/track-images/cover", track.audioUri(), track.audioFilesize())));
 
         String html = controller.trackPage(42L).getBody();
 
@@ -154,11 +155,12 @@ class SeoControllerTest {
                 track.trackid(), track.userid(), track.artistAlias(), track.trackName(),
                 track.musicStyle(), track.filename(), track.filesize(), track.trackUri(),
                 track.dateUploaded(), track.averageTrackRating(), track.downloadCount(), track.audioLink(),
-                track.programVersion(), track.imageUri(), audioUri)));
+                track.programVersion(), track.imageUri(), audioUri, null)));
 
         String html = controller.trackPage(42L).getBody();
 
         assertFalse(html.contains("class=\"track-file-meta track-mp3-link\""));
+        assertTrue(html.contains("\"audioFilesize\":null"));
         assertTrue(html.contains("track-audio-link"));
     }
 
@@ -285,6 +287,6 @@ class SeoControllerTest {
                 "signal.reason", 1024L, "s3://tracks/signal",
                 Instant.parse("2026-11-03T10:15:30Z"), 8.5, 12,
                 "https://soundcloud.com/artist/song?one=1&two=2", "13.2.1", null,
-                "s3://tracks/track-audio/preview");
+                "s3://tracks/track-audio/preview", 1572864L);
     }
 }

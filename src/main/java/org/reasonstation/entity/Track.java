@@ -41,6 +41,9 @@ public class Track {
     @Column("audio_uri")
     private String audioUri;
 
+    @Column("audio_filesize")
+    private Long audioFilesize;
+
     @Column("program_version")
     private String programVersion;
 
@@ -175,6 +178,14 @@ public class Track {
 
     public void setAudioUri(String audioUri) {
         this.audioUri = audioUri;
+    }
+
+    public Long getAudioFilesize() {
+        return audioFilesize;
+    }
+
+    public void setAudioFilesize(Long audioFilesize) {
+        this.audioFilesize = audioFilesize;
     }
 
     public void setProgramVersion(String programVersion) {

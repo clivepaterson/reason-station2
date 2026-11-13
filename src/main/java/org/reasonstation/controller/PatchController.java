@@ -68,7 +68,11 @@ public class PatchController {
     public ResponseEntity<?> myPatches(Authentication authentication) {
         return users.findByAlias(authentication.getName())
                 .map(user -> ResponseEntity.ok(
-                        patches.findWithRatingsByUserid(user.getUserid())))
+                        patches.findWithRatingsByUserid(user.getUserid()).stream()
+                                .map(patch -> PatchCardResponse.from(patch,
+                                        patch.patchImgUri() == null || patch.patchImgUri().isBlank()
+                                                ? null : storage.createImageUrl(patch.patchImgUri())))
+                                .toList()))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 

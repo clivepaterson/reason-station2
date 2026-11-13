@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -14,6 +15,7 @@ import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.TrackSearchResult;
+import org.reasonstation.service.S3StorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -33,12 +35,14 @@ class DiscoveryControllerTest {
     private TrackRepository tracks;
     @Mock
     private PatchRepository patches;
+    @Mock
+    private S3StorageService storage;
 
     private DiscoveryController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new DiscoveryController(tracks, patches);
+        controller = new DiscoveryController(tracks, patches, storage);
     }
 
     @Test
@@ -52,8 +56,34 @@ class DiscoveryControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, ((List<?>) response.getBody()).size());
-        assertEquals(8.5, ((PatchWithRating) ((List<?>) response.getBody()).getFirst()).averagePatchRating());
+        assertEquals(8.5, ((PatchCardResponse) ((List<?>) response.getBody()).getFirst()).averagePatchRating());
         verify(patches).findWithRatingsByArtistAlias("Artist");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "s3://tracks/patch-images/bass"})
+    void includesImageUrlsInArtistPatchFeed(String imageUri) throws Exception {
+        boolean hasImage = imageUri != null && !imageUri.isBlank();
+        String imageUrl = hasImage ? "https://storage.example/bass?signature=test" : null;
+        if (hasImage) {
+            when(storage.createImageUrl(imageUri)).thenReturn(java.net.URI.create(imageUrl));
+        }
+        when(patches.findWithRatingsByArtistAlias("Artist")).thenReturn(List.of(
+                new PatchWithRating(7L, "Artist", "Warm Bass", "Bass patch",
+                        "warm-bass.thor", ".thor", 1024L, imageUri, java.time.Instant.now(), 8.5)));
+
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/artist-patches").param("artistAlias", "Artist"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].patchImgUri").value(imageUri))
+                .andExpect(jsonPath("$[0].imageUrl").value(imageUrl))
+                .andExpect(jsonPath("$[0].averagePatchRating").value(8.5))
+                .andExpect(jsonPath("$[0].filesize").value(1024));
+
+        if (!hasImage) {
+            verifyNoInteractions(storage);
+        }
     }
 
     @Test
@@ -101,17 +131,20 @@ class DiscoveryControllerTest {
     void includesAudioLinksAndProgramVersionsInAllTrackCardFeeds(String programVersion) throws Exception {
         String audioLink = "https://audiomack.com/artist/song/track";
         String imageUri = "s3://tracks/track-images/cover";
+        String imageUrl = "https://storage.example/cover?signature=test";
+        when(storage.createImageUrl(imageUri)).thenReturn(java.net.URI.create(imageUrl));
         String audioUri = "s3://tracks/track-audio/preview";
+        Long audioFilesize = programVersion == null ? null : 1572864L;
         var track = new TrackWithRating(42L, 7L, "Artist", "Track", "Rock",
                 "song.reason", 3L, "s3://tracks/song", java.time.Instant.now(), 8.0, 2, audioLink, programVersion,
-                imageUri, audioUri);
+                imageUri, audioUri, audioFilesize);
         when(tracks.findRandomTracks(10)).thenReturn(List.of(track));
         when(tracks.findByArtistAlias("Artist")).thenReturn(List.of(track));
         when(tracks.searchByArtistAliasOrTrackName("Track", 20, 0)).thenReturn(List.of(
                 new TrackSearchResult(track.trackid(), track.artistAlias(), track.trackName(),
                         track.musicStyle(), track.filename(), track.filesize(), track.dateUploaded(),
                         track.averageTrackRating(), track.downloadCount(), audioLink, track.programVersion(),
-                        imageUri, audioUri)));
+                        imageUri, audioUri, audioFilesize)));
         when(tracks.countByArtistAliasOrTrackName("Track")).thenReturn(1L);
         var mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
@@ -119,19 +152,25 @@ class DiscoveryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].audioLink").value(audioLink))
                 .andExpect(jsonPath("$[0].imageUri").value(imageUri))
+                .andExpect(jsonPath("$[0].imageUrl").value(imageUrl))
                 .andExpect(jsonPath("$[0].audioUri").value(audioUri))
+                .andExpect(jsonPath("$[0].audioFilesize").value(audioFilesize))
                 .andExpect(jsonPath("$[0].programVersion").value(programVersion));
         mockMvc.perform(get("/api/discovery/artist-tracks").param("artistAlias", "Artist"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].audioLink").value(audioLink))
                 .andExpect(jsonPath("$[0].imageUri").value(imageUri))
+                .andExpect(jsonPath("$[0].imageUrl").value(imageUrl))
                 .andExpect(jsonPath("$[0].audioUri").value(audioUri))
+                .andExpect(jsonPath("$[0].audioFilesize").value(audioFilesize))
                 .andExpect(jsonPath("$[0].programVersion").value(programVersion));
         mockMvc.perform(get("/api/discovery/search").param("query", "Track"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.results[0].audioLink").value(audioLink))
                 .andExpect(jsonPath("$.results[0].imageUri").value(imageUri))
+                .andExpect(jsonPath("$.results[0].imageUrl").value(imageUrl))
                 .andExpect(jsonPath("$.results[0].audioUri").value(audioUri))
+                .andExpect(jsonPath("$.results[0].audioFilesize").value(audioFilesize))
                 .andExpect(jsonPath("$.results[0].programVersion").value(programVersion));
     }
 
@@ -141,6 +180,23 @@ class DiscoveryControllerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verifyNoInteractions(tracks);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "   ")
+    void listsArtistTracksWithoutSigningMissingImages(String imageUri) throws Exception {
+        when(tracks.findByArtistAlias("Artist")).thenReturn(List.of(
+                new TrackWithRating(42L, 7L, "Artist", "Track", "Rock", "song.reason", 3L,
+                        "s3://tracks/song", java.time.Instant.now(), null, 0, null, null,
+                        imageUri, null, null)));
+
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/artist-tracks").param("artistAlias", "Artist"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].imageUrl").doesNotExist());
+
+        verifyNoInteractions(storage);
     }
 
     @Test

@@ -26,6 +26,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.program_version,
                    t.image_uri,
                    t.audio_uri,
+                   t.audio_filesize,
                    t.date_uploaded,
                    (SELECT AVG(r.rating)
                     FROM track_ratings r
@@ -51,6 +52,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.program_version,
                    t.image_uri,
                    t.audio_uri,
+                   t.audio_filesize,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(d.ip_address) AS download_count
@@ -69,6 +71,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.program_version,
                      t.image_uri,
                      t.audio_uri,
+                     t.audio_filesize,
                      t.date_uploaded
             ORDER BY RANDOM()
             LIMIT :limit
@@ -183,6 +186,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.program_version,
                    t.image_uri,
                    t.audio_uri,
+                   t.audio_filesize,
                    t.date_uploaded,
                    (SELECT AVG(r.rating)
                     FROM track_ratings r
@@ -220,6 +224,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.program_version,
                    t.image_uri,
                    t.audio_uri,
+                   t.audio_filesize,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(d.ip_address) AS download_count
@@ -239,6 +244,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.program_version,
                      t.image_uri,
                      t.audio_uri,
+                     t.audio_filesize,
                      t.date_uploaded
             ORDER BY t.date_uploaded DESC
             """)
@@ -265,6 +271,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.program_version,
                    t.image_uri,
                    t.audio_uri,
+                   t.audio_filesize,
                    t.date_uploaded,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(*) AS download_count
@@ -283,6 +290,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.program_version,
                      t.image_uri,
                      t.audio_uri,
+                     t.audio_filesize,
                      t.date_uploaded
             ORDER BY t.artist_alias,
                      t.track_name,
@@ -302,6 +310,18 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                OR t.track_name ILIKE CONCAT('%', :searchTerm, '%')
             """)
     long countByArtistAliasOrTrackName(@Param("searchTerm") String searchTerm);
+
+    @Modifying
+    @Query("""
+            UPDATE tracks
+            SET audio_filesize = :filesize
+            WHERE trackid = :trackid
+              AND audio_uri = :audioUri
+              AND audio_filesize IS NULL
+            """)
+    void storeMissingAudioFilesize(@Param("trackid") Long trackid,
+                                   @Param("audioUri") String audioUri,
+                                   @Param("filesize") long filesize);
     
     /**
      * Find a track by user and filename

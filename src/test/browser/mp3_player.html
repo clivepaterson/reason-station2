@@ -54,12 +54,14 @@
     window.addTrackRatingMeta = function() {};
     window.createRateTrackButton = function() { return document.createElement('button'); };
     window.createCopyLinkButton = function() { return document.createElement('button'); };
+    var metadataRequests = [];
     window.fetch = function(url) {
         if (!/^\/api\/tracks\/\d+\/audio\/metadata$/.test(url)) {
             return Promise.reject(new Error('Unexpected request: ' + url));
         }
+        metadataRequests.push(url);
         return Promise.resolve({
-            ok: true,
+            ok: url !== '/api/tracks/6/audio/metadata',
             json: function() { return Promise.resolve({filesize: 1572864}); }
         });
     };
@@ -84,6 +86,7 @@
                 trackid: id, trackName: 'Track <' + id + '>', artistAlias: 'Artist & ' + id,
                 musicStyle: 'Electronic', imageUri: id === 1 ? 's3://tracks/image' : null,
                 audioUri: 's3://tracks/audio', filename: 'song.reason', filesize: 1024, downloadCount: 0,
+                audioFilesize: 1572864,
                 dateUploaded: '2026-11-03T12:00:00Z'
             };
         }
@@ -99,9 +102,29 @@
             noAudio.audioUri = null;
             assert(!addCard(noAudio).querySelector('.track-mp3-link'), 'No player link without uploaded audio');
             assert(!document.querySelector('.mp3-player'), 'Player is lazy and absent before playback');
-            assert(first.textContent === 'Play MP3', 'Card exposes playback action');
+            assert(first.textContent === 'Play MP3 (1.5 Mb)', 'MP3 link immediately shows stored file size');
+            assert(metadataRequests.length === 0, 'Stored MP3 sizes avoid metadata requests');
+            var legacy = track(5);
+            legacy.audioFilesize = null;
+            var legacyLink = addCard(legacy).querySelector('.track-mp3-link');
+            assert(legacyLink.textContent === 'Play MP3', 'Legacy MP3 remains playable while size loads');
             await frame();
-            assert(first.textContent === 'Play MP3 (1.5 Mb)', 'MP3 link shows its own file size');
+            assert(legacyLink.textContent === 'Play MP3 (1.5 Mb)', 'Legacy MP3 retrieves its missing size');
+            assert(metadataRequests.length === 1 && metadataRequests[0] === '/api/tracks/5/audio/metadata',
+                'Only missing sizes need metadata requests');
+            assert(legacy.audioFilesize === 1572864, 'Retrieved size is retained on track data');
+            addCard(legacy);
+            assert(metadataRequests.length === 1, 'Rebinding resolved track data avoids another request');
+            var unavailable = track(6);
+            delete unavailable.audioFilesize;
+            var unavailableLink = addCard(unavailable).querySelector('.track-mp3-link');
+            await frame();
+            assert(unavailableLink.textContent === 'Play MP3 (size unavailable)', 'Metadata failures remain visible');
+            var emptyAudio = track(7);
+            emptyAudio.audioFilesize = 0;
+            assert(addCard(emptyAudio).querySelector('.track-mp3-link').textContent === 'Play MP3 (0 bytes)',
+                'Stored zero-byte size is not treated as missing');
+            assert(metadataRequests.length === 2, 'Known zero-byte size avoids metadata request');
             var firstCard = first.closest('.track-card');
             assert(firstCard.querySelector('a.track-file-meta').textContent === 'song.reason (1 Kb)',
                 'Reason download link shows its own file size');

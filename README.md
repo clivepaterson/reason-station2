@@ -83,6 +83,13 @@ Playback continues during in-page navigation, but not across full page loads.
 MP3 playback and downloads use `/api/tracks/{trackid}/audio` with a signed download
 URL. The optional external audio link remains visible independently.
 
+Migration V13 adds nullable `tracks.audio_filesize` (bytes). MP3 uploads and
+replacements save this size alongside `audio_uri`; track-card API responses include
+it as `audioFilesize`, avoiding per-card metadata requests when the size is known.
+For older MP3s with no stored size, `/api/tracks/{trackid}/audio/metadata` reads S3
+metadata once and persists the size for subsequent requests. The update only applies
+if the audio URI is unchanged, so it cannot overwrite a replacement MP3's size.
+
 Keep the bucket private, enable encryption at rest, use HTTPS in production,
 and scope the application's S3 permissions to the required bucket/prefixes.
 Enable S3 access logging, CloudTrail data events, and CloudWatch metrics, with

@@ -17,5 +17,6 @@ public record TrackWithRating(
         String audioLink,
         String programVersion,
         String imageUri,
-        String audioUri) {
+        String audioUri,
+        Long audioFilesize) {
 }

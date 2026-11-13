@@ -12,11 +12,13 @@
         var item = document.createElement('article');
         item.className = 'track-card patch-card';
         var image = document.createElement('img');
+        var hasImage = patch.patchImgUri && patch.patchImgUri.trim();
         image.className = 'track-card-art patch-card-image';
-        image.src = patch.patchImgUri ? '/api/patches/' + id + '/image' : '/images/icon-patch.svg';
-        image.alt = patch.patchImgUri ? 'Image for ' + patch.patchName : '';
+        image.src = hasImage
+            ? patch.imageUrl || '/api/patches/' + id + '/image' : '/images/icon-patch.svg';
+        image.alt = hasImage ? 'Image for ' + patch.patchName : '';
         image.loading = 'lazy';
-        if (patch.patchImgUri) {
+        if (hasImage) {
             window.enableImageZoom(image);
         }
         item.appendChild(image);

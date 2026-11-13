@@ -70,13 +70,15 @@ class TrackMediaUploadTest {
 
         standaloneSetup(controller).build().perform(request).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.imageUri").value(withImage ? "s3://tracks/track-images/object" : null))
-                .andExpect(jsonPath("$.audioUri").value(withAudio ? "s3://tracks/track-audio/object" : null));
+                .andExpect(jsonPath("$.audioUri").value(withAudio ? "s3://tracks/track-audio/object" : null))
+                .andExpect(jsonPath("$.audioFilesize").value(withAudio ? (long) audio.length : null));
 
         var saved = ArgumentCaptor.forClass(Track.class);
         verify(tracks).save(saved.capture());
         assertEquals("s3://tracks/tracks/object", saved.getValue().getTrackUri());
         assertEquals(withImage ? "s3://tracks/track-images/object" : null, saved.getValue().getImageUri());
         assertEquals(withAudio ? "s3://tracks/track-audio/object" : null, saved.getValue().getAudioUri());
+        assertEquals(withAudio ? (long) audio.length : null, saved.getValue().getAudioFilesize());
         if (withImage) {
             verify(storage).upload(startsWith("track-images/"), eq(image), eq("image/png"));
         }
@@ -140,6 +142,10 @@ class TrackMediaUploadTest {
         var response = upload(part.equals("image") ? media : null, part.equals("audio") ? media : null);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        var saved = ArgumentCaptor.forClass(Track.class);
+        verify(tracks).save(saved.capture());
+        assertEquals(part.equals("audio") ? (long) audioBytes().length : null,
+                saved.getValue().getAudioFilesize());
     }
 
     @ParameterizedTest
@@ -161,6 +167,9 @@ class TrackMediaUploadTest {
                 new MockMultipartFile("audio", new byte[0]));
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(storage).upload(any(), any(), any());
+        var saved = ArgumentCaptor.forClass(Track.class);
+        verify(tracks).save(saved.capture());
+        assertNull(saved.getValue().getAudioFilesize());
     }
 
     @Test

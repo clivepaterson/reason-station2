@@ -3,6 +3,7 @@ package org.reasonstation.controller;
 import org.reasonstation.entity.Track;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
+import org.reasonstation.service.S3StorageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,10 +21,12 @@ public class DiscoveryController {
 
     private final TrackRepository tracks;
     private final PatchRepository patches;
+    private final S3StorageService storage;
 
-    public DiscoveryController(TrackRepository tracks, PatchRepository patches) {
+    public DiscoveryController(TrackRepository tracks, PatchRepository patches, S3StorageService storage) {
         this.tracks = tracks;
         this.patches = patches;
+        this.storage = storage;
     }
 
     @GetMapping("/artists")
@@ -55,7 +58,8 @@ public class DiscoveryController {
                         track.filesize(),
                         track.downloadCount(),
                         track.averageTrackRating(),
-                        track.dateUploaded(), track.audioLink(), track.programVersion(), track.imageUri(), track.audioUri()))
+                        track.dateUploaded(), track.audioLink(), track.programVersion(), track.imageUri(),
+                        track.audioUri(), track.audioFilesize(), imageUrl(track.imageUri())))
                 .toList();
     }
 
@@ -129,7 +133,8 @@ public class DiscoveryController {
                         track.filesize(),
                         track.downloadCount(),
                         track.averageTrackRating(),
-                        track.dateUploaded(), track.audioLink(), track.programVersion(), track.imageUri(), track.audioUri()))
+                        track.dateUploaded(), track.audioLink(), track.programVersion(), track.imageUri(),
+                        track.audioUri(), track.audioFilesize(), imageUrl(track.imageUri())))
                 .toList());
     }
 
@@ -139,7 +144,9 @@ public class DiscoveryController {
         if (normalizedAlias == null) {
             return invalidArtistAlias();
         }
-        return ResponseEntity.ok(patches.findWithRatingsByArtistAlias(normalizedAlias));
+        return ResponseEntity.ok(patches.findWithRatingsByArtistAlias(normalizedAlias).stream()
+                .map(patch -> PatchCardResponse.from(patch, imageUrl(patch.patchImgUri())))
+                .toList());
     }
 
     @GetMapping("/search")
@@ -181,7 +188,8 @@ public class DiscoveryController {
                         track.filesize(),
                         track.downloadCount(),
                         track.averageTrackRating(),
-                        track.dateUploaded(), track.audioLink(), track.programVersion(), track.imageUri(), track.audioUri()))
+                        track.dateUploaded(), track.audioLink(), track.programVersion(), track.imageUri(),
+                        track.audioUri(), track.audioFilesize(), imageUrl(track.imageUri())))
                 .toList();
 
         return ResponseEntity.ok(new TrackSearchPageResponse(
@@ -190,6 +198,10 @@ public class DiscoveryController {
                 SEARCH_PAGE_SIZE,
                 totalElements,
                 totalPages));
+    }
+
+    private java.net.URI imageUrl(String imageUri) {
+        return imageUri == null || imageUri.isBlank() ? null : storage.createImageUrl(imageUri);
     }
 
     private String normalizeArtistAlias(String artistAlias) {
@@ -228,7 +240,9 @@ public class DiscoveryController {
             String audioLink,
             String programVersion,
             String imageUri,
-            String audioUri) {
+            String audioUri,
+            Long audioFilesize,
+            java.net.URI imageUrl) {
     }
 
 }

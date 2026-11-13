@@ -1,6 +1,7 @@
 package org.reasonstation.controller;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.reasonstation.entity.Patch;
@@ -54,6 +55,7 @@ class OwnerEditingTest {
         track.setProgramVersion("13.2.1");
         track.setImageUri("s3://bucket/old-image");
         track.setAudioUri("s3://bucket/old-audio");
+        track.setAudioFilesize(123456L);
         track.setAudioLink("https://soundcloud.com/artist/song");
         track.setDateUploaded(uploaded);
         patch = new Patch(7L, "Artist", "Patch", "Old description",
@@ -89,6 +91,7 @@ class OwnerEditingTest {
         if (isTrack) {
             verify(tracks).save(argThat(saved -> saved.getProgramVersion().equals("13.2.1")
                     && saved.getAudioUri().equals(track.getAudioUri())
+                    && saved.getAudioFilesize().equals(123456L)
                     && saved.getImageUri().equals(track.getImageUri())
                     && saved.getDateUploaded().equals(uploaded)
                     && saved.getAudioLink().equals("https://audiomack.com/new")));
@@ -110,6 +113,7 @@ class OwnerEditingTest {
         if (isTrack) {
             verify(tracks).save(argThat(saved -> saved.getTrackUri().equals(track.getTrackUri())
                     && saved.getProgramVersion().equals(track.getProgramVersion())
+                    && saved.getAudioFilesize().equals(123456L)
                     && saved.getAudioLink().equals(track.getAudioLink())));
         } else {
             verify(patches).save(argThat(saved -> saved.getPatchUri().equals(patch.getPatchUri())
@@ -128,6 +132,7 @@ class OwnerEditingTest {
             verify(tracks).save(argThat(saved -> saved.getProgramVersion().equals("13.2.1")
                     && saved.getTrackUri().equals(track.getTrackUri())
                     && saved.getAudioUri().equals(track.getAudioUri())
+                    && saved.getAudioFilesize().equals(123456L)
                     && saved.getImageUri().equals("s3://bucket/new-track-images")));
         } else {
             verify(patches).save(argThat(saved -> saved.getPatchUri().equals(patch.getPatchUri())
@@ -151,6 +156,33 @@ class OwnerEditingTest {
         verify(patches, never()).save(any());
     }
 
+    @Test
+    void replacingOnlyReasonFileRetainsAudioFilesize() throws Exception {
+        assertEquals(HttpStatus.OK, edit(true, file(true), null, null).getStatusCode());
+
+        verify(tracks).save(argThat(saved -> saved.getAudioFilesize().equals(123456L)
+                && saved.getAudioUri().equals("s3://bucket/old-audio")
+                && saved.getFilename().equals("new.rps")));
+        verify(storage, never()).delete("s3://bucket/old-audio");
+    }
+
+    @Test
+    void replacingOnlyAudioUpdatesFilesizeAndRetainsReasonFile() throws Exception {
+        var audio = audio();
+        standaloneSetup(trackController).build()
+                .perform(multipart(HttpMethod.PUT, path(true)).file(audio).principal(auth)
+                        .param("artistAlias", "Artist").param("trackName", "Track")
+                        .param("musicStyle", "Rock"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.audioFilesize").value(audio.getSize()));
+
+        verify(tracks).save(argThat(saved -> saved.getAudioFilesize().equals(audio.getSize())
+                && saved.getAudioUri().equals("s3://bucket/new-track-audio")
+                && saved.getTrackUri().equals("s3://bucket/old-file")));
+        verify(storage).delete("s3://bucket/old-audio");
+        verify(storage, never()).delete("s3://bucket/old-file");
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void replacesFilesAndDeletesOldObjectsOnlyAfterSave(boolean isTrack) throws Exception {
@@ -161,6 +193,7 @@ class OwnerEditingTest {
             order.verify(tracks).save(argThat(saved -> saved.getTrackid().equals(42L)
                     && saved.getFilename().equals("new.rps") && saved.getFilesize().equals(12L)
                     && saved.getProgramVersion().equals("1.0.0")
+                    && saved.getAudioFilesize().equals(audio().getSize())
                     && saved.getDateUploaded().equals(uploaded)));
         } else {
             order.verify(patches).save(argThat(saved -> saved.getPatchid().equals(42L)

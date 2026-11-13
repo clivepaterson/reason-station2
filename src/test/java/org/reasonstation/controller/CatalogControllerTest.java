@@ -5,10 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.repository.CatalogRepository;
 import org.reasonstation.repository.CatalogRepository.SortDirection;
+import org.reasonstation.service.S3StorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -17,18 +19,25 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 @ExtendWith(MockitoExtension.class)
 class CatalogControllerTest {
     @Mock
     private CatalogRepository catalog;
+    @Mock
+    private S3StorageService storage;
 
     private CatalogController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new CatalogController(catalog);
+        controller = new CatalogController(catalog, storage);
     }
 
     @Test
@@ -100,6 +109,41 @@ class CatalogControllerTest {
                 1, "dateUploaded", "desc", "Bass.01"));
         verify(catalog).findPatches(
                 1, 25, "dateUploaded", SortDirection.DESC, "Bass.01");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "s3://tracks/patch-images/bass"})
+    void includesImageUrlsInPatchCatalogWithoutChangingPagination(String imageUri) throws Exception {
+        boolean hasImage = imageUri != null && !imageUri.isBlank();
+        String imageUrl = hasImage ? "https://storage.example/bass?signature=test" : null;
+        if (hasImage) {
+            when(storage.createImageUrl(imageUri)).thenReturn(java.net.URI.create(imageUrl));
+        }
+        var patch = new CatalogRepository.PatchListItem(4L, "Artist", "Bass", "Warm bass",
+                "bass.thor", ".thor", java.time.Instant.now(), imageUri);
+        when(catalog.findPatches(2, 25, "dateUploaded", SortDirection.DESC, ""))
+                .thenReturn(new CatalogRepository.PagedResult<>(List.of(patch), 2, 25, 26, 2));
+
+        standaloneSetup(controller).build()
+                .perform(get("/api/catalog/patches").param("page", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].patchid").value(4))
+                .andExpect(jsonPath("$.items[0].patchName").value("Bass"))
+                .andExpect(jsonPath("$.items[0].description").value("Warm bass"))
+                .andExpect(jsonPath("$.items[0].filename").value("bass.thor"))
+                .andExpect(jsonPath("$.items[0].ext").value(".thor"))
+                .andExpect(jsonPath("$.items[0].dateUploaded").exists())
+                .andExpect(jsonPath("$.items[0].patchImgUri").value(imageUri))
+                .andExpect(jsonPath("$.items[0].imageUrl").value(imageUrl))
+                .andExpect(jsonPath("$.page").value(2))
+                .andExpect(jsonPath("$.pageSize").value(25))
+                .andExpect(jsonPath("$.totalElements").value(26))
+                .andExpect(jsonPath("$.totalPages").value(2));
+
+        if (!hasImage) {
+            verifyNoInteractions(storage);
+        }
     }
 
     @Test

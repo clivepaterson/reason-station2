@@ -2,6 +2,7 @@ package org.reasonstation.controller;
 
 import org.reasonstation.repository.CatalogRepository;
 import org.reasonstation.repository.CatalogRepository.SortDirection;
+import org.reasonstation.service.S3StorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,9 +29,11 @@ public class CatalogController {
     private static final Pattern CATALOG_FILTER_PATTERN = Pattern.compile("[A-Za-z0-9.]+");
 
     private final CatalogRepository catalog;
+    private final S3StorageService storage;
 
-    public CatalogController(CatalogRepository catalog) {
+    public CatalogController(CatalogRepository catalog, S3StorageService storage) {
         this.catalog = catalog;
+        this.storage = storage;
     }
 
     @GetMapping("/artists")
@@ -65,8 +68,21 @@ public class CatalogController {
             @RequestParam(value = "filter", defaultValue = "") String filter) {
         validate(page, sort, PATCH_SORTS);
         String normalizedFilter = normalizeFilter(filter);
-        return catalog.findPatches(
+        var result = catalog.findPatches(
                 page, PAGE_SIZE, sort, parseDirection(direction), normalizedFilter);
+        var items = result.items().stream()
+                .map(patch -> new PatchListResponse(patch.patchid(), patch.artistAlias(), patch.patchName(),
+                        patch.description(), patch.filename(), patch.ext(), patch.dateUploaded(), patch.patchImgUri(),
+                        patch.patchImgUri() == null || patch.patchImgUri().isBlank()
+                                ? null : storage.createImageUrl(patch.patchImgUri())))
+                .toList();
+        return new CatalogRepository.PagedResult<>(
+                items, result.page(), result.pageSize(), result.totalElements(), result.totalPages());
+    }
+
+    private record PatchListResponse(Long patchid, String artistAlias, String patchName, String description,
+                                     String filename, String ext, java.time.Instant dateUploaded,
+                                     String patchImgUri, java.net.URI imageUrl) {
     }
 
     @GetMapping("/archived-songs")

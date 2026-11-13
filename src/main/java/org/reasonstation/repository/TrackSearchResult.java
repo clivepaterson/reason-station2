@@ -15,5 +15,6 @@ public record TrackSearchResult(
         String audioLink,
         String programVersion,
         String imageUri,
-        String audioUri) {
+        String audioUri,
+        Long audioFilesize) {
 }

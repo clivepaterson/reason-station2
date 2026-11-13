@@ -10,13 +10,13 @@
 <div id="uploading-list" hidden><div id="uploading-items"></div></div>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-    window.createTrackArt = function() { return document.createElement('div'); };
     window.enableImageZoom = function() {};
     window.addTrackRatingMeta = window.addPatchRatingMeta = function() {};
     window.createRateTrackButton = window.createRatePatchButton = window.createCopyLinkButton =
         function() { return document.createElement('button'); };
     window.bindTrackAudioLink = function() {};
 </script>
+<script src="../../main/resources/static/js/style_icons.js"></script>
 <script src="../../main/resources/static/js/track_card.js"></script>
 <script src="../../main/resources/static/js/patch_card.js"></script>
 <script src="../../main/resources/static/js/pages/my_tracks.js"></script>
@@ -30,12 +30,13 @@
         var track = {
             trackid: 1, artistAlias: 'Artist', trackName: 'Original track', musicStyle: 'Electronic',
             audioLink: 'https://soundcloud.com/artist/song', filename: 'song.reason',
-            imageUri: 'old-image', audioUri: 'old-audio', filesize: 1024, downloadCount: 7
+            imageUri: 'old-image', audioUri: 'old-audio', filesize: 1024, downloadCount: 7,
+            imageUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
         };
         var patch = {
             patchid: 2, artistAlias: 'Patch artist', patchName: 'Original patch',
             description: 'Original description', filename: 'sound.cmb', ext: '.cmb',
-            patchImgUri: 'old-patch-image', filesize: 100
+            patchImgUri: 'old-patch-image', filesize: 100, imageUrl: track.imageUrl
         };
         function assert(condition, message) {
             if (!condition) {
@@ -57,6 +58,26 @@
             document.getElementById(id).files = files.files;
         }
         try {
+            assert(window.createTrackArt({
+                trackid: 1, trackName: 'Legacy', imageUri: 's3://tracks/cover'
+            }).getAttribute('src') === '/api/tracks/1/image',
+                'Tracks without a browser-ready image URL retain the redirect fallback');
+            [null, '', '   '].forEach(function(imageUri) {
+                assert(window.createTrackArt({
+                    trackid: 1, musicStyle: 'Rock', imageUri: imageUri
+                }).getAttribute('src') === '/images/style-icons/rock.svg',
+                    'Tracks without artwork use a style icon');
+            });
+            assert(window.createPatchCard({
+                patchid: 2, patchName: 'Legacy', patchImgUri: 's3://tracks/patch-cover'
+            }).querySelector('img').getAttribute('src') === '/api/patches/2/image',
+                'Patches without a browser-ready image URL retain the redirect fallback');
+            [null, '', '   '].forEach(function(imageUri) {
+                assert(window.createPatchCard({
+                    patchid: 2, patchName: 'No artwork', patchImgUri: imageUri
+                }).querySelector('img').getAttribute('src') === '/images/icon-patch.svg',
+                    'Patches without artwork use the default patch icon');
+            });
             var html = await originalFetch('../../main/resources/static/pages/my-tracks.html')
                 .then(function(result) { return result.text(); });
             document.getElementById('fixture').innerHTML = html;
@@ -112,6 +133,10 @@
             };
             window.initializeMyTracks();
             await tick();
+            assert($('#tracks-list .track-card-art').attr('src') === track.imageUrl,
+                'My Tracks uses artwork URLs from its feed without a track image redirect');
+            assert($('#my-patches-list .patch-card-image').attr('src') === patch.imageUrl,
+                'My Tracks uses patch artwork URLs from its feed without a patch image redirect');
             assert($('.edit-track-button').length === 1 && $('.edit-patch-button').length === 1,
                 'Owner lists have edit buttons');
             $('.edit-track-button')[0].click();
@@ -137,6 +162,8 @@
             await tick();
             assert($('#upload-track-form').is('[hidden]') && $('#tracks-list h3').text() === 'Updated track',
                 'Saving closes dialog and refreshes card');
+            assert($('#tracks-list .track-card-art').attr('src') === track.imageUrl,
+                'Refreshed track cards continue to use feed artwork URLs');
             $('.edit-track-button')[0].click();
             selectFile('track-file', 'replacement.reason');
             selectFile('track-image', 'replacement.png');
@@ -186,6 +213,8 @@
             finishSave();
             await tick();
             assert($('#my-patches-list h3').text() === 'Updated patch', 'Updated patch card is refreshed');
+            assert($('#my-patches-list .patch-card-image').attr('src') === patch.imageUrl,
+                'Refreshed patch cards continue to use feed artwork URLs');
             $('.edit-patch-button')[0].click();
             selectFile('patch-file', 'replacement.cmb');
             selectFile('patch-image', 'replacement.gif');

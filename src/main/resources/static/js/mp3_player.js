@@ -310,24 +310,30 @@
         var filesize = document.createElement('span');
         filesize.className = 'track-link-filesize';
         link.appendChild(filesize);
-        fetch('/api/tracks/' + encodeURIComponent(track.trackid) + '/audio/metadata', {cache: 'no-cache'})
-            .then(function(response) {
-                if (!response.ok) {
-                    throw new Error('Unable to load MP3 file size.');
-                }
-                return response.json();
-            })
-            .then(function(metadata) {
-                var size = window.formatFileSize(metadata.filesize);
-                if (!size) {
-                    throw new Error('Invalid MP3 file size.');
-                }
-                filesize.textContent = ' (' + size + ')';
-            })
-            .catch(function(error) {
-                filesize.textContent = ' (size unavailable)';
-                console.error('Unable to load MP3 file size for track ' + track.trackid, error);
-            });
+        var storedSize = window.formatFileSize(track.audioFilesize);
+        if (storedSize) {
+            filesize.textContent = ' (' + storedSize + ')';
+        } else {
+            fetch('/api/tracks/' + encodeURIComponent(track.trackid) + '/audio/metadata', {cache: 'no-cache'})
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Unable to load MP3 file size.');
+                    }
+                    return response.json();
+                })
+                .then(function(metadata) {
+                    var size = window.formatFileSize(metadata.filesize);
+                    if (!size) {
+                        throw new Error('Invalid MP3 file size.');
+                    }
+                    track.audioFilesize = metadata.filesize;
+                    filesize.textContent = ' (' + size + ')';
+                })
+                .catch(function(error) {
+                    filesize.textContent = ' (size unavailable)';
+                    console.error('Unable to load MP3 file size for track ' + track.trackid, error);
+                });
+        }
         link.addEventListener('click', function(event) {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) {
                 return;
