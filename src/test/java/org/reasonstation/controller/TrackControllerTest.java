@@ -18,6 +18,7 @@ import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.service.WaveformService;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
@@ -71,7 +72,7 @@ class TrackControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new TrackController(tracks, downloads, ratings, users, storage);
+        controller = new TrackController(tracks, downloads, ratings, users, storage, mock(WaveformService.class));
     }
 
     @Test

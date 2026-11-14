@@ -10,8 +10,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.reasonstation.repository.PatchWithRating;
+import org.reasonstation.entity.Track;
 import org.reasonstation.repository.HighestRatedPatch;
+import org.reasonstation.repository.HighestRatedTrack;
 import org.reasonstation.repository.PatchRepository;
+import org.reasonstation.repository.PopularTrack;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.TrackSearchResult;
@@ -20,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
@@ -43,6 +47,148 @@ class DiscoveryControllerTest {
     @BeforeEach
     void setUp() {
         controller = new DiscoveryController(tracks, patches, storage);
+    }
+
+    @Test
+    void returnsPublicTrackCardMetadataWithoutOwnerOrProjectStorageDetails() throws Exception {
+        var uploaded = java.time.Instant.parse("2026-11-03T12:00:00Z");
+        var track = new TrackWithRating(42L, 7L, "Artist", "Song", "Rock", "song.reason", 1024L,
+                "s3://private/project", uploaded, 8.5, 3, "https://soundcloud.com/artist/song", "13",
+                "s3://tracks/image", "s3://tracks/audio", 2048L);
+        when(tracks.findWithRatingById(42L)).thenReturn(Optional.of(track));
+        when(storage.createImageUrl("s3://tracks/image"))
+                .thenReturn(java.net.URI.create("https://storage.example/cover"));
+
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/tracks/42"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackid").value(42))
+                .andExpect(jsonPath("$.trackName").value("Song"))
+                .andExpect(jsonPath("$.artistAlias").value("Artist"))
+                .andExpect(jsonPath("$.musicStyle").value("Rock"))
+                .andExpect(jsonPath("$.audioUri").value("s3://tracks/audio"))
+                .andExpect(jsonPath("$.imageUri").value("s3://tracks/image"))
+                .andExpect(jsonPath("$.imageUrl").value("https://storage.example/cover"))
+                .andExpect(jsonPath("$.filename").value("song.reason"))
+                .andExpect(jsonPath("$.filesize").value(1024))
+                .andExpect(jsonPath("$.audioFilesize").value(2048))
+                .andExpect(jsonPath("$.downloadCount").value(3))
+                .andExpect(jsonPath("$.averageTrackRating").value(8.5))
+                .andExpect(jsonPath("$.dateUploaded").value(uploaded.toString()))
+                .andExpect(jsonPath("$.programVersion").value("13"))
+                .andExpect(jsonPath("$.audioLink").value("https://soundcloud.com/artist/song"))
+                .andExpect(jsonPath("$.userid").doesNotExist())
+                .andExpect(jsonPath("$.trackUri").doesNotExist());
+        verify(storage).createImageUrl("s3://tracks/image");
+    }
+
+    @Test
+    void returnsNotFoundForMissingEmbeddedTrack() {
+        when(tracks.findWithRatingById(42L)).thenReturn(Optional.empty());
+        assertEquals(HttpStatus.NOT_FOUND, controller.track(42L).getStatusCode());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "s3://tracks/track-audio/preview"})
+    void includesPlayerMetadataInSidebarTrackFeeds(String audioUri) throws Exception {
+        String imageUri = "s3://tracks/track-images/cover";
+        var uploaded = java.time.Instant.parse("2026-11-03T12:00:00Z");
+        var newest = new Track(7L, "Artist", "Track", "Rock", "song.reason", 1024L, "s3://tracks/project");
+        newest.setTrackid(42L);
+        newest.setDateUploaded(uploaded);
+        newest.setAudioUri(audioUri);
+        newest.setImageUri(imageUri);
+        when(tracks.findMostDownloadedTracksThisWeek(5)).thenReturn(List.of(
+                new PopularTrack(42L, "Artist", "Track", "Rock", "song.reason", 2, audioUri, imageUri)));
+        when(tracks.findHighestRatedTracksThisWeek(3)).thenReturn(List.of(
+                new HighestRatedTrack(42L, "Artist", "Track", "Rock", "song.reason", 8.5, 3L, audioUri, imageUri)));
+        when(tracks.findNewestTracks(10)).thenReturn(List.of(newest));
+        var mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        for (String feed : List.of("popular-tracks", "highest-rated-tracks", "newest-tracks")) {
+            mockMvc.perform(get("/api/discovery/" + feed))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].trackid").value(42))
+                    .andExpect(jsonPath("$[0].artistAlias").value("Artist"))
+                    .andExpect(jsonPath("$[0].trackName").value("Track"))
+                    .andExpect(jsonPath("$[0].musicStyle").value("Rock"))
+                    .andExpect(jsonPath("$[0].filename").value("song.reason"))
+                    .andExpect(jsonPath("$[0].audioUri").value(audioUri))
+                    .andExpect(jsonPath("$[0].imageUri").value(imageUri))
+                    .andExpect(jsonPath("$[0].trackUri").doesNotExist());
+        }
+        mockMvc.perform(get("/api/discovery/popular-tracks"))
+                .andExpect(jsonPath("$[0].downloadCount").value(2));
+        mockMvc.perform(get("/api/discovery/highest-rated-tracks"))
+                .andExpect(jsonPath("$[0].averageTrackRating").value(8.5))
+                .andExpect(jsonPath("$[0].ratingCount").value(3));
+        mockMvc.perform(get("/api/discovery/newest-tracks"))
+                .andExpect(jsonPath("$[0].dateUploaded").value(uploaded.toString()));
+        verifyNoInteractions(storage);
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, -1})
+    void rejectsInvalidEmbeddedTrackId(long id) {
+        assertEquals(HttpStatus.BAD_REQUEST, controller.track(id).getStatusCode());
+        verifyNoInteractions(tracks, storage);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "s3://tracks/patch-images/bass"})
+    void returnsPublicPatchCardMetadata(String imageUri) throws Exception {
+        var uploaded = java.time.Instant.parse("2026-11-03T12:00:00Z");
+        boolean hasImage = imageUri != null && !imageUri.isBlank();
+        String imageUrl = hasImage ? "https://storage.example/bass?signature=test" : null;
+        when(patches.findWithRatingById(42L)).thenReturn(Optional.of(
+                new PatchWithRating(42L, "Artist", "Warm Bass", "Bass patch",
+                        "warm-bass.thor", ".thor", 1024L, imageUri, uploaded, 8.5)));
+        if (hasImage) {
+            when(storage.createImageUrl(imageUri)).thenReturn(java.net.URI.create(imageUrl));
+        }
+
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/patches/42"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.patchid").value(42))
+                .andExpect(jsonPath("$.artistAlias").value("Artist"))
+                .andExpect(jsonPath("$.patchName").value("Warm Bass"))
+                .andExpect(jsonPath("$.description").value("Bass patch"))
+                .andExpect(jsonPath("$.filename").value("warm-bass.thor"))
+                .andExpect(jsonPath("$.ext").value(".thor"))
+                .andExpect(jsonPath("$.filesize").value(1024))
+                .andExpect(jsonPath("$.dateUploaded").value(uploaded.toString()))
+                .andExpect(jsonPath("$.averagePatchRating").value(8.5))
+                .andExpect(jsonPath("$.patchImgUri").value(imageUri))
+                .andExpect(jsonPath("$.imageUrl").value(imageUrl))
+                .andExpect(jsonPath("$.userid").doesNotExist())
+                .andExpect(jsonPath("$.patchUri").doesNotExist());
+
+        verifyNoInteractions(tracks);
+        if (!hasImage) {
+            verifyNoInteractions(storage);
+        }
+    }
+
+    @Test
+    void returnsNotFoundForMissingPatch() throws Exception {
+        when(patches.findWithRatingById(42L)).thenReturn(Optional.empty());
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/patches/42"))
+                .andExpect(status().isNotFound());
+        verifyNoInteractions(tracks, storage);
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, -1})
+    void rejectsInvalidPatchId(long id) throws Exception {
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/patches/" + id))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Patch ID must be a positive integer."));
+        verifyNoInteractions(tracks, patches, storage);
     }
 
     @Test

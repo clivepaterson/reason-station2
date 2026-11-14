@@ -9,6 +9,7 @@ import org.reasonstation.entity.Track;
 import org.reasonstation.entity.User;
 import org.reasonstation.repository.*;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.service.WaveformService;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
@@ -35,9 +36,10 @@ class OwnerEditingTest {
     private final PatchRepository patches = mock(PatchRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final S3StorageService storage = mock(S3StorageService.class);
+    private final WaveformService waveforms = mock(WaveformService.class);
     private final Authentication auth = new UsernamePasswordAuthenticationToken("owner", "password");
     private final TrackController trackController = new TrackController(tracks,
-            mock(TrackDownloadRepository.class), mock(TrackRatingRepository.class), users, storage);
+            mock(TrackDownloadRepository.class), mock(TrackRatingRepository.class), users, storage, waveforms);
     private final PatchController patchController = new PatchController(patches,
             mock(PatchRatingRepository.class), users, storage);
     private Track track;
@@ -181,6 +183,8 @@ class OwnerEditingTest {
                 && saved.getTrackUri().equals("s3://bucket/old-file")));
         verify(storage).delete("s3://bucket/old-audio");
         verify(storage, never()).delete("s3://bucket/old-file");
+        verify(waveforms).schedule(42L, "s3://bucket/new-track-audio");
+        verify(waveforms).delete("s3://bucket/old-audio");
     }
 
     @ParameterizedTest

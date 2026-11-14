@@ -19,6 +19,7 @@ import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.AdminAccessService;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.service.WaveformService;
 import org.reasonstation.service.SocialAccountService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -104,9 +105,22 @@ class AdminSecurityTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"image", "audio", "audio/metadata"})
+    @ValueSource(strings = {"image", "audio", "audio/metadata", "audio/waveform"})
     void allowsAnonymousTrackMediaRequests(String mediaType) throws Exception {
         assertEquals(200, request("/api/tracks/42/" + mediaType, null, true).getStatus());
+    }
+
+    @Test
+    void allowsCrossSiteFramingOnlyForEmbeddedPlayerPage() throws Exception {
+        var embed = request("/embed.html", null, true);
+        assertEquals(200, embed.getStatus());
+        assertNull(embed.getHeader("X-Frame-Options"));
+        for (String path : List.of("/index.html", "/tracks/42",
+                "/pages/home.html", "/embed.html/other")) {
+            assertEquals("DENY", request(path, null, true).getHeader("X-Frame-Options"), path);
+        }
+        assertEquals("DENY", request("/admin/index.html", null, false).getHeader("X-Frame-Options"));
+        assertEquals(200, request("/api/discovery/tracks/42", null, true).getStatus());
     }
 
     @ParameterizedTest
@@ -132,7 +146,7 @@ class AdminSecurityTest {
             when(tracks.findById(42L)).thenReturn(Optional.of(track));
             when(tracks.save(any())).thenAnswer(call -> call.getArgument(0));
             controller = new TrackController(tracks, mock(TrackDownloadRepository.class),
-                    mock(TrackRatingRepository.class), users, storage);
+                    mock(TrackRatingRepository.class), users, storage, mock(WaveformService.class));
         } else {
             var patch = new Patch(7L, "Artist", "Patch", null,
                     "old.thor", ".thor", 100L, "s3://bucket/old");

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Site responsive layout regression tests</title>
+</head>
+<body>
+<pre id="results">Running...</pre>
+<script>
+    (async function() {
+        var results = document.getElementById('results');
+        var catalog = await fetch('../../main/resources/static/pages/catalog.html').then(function(response) {
+            return response.text();
+        });
+        var home = await fetch('../../main/resources/static/pages/home.html').then(function(response) {
+            return response.text();
+        });
+        var index = await fetch('../../main/resources/static/index.html').then(function(response) {
+            return response.text();
+        });
+        var shell = new DOMParser().parseFromString(index, 'text/html');
+        var footer = shell.getElementById('site-footer').outerHTML;
+        var header = shell.getElementById('site-header').outerHTML;
+        var stylesheet = new URL('../../../target/classes/static/css/styles.css', location.href).href;
+        var scripts = ['style_icons.js', 'track_rating.js', 'copy_link.js', 'track_card.js'].map(function(name) {
+            return '<script src="' + new URL('../../main/resources/static/js/' + name, location.href).href + '"><\/script>';
+        }).join('');
+        var failures = [];
+        for (var pageId of ['home-page', 'tracks-catalog-page', 'patches-page']) {
+            for (var width of [320, 375, 700, 701, 768, 820, 821, 980, 1024, 1440]) {
+                var frame = document.createElement('iframe');
+                frame.style.width = width + 'px';
+                frame.style.height = '600px';
+                document.body.appendChild(frame);
+                await new Promise(function(resolve) {
+                    frame.onload = resolve;
+                    frame.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="' + stylesheet
+                        + '"></head><body class="site-page">' + header + '<main id="site-content">'
+                        + (pageId === 'home-page' ? home : catalog)
+                        + '</main>' + footer + scripts + '</body></html>';
+                });
+                var doc = frame.contentDocument;
+                var page = doc.getElementById(pageId);
+                page.hidden = false;
+                if (pageId === 'home-page') {
+                    var artists = page.querySelector('#random-artist');
+                    artists.hidden = false;
+                    artists.innerHTML = '<li class="artist-discovery-item">'
+                        + '<span class="discovery-icon artist-icon"></span>'
+                        + '<div class="artist-discovery-details"><a href="#">ArtistName</a>'
+                        + '<span class="artist-track-count">10 tracks</span></div>'
+                        + '<div class="artist-date-created"><span class="artist-calendar-icon"></span>'
+                        + '<span>Joined 10 years ago</span></div><span class="discovery-arrow"></span></li>';
+                    var tracks = page.querySelector('#random-tracks');
+                    tracks.hidden = false;
+                    tracks.appendChild(frame.contentWindow.createTrackCard({
+                        trackid: 1,
+                        trackName: 'Example track',
+                        artistAlias: 'ArtistName',
+                        musicStyle: 'Electronic',
+                        filename: 'A-long-catalog-filename-without-spaces.reason',
+                        downloadCount: 10,
+                        averageTrackRating: 8,
+                        ratingCount: 2
+                    }, {tagName: 'li', className: 'track-discovery-item', showArtist: true}));
+                } else {
+                    page.querySelector('.catalog-status').textContent = 'Showing 1-20 of 100 results';
+                    var row = page.querySelector('tbody').insertRow();
+                    for (var column = 0; column < 9; column++) {
+                        row.insertCell().textContent = 'A-long-catalog-filename-without-spaces.reason';
+                    }
+                }
+                var viewport = doc.documentElement.clientWidth;
+                var bounds = doc.getElementById('site-footer').getBoundingClientRect();
+                if (doc.documentElement.scrollWidth > viewport || bounds.left < 0 || bounds.right > viewport) {
+                    failures.push(pageId + ' overflows at ' + width + 'px: document width '
+                        + doc.documentElement.scrollWidth + ', viewport ' + viewport);
+                    failures.push(Array.from(doc.querySelectorAll('body *')).filter(function(element) {
+                        return element.getBoundingClientRect().right > viewport && !element.closest('table');
+                    }).map(function(element) {
+                        return element.tagName + '.' + element.className + ': ' + element.getBoundingClientRect().right;
+                    }).join(', '));
+                }
+                var wrapper = page.querySelector('.catalog-table-wrapper');
+                if (wrapper && wrapper.scrollWidth <= wrapper.clientWidth) {
+                    failures.push(pageId + ' does not keep wide table content scrollable at ' + width + 'px');
+                }
+                frame.remove();
+            }
+        }
+        results.textContent = failures.length ? 'FAIL\n' + failures.join('\n') : 'PASS: All site layouts fit the viewport.';
+    })().catch(function(error) {
+        document.getElementById('results').textContent = 'FAIL: ' + error.message;
+    });
+</script>
+</body>
+</html>

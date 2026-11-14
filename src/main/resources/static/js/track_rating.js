@@ -97,15 +97,18 @@
                 });
             })
             .then(function() {
-                if (type === 'patch') {
+                var inTrackDialog = !!button.closest('.track-card-dialog');
+                if (type === 'patch' || inTrackDialog) {
                     button.textContent = 'Rated';
-                    button.setAttribute('aria-label', 'Rating saved for ' + item.patchName);
+                    button.setAttribute('aria-label', 'Rating saved for '
+                        + (type === 'patch' ? item.patchName : item.trackName));
                     button.disabled = true;
                 }
                 dialog.close();
                 var artistPage = document.getElementById('artist-page');
                 var isTrackPage = /^\/tracks\/\d+\/?$/.test(window.location.pathname);
-                if (type === 'track' && ((artistPage && !artistPage.hidden) || isTrackPage)) {
+                if (type === 'track' && !inTrackDialog
+                        && ((artistPage && !artistPage.hidden) || isTrackPage)) {
                     window.location.reload();
                 }
             })

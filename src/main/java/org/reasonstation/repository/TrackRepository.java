@@ -84,6 +84,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_name,
                    t.music_style,
                    t.filename,
+                   t.audio_uri,
+                   t.image_uri,
                    COUNT(*) AS download_count
             FROM tracks t
             JOIN track_downloads d ON d.trackid = t.trackid
@@ -92,7 +94,9 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.artist_alias,
                      t.track_name,
                      t.music_style,
-                     t.filename
+                     t.filename,
+                     t.audio_uri,
+                     t.image_uri
             ORDER BY download_count DESC,
                      t.trackid DESC
             LIMIT :limit
@@ -105,6 +109,8 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                    t.track_name,
                    t.music_style,
                    t.filename,
+                   t.audio_uri,
+                   t.image_uri,
                    AVG(r.rating) AS average_track_rating,
                    COUNT(*) AS rating_count
             FROM tracks t
@@ -114,7 +120,9 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
                      t.artist_alias,
                      t.track_name,
                      t.music_style,
-                     t.filename
+                     t.filename,
+                     t.audio_uri,
+                     t.image_uri
             ORDER BY average_track_rating DESC,
                      rating_count DESC,
                      t.trackid DESC

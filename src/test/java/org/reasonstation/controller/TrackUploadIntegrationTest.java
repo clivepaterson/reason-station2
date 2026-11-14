@@ -16,6 +16,7 @@ import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.AdminAccessService;
 import org.reasonstation.service.DatabaseUserDetailsService;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.service.WaveformService;
 import org.reasonstation.service.SocialAccountService;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -76,6 +77,8 @@ class TrackUploadIntegrationTest {
     private TrackRatingRepository ratings;
     @MockitoBean
     private S3StorageService storage;
+    @MockitoBean
+    private WaveformService waveforms;
     @MockitoBean
     private SocialAccountService socialAccountService;
 

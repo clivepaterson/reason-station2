@@ -44,6 +44,8 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.Duration;
@@ -53,6 +55,8 @@ import java.util.UUID;
 
 @Configuration
 public class SecurityConfig {
+    private static final RequestMatcher EMBED_PAGE =
+            PathPatternRequestMatcher.withDefaults().matcher("/embed.html");
     private static final RequestMatcher ADMIN_REQUESTS = new OrRequestMatcher(
             PathPatternRequestMatcher.withDefaults().matcher("/admin"),
             PathPatternRequestMatcher.withDefaults().matcher("/admin/**"),
@@ -101,12 +105,18 @@ public class SecurityConfig {
                                 "/index.html", "/api/discovery/**", "/api/catalog/**",
                                 "/api/tracks/*/download", "/api/tracks/*/image", "/api/tracks/*/audio",
                                 "/api/tracks/*/audio/metadata",
+                                "/api/tracks/*/audio/waveform",
                                 "/api/patches/*/download",
                                 "/api/tracks/*/rating", "/api/patches/*/rating", "/api/patches/*/image",
                                 "/error", "/hello").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll();
                 })
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.disable())
+                        .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                                request -> !EMBED_PAGE.matches(request),
+                                new XFrameOptionsHeaderWriter(XFrameOptionsHeaderWriter.XFrameOptionsMode.DENY))))
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
                                 new HttpStatusEntryPoint(HttpStatus.NOT_FOUND), ADMIN_REQUESTS)

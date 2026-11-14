@@ -10,7 +10,8 @@ RUN mvn -B -ntp package
 
 FROM eclipse-temurin:25-jre-alpine@sha256:56f273059de6b13a6b49fe0ded691ed2d0399bbee76156a8f2d385f7524a3d43
 
-RUN addgroup -S -g 10001 reasonstation \
+RUN apk add --no-cache ffmpeg \
+    && addgroup -S -g 10001 reasonstation \
     && adduser -S -D -H -u 10001 -G reasonstation reasonstation
 
 WORKDIR /app

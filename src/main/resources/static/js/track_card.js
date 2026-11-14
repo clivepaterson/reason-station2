@@ -1,4 +1,100 @@
 (function() {
+    var dialog;
+    var dialogContent;
+    var requestId = 0;
+
+    function ensureCardDialog() {
+        if (dialog) {
+            return;
+        }
+        dialog = document.createElement('dialog');
+        dialog.className = 'track-card-dialog';
+        dialog.setAttribute('aria-label', 'Track details');
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'dialog-close';
+        close.setAttribute('aria-label', 'Close track details');
+        close.textContent = '\u00d7';
+        close.addEventListener('click', function() { dialog.close(); });
+        dialogContent = document.createElement('div');
+        dialogContent.setAttribute('aria-live', 'polite');
+        dialog.append(close, dialogContent);
+        document.body.appendChild(dialog);
+        dialog.addEventListener('mousedown', function(event) {
+            if (event.target === dialog) {
+                var bounds = dialog.getBoundingClientRect();
+                if (event.clientX < bounds.left || event.clientX > bounds.right
+                        || event.clientY < bounds.top || event.clientY > bounds.bottom) {
+                    dialog.close();
+                }
+            }
+        });
+        dialog.addEventListener('close', function() {
+            if (dialog.open) {
+                return;
+            }
+            requestId++;
+            dialogContent.replaceChildren();
+        });
+    }
+
+    document.addEventListener('click', function(event) {
+        if (event.defaultPrevented || event.button !== 0
+                || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+            return;
+        }
+        var link = event.target.closest('a[href]');
+        if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) {
+            return;
+        }
+        var url = new URL(link.href);
+        var match = /^\/(tracks|patches)\/([1-9]\d*)\/?$/.exec(url.pathname);
+        if (url.origin !== window.location.origin || !match) {
+            return;
+        }
+        event.preventDefault();
+        ensureCardDialog();
+        var resource = match[1];
+        var type = resource === 'patches' ? 'patch' : 'track';
+        dialog.setAttribute('aria-label', resource === 'patches' ? 'Patch details' : 'Track details');
+        dialog.querySelector('.dialog-close').setAttribute('aria-label', 'Close ' + type + ' details');
+        var currentRequest = ++requestId;
+        var status = document.createElement('p');
+        status.className = 'form-message';
+        status.textContent = 'Loading ' + type + '...';
+        dialogContent.replaceChildren(status);
+        dialogContent.setAttribute('aria-busy', 'true');
+        if (!dialog.open) {
+            dialog.showModal();
+        }
+        fetch('/api/discovery/' + resource + '/' + match[2])
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error(response.status === 404
+                        ? 'This ' + type + ' could not be found.'
+                        : 'Unable to load this ' + type + '. Please try again.');
+                }
+                return response.json();
+            })
+            .then(function(item) {
+                if (currentRequest === requestId && dialog.open) {
+                    dialogContent.replaceChildren(resource === 'patches'
+                        ? window.createPatchCard(item) : window.createTrackCard(item, {showArtist: true}));
+                }
+            })
+            .catch(function(error) {
+                if (currentRequest === requestId && dialog.open) {
+                    status.className = 'form-message error';
+                    status.textContent = error.message;
+                }
+            })
+            .finally(function() {
+                if (currentRequest === requestId) {
+                    dialogContent.setAttribute('aria-busy', 'false');
+                }
+            });
+    });
+
     function appendTextElement(parent, tagName, className, text) {
         var element = document.createElement(tagName);
         element.className = className;
@@ -111,7 +207,13 @@
         download.textContent = 'Download';
         actions.appendChild(download);
         actions.appendChild(window.createRateTrackButton(track));
-        actions.appendChild(window.createCopyLinkButton(titleLink.href, track.trackName));
+        var shareActions = document.createElement('div');
+        shareActions.className = 'track-card-share-actions';
+        shareActions.appendChild(window.createCopyLinkButton(titleLink.href, track.trackName));
+        if (track.audioUri && track.audioUri.trim()) {
+            shareActions.appendChild(window.createCopyEmbedButton(track));
+        }
+        actions.appendChild(shareActions);
         item.appendChild(actions);
 
         if (options.deletable) {

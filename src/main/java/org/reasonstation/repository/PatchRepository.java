@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PatchRepository extends CrudRepository<Patch, Long> {
@@ -27,6 +28,13 @@ public interface PatchRepository extends CrudRepository<Patch, Long> {
             FROM patches p WHERE p.artist_alias = :artistAlias ORDER BY p.date_uploaded DESC
             """)
     List<PatchWithRating> findWithRatingsByArtistAlias(String artistAlias);
+
+    @Query("""
+            SELECT p.*, (SELECT AVG(r.rating) FROM patch_ratings r WHERE r.patchid = p.patchid)
+                AS average_patch_rating
+            FROM patches p WHERE p.patchid = :patchid
+            """)
+    Optional<PatchWithRating> findWithRatingById(Long patchid);
 
     @Query("""
             SELECT p.patchid,

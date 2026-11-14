@@ -16,6 +16,7 @@ import org.reasonstation.repository.TrackRatingRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.service.WaveformService;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
@@ -40,6 +41,7 @@ class TrackMediaUploadTest {
     @Mock private TrackRepository tracks;
     @Mock private UserRepository users;
     @Mock private S3StorageService storage;
+    @Mock private WaveformService waveforms;
     @Mock private Authentication authentication;
 
     private TrackController controller;
@@ -47,7 +49,7 @@ class TrackMediaUploadTest {
     @BeforeEach
     void setUp() {
         controller = new TrackController(tracks, mock(TrackDownloadRepository.class),
-                mock(TrackRatingRepository.class), users, storage);
+                mock(TrackRatingRepository.class), users, storage, waveforms);
     }
 
     @ParameterizedTest
@@ -84,6 +86,9 @@ class TrackMediaUploadTest {
         }
         if (withAudio) {
             verify(storage).upload(startsWith("track-audio/"), eq(audio), eq("audio/mpeg"));
+            verify(waveforms).schedule(null, "s3://tracks/track-audio/object");
+        } else {
+            verifyNoInteractions(waveforms);
         }
         verify(storage, times(1 + (withImage ? 1 : 0) + (withAudio ? 1 : 0))).upload(any(), any(), any());
     }
@@ -203,6 +208,7 @@ class TrackMediaUploadTest {
         verify(storage).delete("s3://tracks/track-images/object");
         verify(storage).delete("s3://tracks/track-audio/object");
         assertArrayEquals(new Throwable[]{cleanupFailure}, failure.getSuppressed());
+        verifyNoInteractions(waveforms);
     }
 
     @Test
@@ -218,6 +224,7 @@ class TrackMediaUploadTest {
         verify(storage).delete("s3://tracks/reason");
         verify(storage).delete("s3://tracks/image");
         verify(storage).delete("s3://tracks/audio");
+        verify(waveforms).delete("s3://tracks/audio");
         verify(tracks).deleteByTrackidAndUserid(42L, 7L);
     }
 

@@ -64,6 +64,7 @@ class SeoControllerTest {
         assertTrue(html.contains("window.createTrackArt(track)"));
         assertTrue(html.contains("<script src=\"/js/mp3_player.js\"></script>"));
         assertTrue(html.contains("window.bindTrackAudioLink(mp3Link, track)"));
+        assertTrue(html.contains("window.createCopyEmbedButton(track)"));
         assertTrue(html.contains("src=\"/images/style-icons/other.svg\""));
         assertTrue(html.contains("<a class=\"track-file-meta\" href=\"/api/tracks/42/download\""));
         assertFalse(html.contains("class=\"track-style-meta\""));

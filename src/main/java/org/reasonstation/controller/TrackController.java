@@ -8,6 +8,7 @@ import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.UserRepository;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.service.WaveformService;
 import org.reasonstation.util.ReasonFileFormat;
 import org.reasonstation.util.ReasonFileMetadata;
 import org.reasonstation.util.ImageFileFormat;
@@ -103,14 +104,17 @@ public class TrackController {
     private final TrackRatingRepository ratings;
     private final UserRepository users;
     private final S3StorageService storage;
+    private final WaveformService waveforms;
 
     public TrackController(TrackRepository tracks, TrackDownloadRepository downloads,
-                           TrackRatingRepository ratings, UserRepository users, S3StorageService storage) {
+                           TrackRatingRepository ratings, UserRepository users, S3StorageService storage,
+                           WaveformService waveforms) {
         this.tracks = tracks;
         this.downloads = downloads;
         this.ratings = ratings;
         this.users = users;
         this.storage = storage;
+        this.waveforms = waveforms;
     }
 
     @GetMapping("/me")
@@ -150,6 +154,9 @@ public class TrackController {
                         storage.delete(track.getAudioUri());
                     }
                     tracks.deleteByTrackidAndUserid(trackid, user.getUserid());
+                    if (track.getAudioUri() != null) {
+                        waveforms.delete(track.getAudioUri());
+                    }
                     return ResponseEntity.noContent().build();
                 })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -447,6 +454,9 @@ public class TrackController {
             }
             throw exception;
         }
+        if (audioBytes != null) {
+            waveforms.schedule(saved.getTrackid(), saved.getAudioUri());
+        }
         // Persistence has committed; cleanup failures must never delete the newly referenced objects.
         if (existing != null) {
             RuntimeException cleanupFailure = null;
@@ -467,6 +477,9 @@ public class TrackController {
             }
             if (cleanupFailure != null) {
                 throw cleanupFailure;
+            }
+            if (audioBytes != null && existing.getAudioUri() != null) {
+                waveforms.delete(existing.getAudioUri());
             }
         }
         return ResponseEntity.status(existing == null ? HttpStatus.CREATED : HttpStatus.OK)

@@ -12,6 +12,18 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 import java.time.Duration;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.http.AbortableInputStream;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,6 +33,39 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
 class S3StorageServiceTest {
+    @TempDir Path directory;
+
+    @Test
+    void readsOptionalObjectsAndDoesNotHideAccessDenied() throws Exception {
+        S3Client client = mock(S3Client.class);
+        var storage = new S3StorageService(client, mock(S3Presigner.class), "tracks", Duration.ofMinutes(5));
+        when(client.getObject(any(GetObjectRequest.class))).thenReturn(object(new byte[]{1, 2, 3}));
+        assertArrayEquals(new byte[]{1, 2, 3}, storage.readOptional("s3://tracks/peaks", 3).orElseThrow());
+        when(client.getObject(any(GetObjectRequest.class))).thenThrow(
+                S3Exception.builder().statusCode(404).message("Missing").build());
+        assertTrue(storage.readOptional("s3://tracks/missing", 3).isEmpty());
+        when(client.getObject(any(GetObjectRequest.class))).thenThrow(
+                S3Exception.builder().statusCode(403).message("Forbidden").build());
+        assertThrows(S3Exception.class, () -> storage.readOptional("s3://tracks/forbidden", 3));
+    }
+
+    @Test
+    void boundsStoredWaveformReadsAndAudioDownloads() throws Exception {
+        S3Client client = mock(S3Client.class);
+        var storage = new S3StorageService(client, mock(S3Presigner.class), "tracks", Duration.ofMinutes(5));
+        when(client.getObject(any(GetObjectRequest.class))).thenAnswer(call -> object(new byte[]{1, 2, 3}));
+        assertThrows(IOException.class, () -> storage.readOptional("s3://tracks/peaks", 2));
+        Path audio = directory.resolve("input.mp3");
+        storage.downloadTo("s3://tracks/audio", audio, 3);
+        assertArrayEquals(new byte[]{1, 2, 3}, Files.readAllBytes(audio));
+        assertThrows(IOException.class, () -> storage.downloadTo("s3://tracks/audio", audio, 2));
+    }
+
+    private ResponseInputStream<GetObjectResponse> object(byte[] content) {
+        return new ResponseInputStream<>(GetObjectResponse.builder().contentLength((long) content.length).build(),
+                AbortableInputStream.create(new ByteArrayInputStream(content)));
+    }
+
     @Test
     void readsFilesizeFromObjectMetadata() {
         S3Client client = mock(S3Client.class);

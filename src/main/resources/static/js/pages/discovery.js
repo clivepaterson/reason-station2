@@ -56,13 +56,25 @@ function createSidebarItem(media, options) {
     meta.textContent = options.meta(media);
     details.appendChild(meta);
 
+    var actions = document.createElement('div');
+    actions.className = 'sidebar-track-actions';
+    item.appendChild(actions);
+
+    if (resource === 'tracks' && media.audioUri && media.audioUri.trim()) {
+        var play = document.createElement('button');
+        play.type = 'button';
+        play.className = 'sidebar-audio-button';
+        window.bindTrackAudioLink(play, media, {compact: true});
+        actions.appendChild(play);
+    }
+
     var download = document.createElement('a');
     download.className = 'sidebar-download-link';
     download.href = '/api/' + resource + '/' + encodeURIComponent(id) + '/download';
     download.setAttribute('aria-label', 'Download ' + name + ' by ' + media.artistAlias);
     download.title = 'Download ' + name;
     download.textContent = 'Download';
-    item.appendChild(download);
+    actions.appendChild(download);
     return item;
 }
 

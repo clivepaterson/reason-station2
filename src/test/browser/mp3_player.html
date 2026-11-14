@@ -53,9 +53,50 @@
     };
     window.addTrackRatingMeta = function() {};
     window.createRateTrackButton = function() { return document.createElement('button'); };
-    window.createCopyLinkButton = function() { return document.createElement('button'); };
     var metadataRequests = [];
-    window.fetch = function(url) {
+    var nativeFetch = window.fetch;
+    var waveformRequests = [];
+    var waveformHandler;
+    var waveformErrors = [];
+    var originalConsoleError = console.error;
+    console.error = function(message, error) {
+        if (String(message).startsWith('Unable to load waveform')) {
+            waveformErrors.push({message: message, error: error});
+        }
+        originalConsoleError.apply(console, arguments);
+    };
+    function waveformResponse(status, data) {
+        return {
+            ok: status >= 200 && status < 300,
+            status: status,
+            headers: {get: function() { return '3'; }},
+            json: function() {
+                return Promise.resolve(data || {version: 1, duration: 185.5, peaks: [0, 0.25, 1, 0.5]});
+            }
+        };
+    }
+    var captureWaveformTimers = false;
+    var waveformTimers = new Map();
+    var timerId = -1;
+    var nativeSetTimeout = window.setTimeout;
+    var nativeClearTimeout = window.clearTimeout;
+    window.setTimeout = function(callback, delay) {
+        if (captureWaveformTimers && delay >= 1000 && delay <= 30000) {
+            var id = timerId--;
+            waveformTimers.set(id, {callback: callback, delay: delay});
+            return id;
+        }
+        return nativeSetTimeout.apply(window, arguments);
+    };
+    window.clearTimeout = function(id) {
+        waveformTimers.delete(id);
+        nativeClearTimeout(id);
+    };
+    window.fetch = function(url, options) {
+        if (/^\/api\/tracks\/\d+\/audio\/waveform$/.test(url)) {
+            waveformRequests.push({url: url, signal: options.signal});
+            return waveformHandler ? waveformHandler(url, options) : Promise.resolve(waveformResponse(200));
+        }
         if (!/^\/api\/tracks\/\d+\/audio\/metadata$/.test(url)) {
             return Promise.reject(new Error('Unexpected request: ' + url));
         }
@@ -68,7 +109,9 @@
 </script>
 <script src="../../main/resources/static/js/style_icons.js"></script>
 <script src="../../main/resources/static/js/mp3_player.js"></script>
+<script src="../../main/resources/static/js/copy_link.js"></script>
 <script src="../../main/resources/static/js/track_card.js"></script>
+<script src="../../main/resources/static/js/pages/discovery.js"></script>
 <script>
     (async function() {
         var assertions = 0;
@@ -100,7 +143,9 @@
             var second = addCard(track(2)).querySelector('.track-mp3-link');
             var noAudio = track(3);
             noAudio.audioUri = null;
-            assert(!addCard(noAudio).querySelector('.track-mp3-link'), 'No player link without uploaded audio');
+            var noAudioCard = addCard(noAudio);
+            assert(!noAudioCard.querySelector('.track-mp3-link'), 'No player link without uploaded audio');
+            assert(!noAudioCard.querySelector('.copy-embed-button'), 'No embed button without uploaded audio');
             assert(!document.querySelector('.mp3-player'), 'Player is lazy and absent before playback');
             assert(first.textContent === 'Play MP3 (1.5 Mb)', 'MP3 link immediately shows stored file size');
             assert(metadataRequests.length === 0, 'Stored MP3 sizes avoid metadata requests');
@@ -154,7 +199,7 @@
             function action(name) { return player.querySelector('[data-player-action="' + name + '"]'); }
             function entries() { return player.querySelectorAll('.mp3-player-track'); }
             function removeButtons() { return player.querySelectorAll('.mp3-player-remove-track'); }
-            function status() { return player.querySelector('[role="status"]').textContent; }
+            function status() { return player.querySelector('.mp3-player-status').textContent; }
             var seek = player.querySelector('.mp3-player-seek');
             var elapsed = player.querySelector('.mp3-player-elapsed');
             var duration = player.querySelector('.mp3-player-duration');
@@ -385,10 +430,420 @@
                 && action('play').getAttribute('aria-label') === 'Pause track',
                 'Removing a pending current track ignores stale play rejection');
             action('close').click();
+
+            async function settleWaveform() {
+                for (var i = 0; i < 8; i++) {
+                    await Promise.resolve();
+                }
+            }
+            function waveStatus() { return player.querySelector('.mp3-player-waveform-status').textContent; }
+            var waveform = player.querySelector('.mp3-player-waveform');
+            var progress = player.querySelector('.mp3-player-waveform-progress');
+            function runPoll() {
+                assert(waveformTimers.size === 1, 'Only one waveform retry is scheduled');
+                var timer = waveformTimers.entries().next().value;
+                waveformTimers.delete(timer[0]);
+                assert(timer[1].delay === 3000, 'Pending waveform respects Retry-After');
+                timer[1].callback();
+            }
+
+            first.click();
+            assert(waveStatus() === 'Loading waveform...' && !audio.paused && !status(),
+                'Waveform loading is independent from audio playback status');
+            await settleWaveform();
+            assert(!waveform.hidden && !waveStatus(), 'Successful response displays waveform');
+            assert(waveform.querySelector('path').getAttribute('d').includes('v64'),
+                'Normalized peaks render waveform geometry');
+            assert(waveformRequests[waveformRequests.length - 1].url === '/api/tracks/1/audio/waveform',
+                'Waveform uses selected track endpoint');
+            mediaState(audio).duration = 200;
+            audio.currentTime = 50;
+            audio.dispatchEvent(new Event('loadedmetadata'));
+            assert(Number(progress.getAttribute('width')) === 300, 'Waveform highlights played quarter');
+            audio.currentTime = 100;
+            audio.dispatchEvent(new Event('timeupdate'));
+            assert(Number(progress.getAttribute('width')) === 600, 'Waveform progress follows time updates');
+            var bounds = waveform.getBoundingClientRect();
+            assert(bounds.width > 0 && bounds.width <= player.clientWidth, 'Waveform fits viewport responsively');
+            var waveformPlays = mediaState(audio).plays;
+            waveform.dispatchEvent(new MouseEvent('click', {clientX: bounds.left + bounds.width * 0.75}));
+            assert(Math.abs(audio.currentTime - 150) < 1 && /^2:(29|30)$/.test(elapsed.textContent),
+                'Waveform click seeks audio and updates existing timeline');
+            assert(mediaState(audio).plays === waveformPlays && !audio.paused, 'Waveform seek does not restart playback');
+            action('play').click();
+            waveform.dispatchEvent(new MouseEvent('click', {clientX: bounds.left + bounds.width / 2}));
+            assert(Math.abs(audio.currentTime - 100) < 1 && audio.paused, 'Waveform seeking preserves pause');
+            seek.value = '20';
+            seek.dispatchEvent(new Event('input'));
+            assert(Number(progress.getAttribute('width')) === 120, 'Existing range seek updates waveform progress');
+            mediaState(audio).duration = NaN;
+            audio.dispatchEvent(new Event('durationchange'));
+            waveform.dispatchEvent(new MouseEvent('click', {clientX: bounds.right}));
+            assert(audio.currentTime === 20 && Number(progress.getAttribute('width')) === 0,
+                'Unknown media duration disables waveform seeking and clears progress');
+            action('close').click();
+
+            var resolveStaleJson;
+            waveformHandler = function() {
+                var response = waveformResponse(200);
+                response.json = function() { return new Promise(function(resolve) { resolveStaleJson = resolve; }); };
+                return Promise.resolve(response);
+            };
+            first.click();
+            await settleWaveform();
+            var staleSignal = waveformRequests[waveformRequests.length - 1].signal;
+            waveformHandler = null;
+            second.click();
+            action('next').click();
+            assert(staleSignal.aborted && waveform.hidden, 'Track switch aborts fetch and clears old waveform');
+            await settleWaveform();
+            var currentPath = waveform.querySelector('path').getAttribute('d');
+            resolveStaleJson({version: 1, duration: 1, peaks: [0.1]});
+            await settleWaveform();
+            assert(waveform.querySelector('path').getAttribute('d') === currentPath && !waveStatus(),
+                'Late JSON from previous track cannot overwrite current waveform');
+            action('close').click();
+
+            var rejectStale;
+            waveformHandler = function() {
+                return new Promise(function(resolve, reject) { rejectStale = reject; });
+            };
+            first.click();
+            var closeSignal = waveformRequests[waveformRequests.length - 1].signal;
+            var errorCount = waveformErrors.length;
+            action('close').click();
+            rejectStale(new Error('Late fetch failure'));
+            await settleWaveform();
+            assert(closeSignal.aborted && waveform.hidden && !waveStatus() && waveformErrors.length === errorCount,
+                'Close aborts pending fetch and ignores late failure without changing UI');
+
+            captureWaveformTimers = true;
+            var pendingRequests = 0;
+            waveformHandler = function() {
+                return Promise.resolve(waveformResponse(++pendingRequests === 1 ? 202 : 200));
+            };
+            first.click();
+            await settleWaveform();
+            assert(waveform.hidden && waveStatus().includes('Loading') && !audio.paused && !status(),
+                'Pending generation leaves playback normal and displays loading');
+            runPoll();
+            await settleWaveform();
+            assert(!waveform.hidden && !waveStatus() && pendingRequests === 2, 'Pending waveform becomes available on retry');
+            action('close').click();
+
+            waveformHandler = function() { return Promise.resolve(waveformResponse(202)); };
+            first.click();
+            await settleWaveform();
+            var queuedRequests = waveformRequests.length;
+            var pendingSignal = waveformRequests[queuedRequests - 1].signal;
+            var previousTimer = waveformTimers.keys().next().value;
+            second.click();
+            assert(waveformRequests.length === queuedRequests && !pendingSignal.aborted
+                && waveformTimers.has(previousTimer), 'Queuing does not fetch another waveform or interrupt current polling');
+            action('next').click();
+            await settleWaveform();
+            assert(waveformTimers.size === 1 && !waveformTimers.has(previousTimer) && pendingSignal.aborted,
+                'Switch cancels previous request and polling timer');
+            action('close').click();
+            assert(waveformTimers.size === 0 && !waveStatus(), 'Close cancels polling timer');
+
+            var beforePolling = waveformRequests.length;
+            first.click();
+            await settleWaveform();
+            for (var poll = 1; poll < 40; poll++) {
+                runPoll();
+                await settleWaveform();
+            }
+            assert(waveformRequests.length - beforePolling === 40 && waveformTimers.size === 0,
+                'Pending generation polls for 117 seconds at Retry-After 3 before stopping after forty requests');
+            assert(waveStatus() === 'Waveform unavailable.' && !audio.paused && !status(),
+                'Polling exhaustion is visible without affecting audio');
+            action('close').click();
+            captureWaveformTimers = false;
+
+            var invalidWaveforms = [
+                {version: 2, duration: 10, peaks: [1]},
+                {version: 1, duration: 0, peaks: [1]},
+                {version: 1, duration: Infinity, peaks: [1]},
+                {version: 1, duration: '10', peaks: [1]},
+                {version: 1, duration: 10, peaks: []},
+                {version: 1, duration: 10, peaks: new Array(1201).fill(0.5)},
+                {version: 1, duration: 10, peaks: [-0.1]},
+                {version: 1, duration: 10, peaks: [1.1]},
+                {version: 1, duration: 10, peaks: ['0.5']},
+                {version: 1, duration: 10, peaks: [NaN]},
+                {version: 1, duration: 10, peaks: null}
+            ];
+            var failures = [404, 503, 'network', 'json'].concat(invalidWaveforms);
+            for (var failure of failures) {
+                waveformHandler = function() {
+                    if (failure === 'network') {
+                        return Promise.reject(new Error('Offline'));
+                    }
+                    var response = waveformResponse(typeof failure === 'number' ? failure : 200,
+                        typeof failure === 'object' ? failure : null);
+                    if (failure === 'json') {
+                        response.json = function() { return Promise.reject(new SyntaxError('Invalid JSON')); };
+                    }
+                    return Promise.resolve(response);
+                };
+                errorCount = waveformErrors.length;
+                first.click();
+                await settleWaveform();
+                assert(waveform.hidden && waveStatus() === 'Waveform unavailable.' && !audio.paused && !status(),
+                    'HTTP, network, JSON and validation failures remain isolated from audio: ' + String(failure));
+                assert(waveformErrors.length === errorCount + 1
+                    && waveformErrors[errorCount].message.includes('track 1'), 'Waveform failure logs track context');
+                mediaState(audio).duration = 100;
+                audio.dispatchEvent(new Event('loadedmetadata'));
+                seek.value = '40';
+                seek.dispatchEvent(new Event('input'));
+                assert(audio.currentTime === 40, 'Range seeking remains usable when waveform is unavailable');
+                action('close').click();
+            }
+            waveformHandler = function() {
+                return Promise.resolve(waveformResponse(200,
+                    {version: 1, duration: 100, peaks: new Array(1200).fill(0)}));
+            };
+            first.click();
+            await settleWaveform();
+            assert(!waveform.hidden && !waveStatus()
+                && waveform.querySelector('path').getAttribute('d').split('M').length === 1201,
+                'Maximum bucket count and silent normalized peaks are valid');
+            action('close').click();
+            waveformHandler = null;
+
+            var sidebar = document.createElement('aside');
+            sidebar.className = 'discovery-sidebar';
+            var sidebarList = document.createElement('ol');
+            sidebarList.className = 'sidebar-list';
+            sidebar.appendChild(sidebarList);
+            document.body.appendChild(sidebar);
+            var metadataCount = metadataRequests.length;
+            var sidebarTrack = track(8);
+            delete sidebarTrack.audioFilesize;
+            var sidebarItem = createSidebarItem(sidebarTrack, {
+                meta: function(item) { return item.artistAlias; }
+            });
+            sidebarList.appendChild(sidebarItem);
+            var sidebarPlay = sidebarItem.querySelector('.sidebar-audio-button');
+            var sidebarDownload = sidebarItem.querySelector('.sidebar-download-link');
+            assert(sidebarPlay && sidebarPlay.type === 'button' && sidebarPlay.textContent === '\u266b',
+                'Sidebar tracks with MP3s have a music-note button');
+            assert(sidebarPlay.getAttribute('aria-label') === 'Play or queue MP3 for Track <8> by Artist & 8',
+                'Sidebar MP3 button has an accessible track-specific label');
+            assert(metadataRequests.length === metadataCount && !sidebarPlay.querySelector('.track-link-filesize'),
+                'Compact sidebar controls do not fetch or display hidden file sizes');
+            assert(sidebarDownload.getAttribute('href') === '/api/tracks/8/download',
+                'Sidebar retains its Reason project download');
+            assert(getComputedStyle(sidebarPlay).backgroundImage === getComputedStyle(sidebarDownload).backgroundImage
+                && getComputedStyle(sidebarPlay).width === '29px'
+                && getComputedStyle(sidebarPlay).height === '29px'
+                && getComputedStyle(sidebarPlay, '::before').content.includes('\u266b'),
+                'Sidebar MP3 button matches download styling and shows the music note');
+            [null, '', '   '].forEach(function(audioUri) {
+                var withoutAudio = track(9);
+                withoutAudio.audioUri = audioUri;
+                assert(!createSidebarItem(withoutAudio, {meta: function() { return ''; }})
+                    .querySelector('.sidebar-audio-button'), 'Sidebar omits MP3 buttons without uploaded audio');
+            });
+            assert(!createSidebarItem({patchid: 1, patchName: 'Patch', artistAlias: 'Artist',
+                audioUri: 's3://tracks/audio'}, {resource: 'patches', meta: function() { return ''; }})
+                .querySelector('.sidebar-audio-button'), 'Patch sidebar does not get MP3 controls');
+            sidebarPlay.click();
+            assert(!player.hidden && !audio.paused && audio.getAttribute('src') === '/api/tracks/8/audio',
+                'Sidebar button starts playback when the player is idle');
+            var sidebarPlays = mediaState(audio).plays;
+            var queuedSidebar = createSidebarItem(track(9), {meta: function() { return ''; }});
+            sidebarList.appendChild(queuedSidebar);
+            queuedSidebar.querySelector('.sidebar-audio-button').click();
+            assert(entries().length === 2 && mediaState(audio).plays === sidebarPlays
+                && audio.getAttribute('src') === '/api/tracks/8/audio'
+                && status() === 'Added to playlist: Track <9>',
+                'Sidebar button enqueues without interrupting current playback');
+            action('next').click();
+            assert(audio.getAttribute('src') === '/api/tracks/9/audio', 'Queued sidebar MP3 plays next');
+            action('close').click();
+
+            var copied;
+            Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
+                writeText: function(text) { copied = text; return Promise.resolve(); }
+            }});
+            var embedTrack = track(1);
+            embedTrack.trackName = 'Song "<script>&';
+            var embedButton = addCard(embedTrack).querySelector('.copy-embed-button');
+            var shareActions = embedButton.parentElement;
+            assert(shareActions.classList.contains('track-card-share-actions')
+                && shareActions.firstElementChild.classList.contains('copy-link-button')
+                && shareActions.firstElementChild !== embedButton
+                && shareActions.lastElementChild === embedButton,
+                'Copy link appears before copy embed in the shared action row');
+            assert(embedButton.getAttribute('aria-label').includes(embedTrack.trackName),
+                'Embed button is accessibly labelled with the track name');
+            assert(embedButton.classList.contains('copy-link-button')
+                && embedButton.querySelector('img').getAttribute('src') === '/images/copy-embed.svg'
+                && embedButton.querySelector('img').alt === '',
+                'Embed button uses an SVG icon with the shared copy-link button styling');
+            embedButton.click();
+            await Promise.resolve();
+            var copyDialog = document.querySelector('.copy-link-dialog');
+            var template = document.createElement('template');
+            template.innerHTML = copied;
+            var iframe = template.content.querySelector('iframe');
+            assert(iframe && template.content.childElementCount === 1 && !template.content.querySelector('script'),
+                'Copied embed code is one safe iframe');
+            assert(iframe.src === new URL('/embed.html?track=1', location.origin).href,
+                'Embed source is an absolute URL for the selected track');
+            assert(iframe.title === embedTrack.trackName + ' by ' + embedTrack.artistAlias + ' | Reason Station',
+                'Iframe title round-trips escaped track names');
+            assert(iframe.height === '220', 'Copied iframe uses the compact player height');
+            assert(copyDialog.querySelector('textarea').value === copied
+                && copyDialog.querySelector('[role="status"]').textContent === 'Embed code copied.',
+                'Embed code is copied and available for manual copying');
+            copyDialog.close();
+            Object.defineProperty(navigator, 'clipboard', {configurable: true, value: undefined});
+            firstCard.querySelector('.copy-link-button:not(.copy-embed-button)').click();
+            assert(copyDialog.querySelector('textarea').value === new URL('/tracks/1', location.origin).href
+                && copyDialog.querySelector('[role="status"]').textContent.includes('manually'),
+                'Normal copy links retain a manual fallback');
+            copyDialog.close();
+            Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
+                writeText: function() { return Promise.reject(new Error('Permission denied')); }
+            }});
+            embedButton.click();
+            await Promise.resolve();
+            await Promise.resolve();
+            assert(copyDialog.querySelector('[role="status"]').textContent.includes('embed code manually'),
+                'Clipboard rejection provides manual embed copying');
+            copyDialog.close();
+
+            var spacerCount = document.querySelectorAll('.mp3-player-spacer').length;
+            document.body.className = 'embed-page';
+            window.mountEmbeddedTrackPlayer(track(2));
+            player = document.querySelector('.mp3-player-embedded');
+            audio = player.querySelector('audio');
+            assert(!player.hidden && audio.paused && mediaState(audio).plays === 0,
+                'Embedded player loads the track without autoplay');
+            assert(audio.getAttribute('src') === '/api/tracks/2/audio'
+                && player.querySelector('.mp3-player-title').textContent === 'Track <2>',
+                'Embedded player uses the selected track');
+            assert(!action('previous') && !action('next') && !action('close')
+                && !player.querySelector('.mp3-player-queue') && !player.querySelector('.mp3-player-playlist'),
+                'Embedded player has no skip, close, or playlist elements');
+            assert(document.querySelectorAll('.mp3-player-spacer').length === spacerCount
+                && getComputedStyle(player).position === 'static',
+                'Embed uses normal page flow without a fixed-player spacer');
+            action('play').click();
+            assert(!audio.paused, 'Embedded play starts playback');
+            action('play').click();
+            assert(audio.paused, 'Embedded pause stops playback');
+            audio.dispatchEvent(new Event('ended'));
+            assert(status() === 'Track finished.', 'Embedded completion has no playlist message');
+            audio.dispatchEvent(new Event('error'));
+            assert(!status().includes('skip'), 'Embedded error does not suggest missing skip controls');
+
+            player.remove();
+            var embedHtml = await nativeFetch('../../main/resources/static/embed.html').then(function(response) {
+                return response.text();
+            });
+            var embedDocument = new DOMParser().parseFromString(embedHtml, 'text/html');
+            document.body.prepend(embedDocument.querySelector('header'));
+            document.body.appendChild(embedDocument.getElementById('embed-status'));
+            var playerFetch = window.fetch;
+            window.fetch = function(url, options) {
+                if (url === '/api/discovery/tracks/2') {
+                    return Promise.resolve({ok: true, json: function() { return Promise.resolve(track(2)); }});
+                }
+                return playerFetch(url, options);
+            };
+            history.replaceState(null, '', '?track=2');
+            await new Promise(function(resolve, reject) {
+                var script = document.createElement('script');
+                script.src = '../../main/resources/static/js/embed.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.body.appendChild(script);
+            });
+            await frame();
+            var bar = document.querySelector('.mp3-player-embedded .mp3-player-bar');
+            var rowItems = bar.querySelectorAll('.mp3-player-art, .mp3-player-info, .logo-title,'
+                + ' .mp3-player-controls, .mp3-player-volume, .mp3-player-downloads');
+            assert(Array.from(rowItems).map(function(element) { return element.className; }).join(',')
+                === 'mp3-player-art,mp3-player-info,logo-title,mp3-player-controls,mp3-player-volume,mp3-player-downloads',
+                'Production embed puts artwork, info, branding, controls, volume and downloads in order');
+            assert(!document.querySelector('.embed-page > .navbar') && !document.getElementById('embed-status'),
+                'Embed moves branding into the player instead of retaining a separate header');
+            var compact = matchMedia('(max-width: 840px)').matches;
+            if (compact) {
+                var trackBounds = bar.querySelector('.embed-track-info').getBoundingClientRect();
+                var actionsBounds = bar.querySelector('.embed-actions').getBoundingClientRect();
+                var logoBounds = bar.querySelector('.logo-title').getBoundingClientRect();
+                assert(Math.abs(logoBounds.top + logoBounds.height / 2
+                    - trackBounds.top - trackBounds.height / 2) < 1,
+                    'Phone branding and track details share the same row');
+                assert(trackBounds.right <= logoBounds.left,
+                    'Phone branding sits to the right of track details without overlapping');
+                assert(trackBounds.bottom <= actionsBounds.top, 'Phone controls sit below the track details');
+                var controlsBounds = bar.querySelector('.mp3-player-controls').getBoundingClientRect();
+                var volumeBounds = bar.querySelector('.mp3-player-volume').getBoundingClientRect();
+                assert(Math.abs(volumeBounds.left - controlsBounds.right
+                    - parseFloat(getComputedStyle(bar.querySelector('.embed-actions')).columnGap)) < 1,
+                    'Phone volume is left-aligned beside the play controls');
+                assert(Math.abs(bar.querySelector('.mp3-player-downloads').getBoundingClientRect().right
+                    - actionsBounds.right) < 1, 'Phone downloads stay aligned to the right');
+                assert(bar.scrollWidth <= bar.clientWidth, 'Phone player has no horizontal scrolling');
+                Array.from(rowItems).forEach(function(element) {
+                    var bounds = element.getBoundingClientRect();
+                    assert(bounds.left >= bar.getBoundingClientRect().left
+                        && bounds.right <= bar.getBoundingClientRect().right,
+                        element.className + ' fits inside the phone player');
+                });
+                assert(bar.querySelector('.mp3-player-volume input').offsetHeight >= 44
+                    && bar.closest('.mp3-player').querySelector('.mp3-player-seek').offsetHeight >= 44,
+                    'Phone volume and seek sliders have touch-friendly hit areas');
+            } else {
+                var rowTop = rowItems[0].getBoundingClientRect().top
+                    + rowItems[0].getBoundingClientRect().height / 2;
+                Array.from(rowItems).forEach(function(element) {
+                    var bounds = element.getBoundingClientRect();
+                    assert(Math.abs(bounds.top + bounds.height / 2 - rowTop) < 1,
+                        element.className + ' stays centered on the desktop row');
+                });
+            }
+            var brand = bar.querySelector('.logo-title');
+            assert(!brand.querySelector('img') && !embedHtml.includes('/images/logo_by_chatgpt.jpg'),
+                'Embed branding uses text without the logo image');
+            var brandBounds = brand.getBoundingClientRect();
+            if (compact) {
+                assert(Math.abs(brandBounds.right - bar.getBoundingClientRect().right) < 1,
+                    'Phone logo-title is aligned to the right');
+            } else {
+                assert(Math.abs(brandBounds.left + brandBounds.width / 2
+                    - bar.getBoundingClientRect().left - bar.scrollWidth / 2) < 1,
+                    'Desktop logo-title is centered within the complete player row');
+            }
+            assert(getComputedStyle(document.body).minHeight === '0px',
+                'Embed page does not force viewport-height empty space');
+            assert(bar.closest('.mp3-player').offsetHeight <= 220,
+                'Compact iframe fits the responsive player');
+            if (compact) {
+                bar.querySelector('.mp3-player-title').textContent = 'Long track title '.repeat(30);
+                bar.querySelector('.mp3-player-artist').textContent = 'Long artist name '.repeat(30);
+                bar.querySelector('.mp3-player-style').textContent = 'Long music style '.repeat(30);
+                assert(bar.scrollWidth <= bar.clientWidth
+                    && bar.closest('.mp3-player').scrollWidth <= bar.closest('.mp3-player').clientWidth,
+                    'Long metadata truncates without overflowing the phone player');
+                assert(bar.closest('.mp3-player').offsetHeight <= 220,
+                    'Long metadata preserves the compact phone height');
+            }
+            bar.closest('.mp3-player').querySelector('audio').dispatchEvent(new Event('error'));
+            assert(bar.closest('.mp3-player').offsetHeight <= 220,
+                'Compact iframe also fits playback error messages');
             document.getElementById('results').textContent = 'PASS: ' + assertions + ' assertions; viewport ' + innerWidth;
             document.title = 'PASS';
         } catch (error) {
-            document.getElementById('results').textContent = 'FAIL: ' + error.stack;
+            document.getElementById('results').textContent = 'FAIL after ' + assertions + ' assertions: '
+                + (error.stack || error);
             document.title = 'FAIL';
         }
     }());

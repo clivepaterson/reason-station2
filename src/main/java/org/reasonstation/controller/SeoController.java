@@ -256,6 +256,8 @@ public class SeoController {
                         var mp3Link = document.querySelector('.track-mp3-link');
                         if (mp3Link) {
                             window.bindTrackAudioLink(mp3Link, track);
+                            document.querySelector('.track-card-actions').appendChild(
+                                window.createCopyEmbedButton(track));
                         }
                     </script>
                 </body>

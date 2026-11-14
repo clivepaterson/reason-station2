@@ -80,8 +80,62 @@ Each playlist entry has a remove button. Removing another entry does not interru
 playback. Removing the current entry plays the next track (or the previous track if
 it was last); removing the final entry stops playback and closes the player.
 Playback continues during in-page navigation, but not across full page loads.
+Track and patch links within the website open a card dialog without changing the
+URL or interrupting playback or uploads. Close it with the close button, Escape,
+or by clicking outside it. Shared `/tracks/{trackid}` and `/patches/{patchid}` URLs
+and links opened in a new tab still load their standalone pages.
 MP3 playback and downloads use `/api/tracks/{trackid}/audio` with a signed download
 URL. The optional external audio link remains visible independently.
+
+### Embedded MP3 player
+
+Tracks with uploaded MP3 audio have a `</>` **Copy embed code** button on their
+cards and detail pages. It copies an iframe pointing to
+`/embed.html?track={trackid}` on this site's origin. If clipboard access is
+unavailable or denied, the dialog provides the HTML for manual copying.
+
+The desktop embed's top row shows track artwork, track metadata, the centered
+text-only Reason Station logo-title, play/pause, volume, and download links in that
+order. At iframe widths of 840 pixels or less, it automatically switches to a
+phone-friendly layout: track details and right-aligned branding share the top row,
+with touch-friendly controls beneath and no horizontal scrolling. The waveform and seek slider appear below.
+Copied iframes use a compact 220-pixel height for both layouts. The player does
+not autoplay and has no skip buttons, close button, or playlist. Only
+`/embed.html` allows cross-site framing; other pages retain frame protection.
+The public `/api/discovery/tracks/{trackid}` endpoint supplies the player metadata.
+
+### Audio waveforms
+
+New and replacement MP3s are processed on the server after the track is saved.
+A bounded background worker downloads the MP3, decodes it with FFmpeg, and reduces
+the audio to at most 1,200 amplitude peaks. Only successful results are stored as
+JSON in the configured S3 bucket, alongside the audio object with the suffix
+`.waveform-v1.json`. No database migration or public bucket access is required.
+Replacing audio or deleting its track also deletes its waveform.
+Failures deleting an optional waveform are logged without failing an already-saved
+track change.
+
+The player retrieves `/api/tracks/{trackid}/audio/waveform`, displays the waveform
+with played progress, and supports click-to-seek. The existing timeline remains
+available for keyboard seeking and while the waveform is loading or unavailable.
+For existing MP3s, the first waveform request schedules processing automatically;
+there is no startup-wide backfill. The endpoint returns `202` with `Retry-After`
+while processing, and `503` if processing fails. Failures are logged and retried
+on a later request after a five-minute cooldown; playback and uploads are unaffected.
+The in-memory work queue is not durable: after a restart, missing waveforms are
+generated when requested again.
+
+The Docker runtime includes FFmpeg. When running Java directly, install FFmpeg
+on the host and put it on `PATH`, or set `WAVEFORM_FFMPEG` to its executable path.
+`WAVEFORM_TIMEOUT` defaults to `PT90S`. Processing is limited to one job at a time
+with 32 queued jobs, 80 MB of MP3 input, and less than 64 MiB of decoded mono PCM.
+Timeouts, invalid audio, and audio exceeding that decoded-size limit produce no
+waveform. Temporary processing files are removed after each job.
+
+Waveforms reuse the audio prefix's S3 read/write/delete permissions. Keep these
+objects private and encrypted, and use HTTPS in production. Processing adds
+server CPU, temporary disk use, an audio read and waveform write, and small
+waveform reads/storage charges; no browser-side MP3 decoding is needed.
 
 Migration V13 adds nullable `tracks.audio_filesize` (bytes). MP3 uploads and
 replacements save this size alongside `audio_uri`; track-card API responses include

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>In-page track and patch card regression tests</title>
+    <link rel="stylesheet" href="../../../target/classes/static/css/styles.css">
+</head>
+<body class="site-page">
+<pre id="results">Running...</pre>
+<div id="artist-page">
+    <input id="upload-title" value="Upload in progress">
+</div>
+<script>
+    var requests = [];
+    var respond;
+    var playing = new WeakMap();
+    HTMLMediaElement.prototype.play = function() {
+        playing.set(this, true);
+        this.dispatchEvent(new Event('play'));
+        return Promise.resolve();
+    };
+    HTMLMediaElement.prototype.pause = function() {
+        playing.set(this, false);
+        this.dispatchEvent(new Event('pause'));
+    };
+    HTMLMediaElement.prototype.load = function() {};
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', {
+        get: function() { return !playing.get(this); }
+    });
+    window.fetch = function(url, options) {
+        if (/\/audio\/waveform$/.test(url)) {
+            return Promise.resolve({
+                ok: true, status: 200,
+                json: function() { return Promise.resolve({version: 1, duration: 100, peaks: [0, 1]}); }
+            });
+        }
+        if (/\/rating$/.test(url)) {
+            return Promise.resolve({
+                ok: true, headers: {get: function() { return 'application/json'; }},
+                json: function() { return Promise.resolve({}); }
+            });
+        }
+        requests.push(url);
+        return new Promise(function(resolve, reject) { respond = {resolve: resolve, reject: reject}; });
+    };
+</script>
+<script src="../../main/resources/static/js/track_rating.js"></script>
+<script src="../../main/resources/static/js/style_icons.js"></script>
+<script src="../../main/resources/static/js/mp3_player.js"></script>
+<script src="../../main/resources/static/js/copy_link.js"></script>
+<script src="../../main/resources/static/js/track_card.js"></script>
+<script src="../../main/resources/static/js/image_zoom.js"></script>
+<script src="../../main/resources/static/js/patch_card.js"></script>
+<script>
+    (async function() {
+        var results = document.getElementById('results');
+        var count = 0;
+        function assert(condition, message) {
+            if (!condition) { throw new Error(message); }
+            count++;
+        }
+        async function settle() {
+            for (var i = 0; i < 12; i++) { await Promise.resolve(); }
+        }
+        function track(id) {
+            return {
+                trackid: id, trackName: 'Song <' + id + '>', artistAlias: 'Artist',
+                musicStyle: 'Rock', filename: 'song.reason', filesize: 1024,
+                downloadCount: 3, averageTrackRating: 8.5, programVersion: '13',
+                audioUri: 's3://tracks/audio', audioFilesize: 2048
+            };
+        }
+        function success(id) {
+            respond.resolve({ok: true, json: function() { return Promise.resolve(track(id)); }});
+        }
+        function click(link, options) {
+            return link.dispatchEvent(new MouseEvent('click',
+                Object.assign({bubbles: true, cancelable: true, button: 0}, options)));
+        }
+        try {
+            var originalUrl = location.href;
+            var input = document.getElementById('upload-title');
+            var originalCard = window.createTrackCard(track(1));
+            document.body.appendChild(originalCard);
+            originalCard.querySelector('.track-mp3-link').click();
+            var player = document.querySelector('.mp3-player');
+            var audio = player.querySelector('audio');
+            audio.currentTime = 25;
+            var originalAudio = audio.getAttribute('src');
+            var title = originalCard.querySelector('h3 a');
+            assert(!click(title), 'Ordinary track click prevents navigation');
+            var dialog = document.querySelector('.track-card-dialog');
+            assert(dialog.open && dialog.textContent.includes('Loading track...'), 'Dialog opens with loading feedback');
+            assert(requests[0] === '/api/discovery/tracks/1', 'Loads full public track metadata');
+            success(1);
+            await settle();
+            assert(dialog.querySelector('h3').textContent === 'Song <1>', 'Shows track name as text');
+            assert(dialog.textContent.includes('song.reason (Reason 13)')
+                && dialog.textContent.includes('Downloads: 3'), 'Shows complete track metadata');
+            assert(dialog.querySelector('.download-track-link').getAttribute('href') === '/api/tracks/1/download',
+                'Keeps project download endpoint');
+            assert(location.href === originalUrl && document.getElementById('upload-title') === input
+                && input.value === 'Upload in progress', 'Preserves URL and existing upload DOM state');
+            assert(!audio.paused && audio.currentTime === 25 && audio.getAttribute('src') === originalAudio,
+                'Opening details leaves audio and playback position unchanged');
+            assert(dialog.scrollWidth <= dialog.clientWidth, 'Dialog fits viewport without horizontal scrolling: '
+                + dialog.scrollWidth + '/' + dialog.clientWidth + ' '
+                + Array.from(dialog.querySelectorAll('*')).filter(function(element) {
+                    return element.getBoundingClientRect().right > dialog.getBoundingClientRect().right;
+                }).map(function(element) { return element.className; }).join(', '));
+            dialog.querySelector('.track-mp3-link').click();
+            assert(player.querySelectorAll('.mp3-player-playlist li').length === 2 && audio.currentTime === 25,
+                'Dialog MP3 action queues without interrupting playback');
+
+            dialog.querySelector('.copy-link-button').click();
+            var copy = document.querySelector('.copy-link-dialog');
+            assert(copy.open && copy.querySelector('textarea').value === new URL('/tracks/1', location.origin).href,
+                'Sharing retains external track URL');
+            copy.close();
+            dialog.querySelector('.rate-track-button').click();
+            var rating = document.querySelector('.rating-dialog');
+            rating.querySelector('input[value="10"]').checked = true;
+            rating.querySelector('form').dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+            await settle();
+            assert(dialog.open && dialog.querySelector('.rate-track-button').disabled
+                && dialog.querySelector('.rate-track-button').textContent === 'Rated',
+                'Rating in dialog on artist page does not reload the browser');
+
+            var listLink = document.createElement('a');
+            listLink.href = '/tracks/2';
+            listLink.className = 'track-detail-link sidebar-track-link';
+            listLink.innerHTML = '<span>Second track</span>';
+            document.body.appendChild(listLink);
+            click(listLink.firstChild);
+            var stale = respond;
+            click(title);
+            success(1);
+            await settle();
+            stale.resolve({ok: true, json: function() { return Promise.resolve(track(2)); }});
+            await settle();
+            assert(dialog.querySelector('h3').textContent === 'Song <1>', 'Stale responses cannot replace current track');
+
+            click(listLink);
+            respond.resolve({ok: false, status: 404});
+            await settle();
+            assert(dialog.textContent.includes('This track could not be found.')
+                && dialogContentBusy() === 'false', 'Missing track displays an error without navigation');
+            click(title);
+            respond.reject(new Error('Network unavailable'));
+            await settle();
+            assert(dialog.textContent.includes('Network unavailable'), 'Network error is visible');
+            click(title);
+            respond.resolve({ok: false, status: 500});
+            await settle();
+            assert(dialog.textContent.includes('Unable to load this track.'), 'Server error is visible');
+
+            var requestCount = requests.length;
+            // Cancel native navigation after the handler has had a chance to intercept.
+            window.addEventListener('click', function(event) { event.preventDefault(); });
+            ['ctrlKey', 'metaKey', 'shiftKey', 'altKey'].forEach(function(key) {
+                var options = {};
+                options[key] = true;
+                click(title, options);
+            });
+            click(title, {button: 1});
+            title.target = '_blank';
+            click(title);
+            title.target = '';
+            title.setAttribute('download', '');
+            click(title);
+            title.removeAttribute('download');
+            var outside = document.createElement('a');
+            outside.href = 'https://example.com/tracks/1';
+            document.body.appendChild(outside);
+            click(outside);
+            assert(requests.length === requestCount, 'Modified, middle, new-tab, download and external links retain native behavior');
+
+            click(title);
+            var pending = respond;
+            dialog.querySelector('.dialog-close').click();
+            pending.resolve({ok: true, json: function() { return Promise.resolve(track(1)); }});
+            await settle();
+            assert(!dialog.open, 'Closing during loading does not reopen the dialog');
+            click(title);
+            success(1);
+            await settle();
+            assert(dialog.open && dialog.querySelector('h3'), 'Track details can be reopened after closing');
+            dialog.dispatchEvent(new MouseEvent('mousedown', {clientX: -1, clientY: -1}));
+            assert(!dialog.open, 'Clicking the backdrop closes the track details');
+            assert(!audio.paused && audio.currentTime === 25 && location.href === originalUrl,
+                'Closing details leaves player and browser location intact');
+
+            var patch = {
+                patchid: 42, patchName: 'Bass <42>', artistAlias: 'Artist',
+                description: 'Warm bass & lead', filename: 'bass.thor', ext: '.thor',
+                filesize: 1024, patchImgUri: 's3://tracks/patch-images/bass',
+                imageUrl: '/images/icon-patch.svg', averagePatchRating: 8.5,
+                dateUploaded: '2026-11-03T12:00:00Z'
+            };
+            function patchSuccess() {
+                respond.resolve({ok: true, json: function() { return Promise.resolve(patch); }});
+            }
+            var patchCard = window.createPatchCard(patch);
+            document.body.appendChild(patchCard);
+            var patchTitle = patchCard.querySelector('.patch-detail-link');
+            click(patchTitle);
+            assert(dialog.open && dialog.textContent.includes('Loading patch...')
+                && dialog.getAttribute('aria-label') === 'Patch details'
+                && dialog.querySelector('.dialog-close').getAttribute('aria-label') === 'Close patch details',
+                'Patch links open the shared dialog with patch-specific loading and labels');
+            assert(requests[requests.length - 1] === '/api/discovery/patches/42',
+                'Loads public patch card metadata');
+            patchSuccess();
+            await settle();
+            assert(dialog.querySelector('.patch-card h3').textContent === patch.patchName
+                && dialog.textContent.includes('Description: ' + patch.description)
+                && dialog.textContent.includes('bass.thor')
+                && dialog.textContent.includes('1 Kb')
+                && dialog.querySelector('.track-rating-meta'),
+                'Patch card shows name, description, file, size, and rating');
+            assert(dialog.querySelector('.download-track-link').href
+                === new URL('/api/patches/42/download', location.origin).href
+                && !dialog.querySelector('.track-mp3-link'), 'Patch keeps its download and has no MP3 action');
+            assert(dialog.scrollWidth <= dialog.clientWidth, 'Patch card fits the viewport');
+            dialog.querySelector('.patch-card-image').click();
+            var zoom = document.getElementById('tutorial-image-dialog');
+            assert(zoom.open && dialog.open, 'Patch image zoom opens above the card');
+            zoom.close();
+            dialog.querySelector('.copy-link-button').click();
+            assert(copy.open && copy.querySelector('textarea').value === new URL('/patches/42', location.origin).href,
+                'Sharing retains standalone patch URL');
+            copy.close();
+            dialog.querySelector('.rate-track-button').click();
+            rating.querySelector('input[value="9"]').checked = true;
+            rating.querySelector('form').dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+            await settle();
+            assert(dialog.open && dialog.querySelector('.rate-track-button').disabled,
+                'Rating a patch leaves the card open without reloading');
+
+            ['patch-detail-link', 'sidebar-track-link'].forEach(function(className) {
+                var patchLink = document.createElement('a');
+                patchLink.className = className;
+                patchLink.href = '/patches/42';
+                patchLink.innerHTML = '<span>Patch</span>';
+                document.body.appendChild(patchLink);
+                var before = requests.length;
+                click(patchLink.firstChild);
+                assert(requests.length === before + 1, 'Catalog and sidebar patch links are intercepted');
+                patchSuccess();
+            });
+            await settle();
+            click(title);
+            var staleTrack = respond;
+            click(patchTitle);
+            patchSuccess();
+            await settle();
+            staleTrack.resolve({ok: true, json: function() { return Promise.resolve(track(1)); }});
+            await settle();
+            assert(dialog.querySelector('.patch-card'), 'Late track response cannot replace a patch card');
+            var patchRequestCount = requests.length;
+            ['ctrlKey', 'metaKey', 'shiftKey', 'altKey'].forEach(function(key) {
+                var options = {};
+                options[key] = true;
+                click(patchTitle, options);
+            });
+            click(patchTitle, {button: 1});
+            patchTitle.target = '_blank';
+            click(patchTitle);
+            patchTitle.target = '';
+            patchTitle.setAttribute('download', '');
+            click(patchTitle);
+            patchTitle.removeAttribute('download');
+            outside.href = 'https://example.com/patches/42';
+            click(outside);
+            assert(requests.length === patchRequestCount, 'Patch links retain native new-tab and external behavior');
+            click(patchTitle);
+            respond.resolve({ok: false, status: 404});
+            await settle();
+            assert(dialog.textContent.includes('This patch could not be found.'), 'Missing patch has a visible error');
+            click(patchTitle);
+            respond.resolve({ok: false, status: 500});
+            await settle();
+            assert(dialog.textContent.includes('Unable to load this patch.'), 'Patch server failure has a visible error');
+            click(patchTitle);
+            respond.reject(new Error('Patch network failure'));
+            await settle();
+            assert(dialog.textContent.includes('Patch network failure'), 'Patch network failure is visible');
+            click(patchTitle);
+            pending = respond;
+            dialog.querySelector('.dialog-close').click();
+            pending.resolve({ok: true, json: function() { return Promise.resolve(patch); }});
+            await settle();
+            assert(!dialog.open && !audio.paused && audio.currentTime === 25
+                && audio.getAttribute('src') === originalAudio && location.href === originalUrl
+                && document.getElementById('upload-title') === input && input.value === 'Upload in progress',
+                'Opening and closing patch details preserves playback, URL, and upload state');
+            results.textContent = 'PASS: ' + count + ' assertions';
+        } catch (error) {
+            results.textContent = 'FAIL: ' + error.message + '\n' + error.stack;
+            console.error(error);
+        }
+        function dialogContentBusy() {
+            return document.querySelector('.track-card-dialog [aria-live]').getAttribute('aria-busy');
+        }
+    }());
+</script>
+</body>
+</html>

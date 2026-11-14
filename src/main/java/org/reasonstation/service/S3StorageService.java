@@ -12,12 +12,18 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Optional;
 
 @Service
 public class S3StorageService {
@@ -99,6 +105,41 @@ public class S3StorageService {
                 .bucket(uri.getHost())
                 .key(uri.getPath().substring(1))
                 .build()).contentLength();
+    }
+
+    public Optional<byte[]> readOptional(String objectUri, int maxBytes) throws IOException {
+        URI uri = URI.create(objectUri);
+        try (var input = client.getObject(GetObjectRequest.builder()
+                .bucket(uri.getHost()).key(uri.getPath().substring(1)).build())) {
+            byte[] content = input.readNBytes(maxBytes + 1);
+            if (content.length > maxBytes) {
+                throw new IOException("Stored object exceeds the allowed size.");
+            }
+            return Optional.of(content);
+        } catch (S3Exception exception) {
+            if (exception.statusCode() == 404) {
+                return Optional.empty();
+            }
+            throw exception;
+        }
+    }
+
+    public void downloadTo(String objectUri, Path destination, long maxBytes) throws IOException {
+        URI uri = URI.create(objectUri);
+        try (var input = client.getObject(GetObjectRequest.builder()
+                .bucket(uri.getHost()).key(uri.getPath().substring(1)).build());
+             OutputStream output = Files.newOutputStream(destination)) {
+            byte[] buffer = new byte[8192];
+            long total = 0;
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                total += count;
+                if (total > maxBytes) {
+                    throw new IOException("Audio exceeds the waveform processing size limit.");
+                }
+                output.write(buffer, 0, count);
+            }
+        }
     }
 
     public void delete(String trackUri) {

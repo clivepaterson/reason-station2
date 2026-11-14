@@ -6,5 +6,7 @@ public record PopularTrack(
         String trackName,
         String musicStyle,
         String filename,
-        long downloadCount) {
+        long downloadCount,
+        String audioUri,
+        String imageUri) {
 }

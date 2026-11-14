@@ -6,6 +6,7 @@ import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.service.S3StorageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -63,31 +64,38 @@ public class DiscoveryController {
                 .toList();
     }
 
+    @GetMapping("/tracks/{trackid}")
+    public ResponseEntity<?> track(@PathVariable Long trackid) {
+        if (trackid < 1) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Track ID must be a positive integer."));
+        }
+        return tracks.findWithRatingById(trackid)
+                .map(track -> ResponseEntity.ok(new TrackDiscoveryResponse(
+                        track.trackid(), track.artistAlias(), track.trackName(), track.musicStyle(),
+                        track.filename(), track.filesize(), track.downloadCount(), track.averageTrackRating(),
+                        track.dateUploaded(), track.audioLink(), track.programVersion(), track.imageUri(),
+                        track.audioUri(), track.audioFilesize(), imageUrl(track.imageUri()))))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/patches/{patchid}")
+    public ResponseEntity<?> patch(@PathVariable Long patchid) {
+        if (patchid < 1) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Patch ID must be a positive integer."));
+        }
+        return patches.findWithRatingById(patchid)
+                .map(patch -> ResponseEntity.ok(PatchCardResponse.from(patch, imageUrl(patch.patchImgUri()))))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/popular-tracks")
     public Object popularTracksThisWeek() {
-        return tracks.findMostDownloadedTracksThisWeek(5).stream()
-                .map(track -> Map.of(
-                        "trackid", track.trackid(),
-                        "artistAlias", track.artistAlias(),
-                        "trackName", track.trackName(),
-                        "musicStyle", track.musicStyle(),
-                        "filename", track.filename(),
-                        "downloadCount", track.downloadCount()))
-                .toList();
+        return tracks.findMostDownloadedTracksThisWeek(5);
     }
 
     @GetMapping("/highest-rated-tracks")
     public Object highestRatedTracksThisWeek() {
-        return tracks.findHighestRatedTracksThisWeek(3).stream()
-                .map(track -> Map.of(
-                        "trackid", track.trackid(),
-                        "artistAlias", track.artistAlias(),
-                        "trackName", track.trackName(),
-                        "musicStyle", track.musicStyle(),
-                        "filename", track.filename(),
-                        "averageTrackRating", track.averageTrackRating(),
-                        "ratingCount", track.ratingCount()))
-                .toList();
+        return tracks.findHighestRatedTracksThisWeek(3);
     }
 
     @GetMapping("/popular-artists")
@@ -107,14 +115,16 @@ public class DiscoveryController {
     @GetMapping("/newest-tracks")
     public Object newestTracks() {
         return tracks.findNewestTracks(10).stream()
-                .map(track -> Map.of(
-                        "trackid", track.getTrackid(),
-                        "artistAlias", track.getArtistAlias(),
-                        "trackName", track.getTrackName(),
-                        "musicStyle", track.getMusicStyle(),
-                        "filename", track.getFilename(),
-                        "dateUploaded", track.getDateUploaded()))
+                .map(track -> new NewestTrackResponse(
+                        track.getTrackid(), track.getArtistAlias(), track.getTrackName(),
+                        track.getMusicStyle(), track.getFilename(), track.getDateUploaded(),
+                        track.getAudioUri(), track.getImageUri()))
                 .toList();
+    }
+
+    private record NewestTrackResponse(
+            Long trackid, String artistAlias, String trackName, String musicStyle,
+            String filename, java.time.Instant dateUploaded, String audioUri, String imageUri) {
     }
 
     @GetMapping("/artist-tracks")

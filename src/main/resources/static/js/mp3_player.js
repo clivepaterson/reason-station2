@@ -6,6 +6,93 @@
     var playbackRequested = false;
     var playRequest = 0;
     var lastTrigger;
+    var waveformRequest = 0;
+    var waveformController;
+    var waveformTimer;
+    var waveformData;
+    var embedded = false;
+
+    function resetWaveform() {
+        ++waveformRequest;
+        clearTimeout(waveformTimer);
+        if (waveformController) {
+            waveformController.abort();
+        }
+        waveformData = null;
+        player.querySelector('.mp3-player-waveform').hidden = true;
+        player.querySelector('.mp3-player-waveform-status').textContent = '';
+    }
+
+    function loadWaveform(track) {
+        resetWaveform();
+        var request = waveformRequest;
+        var attempts = 0;
+        waveformController = new AbortController();
+        var signal = waveformController.signal;
+        var status = player.querySelector('.mp3-player-waveform-status');
+        status.textContent = 'Loading waveform...';
+
+        function fetchWaveform() {
+            ++attempts;
+            fetch(audioUrl(track) + '/waveform', {cache: 'no-cache', signal: signal})
+                .then(function(response) {
+                    if (request !== waveformRequest) {
+                        return;
+                    }
+                    if (response.status === 202) {
+                        if (attempts >= 40) {
+                            throw new Error('Waveform generation is still pending after 40 requests.');
+                        }
+                        var retryAfter = response.headers.get('Retry-After');
+                        var delay = retryAfter && retryAfter.trim()
+                            ? Number(retryAfter) : NaN;
+                        if (!Number.isFinite(delay) && retryAfter) {
+                            delay = (Date.parse(retryAfter) - Date.now()) / 1000;
+                        }
+                        delay = Number.isFinite(delay) ? Math.max(1, Math.min(delay, 30)) : 3;
+                        waveformTimer = setTimeout(fetchWaveform, delay * 1000);
+                        return;
+                    }
+                    if (!response.ok) {
+                        throw new Error('Waveform request failed: HTTP ' + response.status);
+                    }
+                    return response.json().then(function(data) {
+                        if (request !== waveformRequest) {
+                            return;
+                        }
+                        if (!data || data.version !== 1 || !Number.isFinite(data.duration) || data.duration <= 0
+                            || !Array.isArray(data.peaks) || !data.peaks.length || data.peaks.length > 1200
+                            || !data.peaks.every(function(peak) {
+                                return Number.isFinite(peak) && peak >= 0 && peak <= 1;
+                            })) {
+                            throw new Error('Invalid waveform data.');
+                        }
+                        waveformData = data;
+                        var bucketWidth = 1200 / data.peaks.length;
+                        var path = data.peaks.map(function(peak, index) {
+                            var height = Math.max(1, peak * 64);
+                            return 'M' + (index * bucketWidth) + ' ' + ((64 - height) / 2)
+                                + 'h' + (bucketWidth * 0.8) + 'v' + height
+                                + 'h-' + (bucketWidth * 0.8) + 'z';
+                        }).join('');
+                        player.querySelectorAll('.mp3-player-waveform path').forEach(function(element) {
+                            element.setAttribute('d', path);
+                        });
+                        player.querySelector('.mp3-player-waveform').hidden = false;
+                        status.textContent = '';
+                        updateTimeline();
+                    });
+                })
+                .catch(function(error) {
+                    if (request !== waveformRequest) {
+                        return;
+                    }
+                    status.textContent = 'Waveform unavailable.';
+                    console.error('Unable to load waveform for track ' + track.trackid, error);
+                });
+        }
+        fetchWaveform();
+    }
 
     function audioUrl(track) {
         return '/api/tracks/' + encodeURIComponent(track.trackid) + '/audio';
@@ -36,6 +123,8 @@
         seek.setAttribute('aria-valuetext', elapsed + ' of ' + total);
         player.querySelector('.mp3-player-elapsed').textContent = elapsed;
         player.querySelector('.mp3-player-duration').textContent = total;
+        player.querySelector('.mp3-player-waveform-progress').setAttribute('width',
+            hasDuration ? currentTime / duration * 1200 : 0);
     }
 
     function updateTimeline() {
@@ -61,11 +150,17 @@
         play.innerHTML = controlIcon(playing ? 'pause' : 'play');
         play.setAttribute('aria-label', label);
         play.title = label;
-        player.querySelector('[data-player-action="previous"]').disabled = currentIndex <= 0;
-        player.querySelector('[data-player-action="next"]').disabled = currentIndex >= playlist.length - 1;
+        if (!embedded) {
+            player.querySelector('[data-player-action="previous"]').disabled = currentIndex <= 0;
+            player.querySelector('[data-player-action="next"]').disabled = currentIndex >= playlist.length - 1;
+        }
     }
 
     function renderPlaylist() {
+        if (embedded) {
+            updateControls();
+            return;
+        }
         var list = player.querySelector('.mp3-player-playlist');
         list.replaceChildren();
         playlist.forEach(function(track, index) {
@@ -101,6 +196,7 @@
     }
 
     function closePlayer() {
+        resetWaveform();
         stop();
         audio.removeAttribute('src');
         audio.load();
@@ -147,7 +243,8 @@
             playbackRequested = false;
             setStatus(error.name === 'NotAllowedError'
                 ? 'Playback was blocked by your browser. Press Play to listen.'
-                : 'Unable to play this MP3. Try Play again or skip to another track.');
+                : (embedded ? 'Unable to play this MP3. Try Play again.'
+                    : 'Unable to play this MP3. Try Play again or skip to another track.'));
             updateControls();
         });
     }
@@ -161,7 +258,7 @@
         updateControls();
     }
 
-    function selectTrack(index) {
+    function selectTrack(index, autoplay) {
         stop();
         currentIndex = index;
         var track = playlist[index];
@@ -180,7 +277,10 @@
         audio.src = audioUrl(track);
         renderTimeline(0, NaN);
         renderPlaylist();
-        play();
+        if (autoplay !== false) {
+            play();
+        }
+        loadWaveform(track);
     }
 
     function createPlayer() {
@@ -219,6 +319,16 @@
             '  </div>',
             '  <button type="button" data-player-action="close" aria-label="Close MP3 player" title="Close player">&times;</button>',
             '</div>',
+            '<div class="mp3-player-waveform" title="Click to seek. Use the seek slider for keyboard control." hidden>',
+            '  <svg viewBox="0 0 1200 64" preserveAspectRatio="none" aria-hidden="true">',
+            '    <defs><clipPath id="mp3-player-waveform-clip">',
+            '      <rect class="mp3-player-waveform-progress" width="0" height="64"/>',
+            '    </clipPath></defs>',
+            '    <path class="mp3-player-waveform-base"/>',
+            '    <path class="mp3-player-waveform-played" clip-path="url(#mp3-player-waveform-clip)"/>',
+            '  </svg>',
+            '</div>',
+            '<p class="mp3-player-waveform-status" role="status" aria-live="polite"></p>',
             '<div class="mp3-player-timeline">',
             '  <span class="mp3-player-elapsed">0:00</span>',
             '  <input class="mp3-player-seek" type="range" min="0" max="0" step="0.1" value="0"',
@@ -231,21 +341,30 @@
             '</details>',
             '<p class="mp3-player-status" role="status" aria-live="polite"></p>'
         ].join('\n');
+        if (embedded) {
+            player.classList.add('mp3-player-embedded');
+            player.querySelectorAll('[data-player-action="previous"], [data-player-action="next"],'
+                + ' [data-player-action="close"], .mp3-player-queue').forEach(function(element) {
+                element.remove();
+            });
+        }
         audio = document.createElement('audio');
         audio.preload = 'none';
         audio.volume = 0.8;
         player.appendChild(audio);
         document.body.appendChild(player);
 
-        var spacer = document.createElement('div');
-        spacer.className = 'mp3-player-spacer';
-        spacer.setAttribute('aria-hidden', 'true');
-        document.body.appendChild(spacer);
-        new ResizeObserver(function() {
-            var height = player.hidden ? 0 : player.offsetHeight;
-            spacer.style.height = height + 'px';
-            document.documentElement.style.setProperty('--mp3-player-height', height + 'px');
-        }).observe(player);
+        if (!embedded) {
+            var spacer = document.createElement('div');
+            spacer.className = 'mp3-player-spacer';
+            spacer.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(spacer);
+            new ResizeObserver(function() {
+                var height = player.hidden ? 0 : player.offsetHeight;
+                spacer.style.height = height + 'px';
+                document.documentElement.style.setProperty('--mp3-player-height', height + 'px');
+            }).observe(player);
+        }
 
         player.querySelector('[data-player-action="play"]').addEventListener('click', function() {
             if (playbackRequested) {
@@ -257,23 +376,36 @@
                 play();
             }
         });
-        player.querySelector('[data-player-action="previous"]').addEventListener('click', function() {
-            if (currentIndex > 0) {
-                selectTrack(currentIndex - 1);
-            }
-        });
-        player.querySelector('[data-player-action="next"]').addEventListener('click', function() {
-            if (currentIndex < playlist.length - 1) {
-                selectTrack(currentIndex + 1);
-            }
-        });
-        player.querySelector('[data-player-action="close"]').addEventListener('click', closePlayer);
+        if (!embedded) {
+            player.querySelector('[data-player-action="previous"]').addEventListener('click', function() {
+                if (currentIndex > 0) {
+                    selectTrack(currentIndex - 1);
+                }
+            });
+            player.querySelector('[data-player-action="next"]').addEventListener('click', function() {
+                if (currentIndex < playlist.length - 1) {
+                    selectTrack(currentIndex + 1);
+                }
+            });
+            player.querySelector('[data-player-action="close"]').addEventListener('click', closePlayer);
+        }
         player.querySelector('.mp3-player-volume input').addEventListener('input', function(event) {
             audio.volume = Number(event.target.value);
         });
         player.querySelector('.mp3-player-seek').addEventListener('input', function(event) {
             if (!event.target.disabled) {
                 audio.currentTime = Math.max(0, Math.min(Number(event.target.value), audio.duration));
+                updateTimeline();
+            }
+        });
+        player.querySelector('.mp3-player-waveform').addEventListener('click', function(event) {
+            if (!waveformData || player.querySelector('.mp3-player-seek').disabled) {
+                return;
+            }
+            var bounds = event.currentTarget.getBoundingClientRect();
+            if (bounds.width > 0) {
+                var fraction = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+                audio.currentTime = fraction * audio.duration;
                 updateTimeline();
             }
         });
@@ -287,7 +419,7 @@
                 selectTrack(currentIndex + 1);
             } else {
                 playbackRequested = false;
-                setStatus('Playlist finished.');
+                setStatus(embedded ? 'Track finished.' : 'Playlist finished.');
                 updateControls();
             }
         });
@@ -297,16 +429,47 @@
             }
             ++playRequest;
             playbackRequested = false;
-            setStatus('Unable to load this MP3. Try Play again or skip to another track.');
+            setStatus(embedded ? 'Unable to load this MP3. Try Play again.'
+                : 'Unable to load this MP3. Try Play again or skip to another track.');
             renderTimeline(0, NaN);
             updateControls();
         });
     }
 
-    window.bindTrackAudioLink = function(link, track) {
+    window.mountEmbeddedTrackPlayer = function(track) {
+        embedded = true;
+        createPlayer();
+        playlist = [track];
+        player.hidden = false;
+        selectTrack(0, false);
+    };
+
+    window.bindTrackAudioLink = function(link, track, options) {
         link.textContent = 'Play MP3';
         link.setAttribute('aria-label', 'Play or queue MP3 for ' + track.trackName + ' by ' + track.artistAlias);
         link.title = 'Play MP3, or add to the playlist if music is already playing';
+        link.addEventListener('click', function(event) {
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) {
+                return;
+            }
+            event.preventDefault();
+            if (!player) {
+                createPlayer();
+            }
+            lastTrigger = link;
+            player.hidden = false;
+            playlist.push(track);
+            if (playbackRequested) {
+                renderPlaylist();
+                setStatus('Added to playlist: ' + track.trackName);
+            } else {
+                selectTrack(playlist.length - 1);
+            }
+        });
+        if (options && options.compact) {
+            link.textContent = '\u266b';
+            return;
+        }
         var filesize = document.createElement('span');
         filesize.className = 'track-link-filesize';
         link.appendChild(filesize);
@@ -334,23 +497,5 @@
                     console.error('Unable to load MP3 file size for track ' + track.trackid, error);
                 });
         }
-        link.addEventListener('click', function(event) {
-            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) {
-                return;
-            }
-            event.preventDefault();
-            if (!player) {
-                createPlayer();
-            }
-            lastTrigger = link;
-            player.hidden = false;
-            playlist.push(track);
-            if (playbackRequested) {
-                renderPlaylist();
-                setStatus('Added to playlist: ' + track.trackName);
-            } else {
-                selectTrack(playlist.length - 1);
-            }
-        });
     };
 }());

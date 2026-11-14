@@ -7,5 +7,7 @@ public record HighestRatedTrack(
         String musicStyle,
         String filename,
         Double averageTrackRating,
-        Long ratingCount) {
+        Long ratingCount,
+        String audioUri,
+        String imageUri) {
 }
