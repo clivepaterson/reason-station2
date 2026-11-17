@@ -1,0 +1,473 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Reloads ECS database credentials after the RDS managed secret AWSCURRENT label changes,
+  using durable queued retries and per-label-move deployment leases without reading secret values.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: default EventBridge bus -> encrypted SQS -> Lambda -> ECS force deployment
+    must:
+      - Deploy in the same account and region as the secret and ECS service
+      - Native Secret Label Updated events need no CloudTrail trail
+      - AlarmNamePrefix must match the existing monitoring topic and KMS publisher permissions
+      - A crash after ECS accepts an update but before completion is saved can cause another deployment
+
+Parameters:
+  DatabaseMasterSecretArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:secretsmanager:[^:]+:[0-9]{12}:secret:.+$"
+    Description: Exact ARN of the existing RDS managed master secret, not its value.
+  ClusterName:
+    Type: String
+    MinLength: 1
+    Description: Cluster containing the existing ECS service.
+  ServiceArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:ecs:[^:]+:[0-9]{12}:service/.+$"
+    Description: Existing ECS service ARN; this stack does not own its configuration.
+  AlertTopicArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:sns:[^:]+:[0-9]{12}:.+$"
+    Description: Existing encrypted monitoring topic with permission for this stack's alarms.
+  AlarmNamePrefix:
+    Type: String
+    MinLength: 1
+    MaxLength: 220
+    AllowedPattern: "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+    Description: Use the monitoring stack name followed by -database-rotation to reuse its alarm publisher permissions.
+
+Resources:
+  QueueKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: EventBridge targets and delivery DLQs require customer-managed rather than AWS-owned queue encryption
+        must:
+          - Retain this key while retained queues contain encrypted messages
+          - Publisher access must match the exact rule ARN and source account
+    Properties:
+      Description: !Sub "${AWS::StackName} rotation queue encryption"
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EnableAccountPermissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+            Action: kms:*
+            Resource: "*"
+          - Sid: AllowRotationRule
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnEquals:
+                aws:SourceArn: !Sub
+                  - "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/rotation-${StackId}"
+                  - StackId: !Select [2, !Split ["/", !Ref AWS::StackId]]
+
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: retain exhausted worker retries and failed EventBridge deliveries for operator replay
+        must:
+          - Inspect and redrive failures before the fourteen-day retention expires
+    Properties:
+      KmsMasterKeyId: !GetAtt QueueKey.Arn
+      MessageRetentionPeriod: 1209600
+
+  WorkQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: absorb ECS deployment conflicts without losing rotation events
+        must:
+          - Visibility must exceed the lease and be at least six times the Lambda timeout
+          - 144 ten-minute receives give approximately one day of retries; retention adds redrive slack
+    Properties:
+      KmsMasterKeyId: !GetAtt QueueKey.Arn
+      VisibilityTimeout: 600
+      MessageRetentionPeriod: 172800
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 144
+
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: only the exact rule may publish rotations or delivery failures
+        must:
+          - Preserve source account and rule ARN restrictions and TLS enforcement
+    Properties:
+      Queues:
+        - !Ref WorkQueue
+        - !Ref DeadLetterQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowRotationRule
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource:
+              - !GetAtt WorkQueue.Arn
+              - !GetAtt DeadLetterQueue.Arn
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnEquals:
+                aws:SourceArn: !GetAtt RotationRule.Arn
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: sqs:*
+            Resource:
+              - !GetAtt WorkQueue.Arn
+              - !GetAtt DeadLetterQueue.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  RotationRule:
+    Type: AWS::Events::Rule
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: native staging-label changes cover managed rotation and manual AWSCURRENT promotion
+        must:
+          - Match the exact secret ARN in resources, never CloudTrail requestParameters
+          - Only AWSCURRENT changes may trigger deployments
+          - UUID-based rule name must match the key policy without introducing a key-to-queue dependency cycle
+    Properties:
+      Name: !Sub
+        - "rotation-${StackId}"
+        - StackId: !Select [2, !Split ["/", !Ref AWS::StackId]]
+      Description: Reload ECS credentials when the managed database secret becomes current.
+      EventBusName: default
+      State: ENABLED
+      EventPattern:
+        source: [aws.secretsmanager]
+        detail-type: [Secret Label Updated]
+        resources:
+          - !Ref DatabaseMasterSecretArn
+        detail:
+          labelUpdated: [AWSCURRENT]
+      Targets:
+        - Id: RotationWork
+          Arn: !GetAtt WorkQueue.Arn
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 86400
+            MaximumRetryAttempts: 185
+          DeadLetterConfig:
+            Arn: !GetAtt DeadLetterQueue.Arn
+
+  DeploymentLeases:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: conditional secret-version and native event-id leases suppress retries while permitting later AWSCURRENT re-promotion
+        must:
+          - Completed state is written only after ECS accepts the deployment
+          - Retain records for thirty days; TTL cleanup is asynchronous
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: versionKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: versionKey
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: pre-create bounded-retention logs so the worker needs no log-group creation permission
+        must:
+          - Never log event bodies or secret values
+    Properties:
+      RetentionInDays: 30
+
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: isolated execution role can redeploy only the designated service and inspect secret metadata
+        must:
+          - Never grant GetSecretValue or any secret decryption permission
+          - Keep queue, table, log group and ECS permissions resource-scoped
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: rotation-worker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ecs:UpdateService
+                Resource: !Ref ServiceArn
+              - Effect: Allow
+                Action: secretsmanager:DescribeSecret
+                Resource: !Ref DatabaseMasterSecretArn
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                Resource: !GetAtt DeploymentLeases.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt WorkQueue.Arn
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: !GetAtt QueueKey.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt WorkerLogGroup.Arn
+
+  RotationWorker:
+    Type: AWS::Lambda::Function
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: small inline worker avoids artifact packaging; on-demand execution fits rare rotation events
+        must:
+          - Lease is longer than the function timeout and shorter than queue visibility
+          - Raise on active leases and AWS failures so SQS retries blue-green deployment conflicts
+          - Do not mark a version completed before UpdateService succeeds
+          - Retry unconfirmed metadata visibility; only AWSPREVIOUS positively identifies stale events
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt WorkerRole.Arn
+      Timeout: 60
+      MemorySize: 128
+      LoggingConfig:
+        LogGroup: !Ref WorkerLogGroup
+      Environment:
+        Variables:
+          SECRET_ARN: !Ref DatabaseMasterSecretArn
+          CLUSTER_NAME: !Ref ClusterName
+          SERVICE_ARN: !Ref ServiceArn
+          LEASE_TABLE: !Ref DeploymentLeases
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import os
+          import time
+          import uuid
+
+          import boto3
+          from boto3.dynamodb.conditions import Attr
+          from botocore.config import Config
+
+          LOG = logging.getLogger(__name__)
+          LOG.setLevel(logging.INFO)
+          CONFIG = Config(connect_timeout=2, read_timeout=3,
+                          retries={"total_max_attempts": 2, "mode": "standard"})
+          ECS = boto3.client("ecs", config=CONFIG)
+          SECRETS = boto3.client("secretsmanager", config=CONFIG)
+          TABLE = boto3.resource("dynamodb", config=CONFIG).Table(os.environ["LEASE_TABLE"])
+          SECRET_ARN = os.environ["SECRET_ARN"]
+
+          def handler(event, context):
+              if not isinstance(event, dict):
+                  raise ValueError("Expected an SQS event object")
+              records = event.get("Records", [])
+              if not isinstance(records, list) or len(records) != 1:
+                  raise ValueError("Expected exactly one SQS record")
+              message = json.loads(records[0]["body"])
+              if not isinstance(message, dict):
+                  raise ValueError("Expected a rotation event object")
+              detail = message.get("detail")
+              if (message.get("source") != "aws.secretsmanager"
+                      or message.get("detail-type") != "Secret Label Updated"
+                      or not isinstance(message.get("resources"), list)
+                      or SECRET_ARN not in message["resources"]
+                      or not isinstance(detail, dict)
+                      or detail.get("labelUpdated") != "AWSCURRENT"):
+                  raise ValueError("Unexpected rotation event source, secret or label")
+              version = detail.get("versionId")
+              event_id = message.get("id")
+              if (not isinstance(version, str) or not version.strip()
+                      or not isinstance(detail.get("name"), str) or not detail["name"].strip()):
+                  raise ValueError("Rotation event requires versionId and name")
+              if not isinstance(event_id, str) or not event_id.strip():
+                  raise ValueError("Rotation event requires a native event id")
+
+              metadata = SECRETS.describe_secret(SecretId=SECRET_ARN)
+              versions = metadata["VersionIdsToStages"]
+              if not any("AWSCURRENT" in stages for stages in versions.values()):
+                  raise RuntimeError("Secret metadata has no AWSCURRENT version; retry")
+              stages = versions.get(version, [])
+              if "AWSCURRENT" not in stages:
+                  if "AWSPREVIOUS" in stages:
+                      LOG.info("Ignoring obsolete secret version")
+                      return
+                  raise RuntimeError("Incoming secret version is not confirmed AWSCURRENT; retry")
+
+              now = int(time.time())
+              key = {"versionKey": SECRET_ARN + "#" + version + "#" + event_id}
+              owner = str(uuid.uuid4())
+              claim = dict(key, state="IN_PROGRESS", owner=owner,
+                           leaseUntil=now + 120, expiresAt=now + 30 * 86400)
+              try:
+                  TABLE.put_item(
+                      Item=claim,
+                      ConditionExpression=(
+                          Attr("versionKey").not_exists()
+                          | (Attr("state").eq("IN_PROGRESS") & Attr("leaseUntil").lte(now))
+                      ),
+                  )
+              except TABLE.meta.client.exceptions.ConditionalCheckFailedException:
+                  existing = TABLE.get_item(Key=key, ConsistentRead=True).get("Item", {})
+                  if existing.get("state") == "COMPLETED":
+                      LOG.info("Ignoring completed duplicate rotation")
+                      return
+                  raise RuntimeError("Rotation lease is active or changed; retry") from None
+
+              ECS.update_service(cluster=os.environ["CLUSTER_NAME"],
+                                 service=os.environ["SERVICE_ARN"],
+                                 forceNewDeployment=True)
+              TABLE.put_item(
+                  Item=dict(key, state="COMPLETED", expiresAt=now + 30 * 86400),
+                  ConditionExpression=(
+                      Attr("state").eq("IN_PROGRESS") & Attr("owner").eq(owner)
+                  ),
+              )
+              LOG.info("ECS credential reload deployment accepted")
+
+  WorkerEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: native queue polling preserves failed messages without asynchronous Lambda retry limits
+        must:
+          - Batch size one makes any exception retry exactly one rotation event
+    Properties:
+      EventSourceArn: !GetAtt WorkQueue.Arn
+      FunctionName: !Ref RotationWorker
+      BatchSize: 1
+      Enabled: true
+      ScalingConfig:
+        MaximumConcurrency: 2
+
+  DeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: alert when either delivery or deployment retries require operator recovery
+        must:
+          - Existing SNS topic and key policies must allow this alarm ARN
+    Properties:
+      AlarmName: !Sub "${AlarmNamePrefix}-dead-letter"
+      AlarmDescription: Rotation failed; inspect retained DLQ messages and redrive after fixing the cause.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopicArn]
+
+  BacklogAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: warn about delayed credential reloads before the retry window is exhausted
+        must:
+          - Existing SNS topic and key policies must allow this alarm ARN
+    Properties:
+      AlarmName: !Sub "${AlarmNamePrefix}-backlog"
+      AlarmDescription: Database credential reload has been queued for at least fifteen minutes.
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt WorkQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 900
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopicArn]
+
+  DeliveryFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: detect EventBridge delivery failures even if its DLQ permission is broken
+        must:
+          - Existing SNS topic and key policies must allow this alarm ARN
+    Properties:
+      AlarmName: !Sub "${AlarmNamePrefix}-delivery-failures"
+      AlarmDescription: EventBridge could not deliver a database rotation event to the work queue.
+      Namespace: AWS/Events
+      MetricName: FailedInvocations
+      Dimensions:
+        - Name: RuleName
+          Value: !Ref RotationRule
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopicArn]
+
+Outputs:
+  WorkQueueUrl:
+    Description: Buffered rotations; failed workers retry here before DLQ redrive.
+    Value: !Ref WorkQueue
+  DeadLetterQueueUrl:
+    Description: Inspect failed delivery or deployment events and replay after resolving the cause.
+    Value: !Ref DeadLetterQueue
+  RotationRuleArn:
+    Description: Native secret-label event rule.
+    Value: !GetAtt RotationRule.Arn
+  WorkerFunctionName:
+    Description: Credential reload worker for logs and invocation metrics.
+    Value: !Ref RotationWorker
+  AlarmArnPrefix:
+    Description: Allow this prefix in the existing monitoring topic and KMS CloudWatch publisher policies.
+    Value: !Sub "arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${AlarmNamePrefix}-*"

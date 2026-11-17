@@ -208,15 +208,6 @@ $databaseEndpoint = Get-StackOutput $databaseStack "DatabaseEndpoint"
 $databasePort = Get-StackOutput $databaseStack "DatabasePort"
 $databaseName = Get-StackOutput $databaseStack "DatabaseName"
 $databaseMasterSecretArn = Get-StackOutput $databaseStack "DatabaseMasterSecretArn"
-$databaseCredentialsJson = & aws secretsmanager get-secret-value `
-    --secret-id $databaseMasterSecretArn `
-    --region $Region `
-    --query SecretString `
-    --output text
-if ($LASTEXITCODE -ne 0) {
-    throw "Could not read the RDS-managed database credentials."
-}
-$databaseCredentials = $databaseCredentialsJson | ConvertFrom-Json
 
 $existingConfig = @{}
 $existingVersionId = & aws secretsmanager list-secret-version-ids `
@@ -270,8 +261,6 @@ $appleClientSecret = if ($existingConfig.ContainsKey("APPLE_CLIENT_SECRET")) {
 
 $applicationConfig = [ordered]@{
     DATABASE_URL = "jdbc:postgresql://${databaseEndpoint}:${databasePort}/${databaseName}?sslmode=require"
-    DATABASE_USERNAME = $databaseCredentials.username
-    DATABASE_PASSWORD = $databaseCredentials.password
     S3_ENDPOINT = "https://s3.$Region.amazonaws.com"
     S3_PUBLIC_ENDPOINT = "https://s3.$Region.amazonaws.com"
     S3_REGION = $Region
@@ -326,6 +315,7 @@ Invoke-NativeCommand aws @(
     "AlternateTargetGroupArn=$alternateTargetGroupArn",
     "ProductionListenerRuleArn=$productionListenerRuleArn",
     "ApplicationSecretArn=$applicationSecretArn",
+    "DatabaseMasterSecretArn=$databaseMasterSecretArn",
     "ApplicationConfigVersion=$applicationConfigVersion",
     "FileStorageBucketArn=arn:aws:s3:::$BucketName",
     "ArchiveStorageBucketName=$ArchiveBucketName",
@@ -340,5 +330,15 @@ Invoke-NativeCommand aws @(
     -Region $Region `
     -StackPrefix $StackPrefix `
     -AlertEmail $AlertEmail
+if (-not $?) {
+    throw "Monitoring deployment failed."
+}
+
+& (Join-Path $PSScriptRoot "deploy-database-rotation.ps1") `
+    -Region $Region `
+    -StackPrefix $StackPrefix
+if (-not $?) {
+    throw "Database rotation automation deployment failed."
+}
 
 Write-Host "Blue/green deployment completed: https://$DomainName"

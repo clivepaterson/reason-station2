@@ -188,5 +188,56 @@ this but these are not end-to-end DNS/TLS or browser checks.
 
 Existing ECS CPU, PostgreSQL capacity, and database event notifications remain in
 place. Monitoring uses native metrics without enabling Container Insights and
-does not automatically redeploy workloads. These alerts detect symptoms; they do
+does not itself redeploy workloads. These alerts detect symptoms; they do
 not establish or fix the cause of a lost database connection.
+
+## Database password rotation
+
+Production Fargate tasks receive `DATABASE_USERNAME` and `DATABASE_PASSWORD`
+directly from the RDS-managed Secrets Manager secret. The task execution role,
+not the application's runtime role, retrieves the current `username` and
+`password` JSON keys when each task starts. The deployment script no longer reads
+or copies these credentials into `/reasonstation/prod/application`; the JDBC URL
+remains in that application secret. RDS password management and automatic
+rotation remain enabled.
+
+Full deployments with `infrastructure\deploy-blue-green.ps1` deploy rotation
+automation after the ECS service and monitoring. To update only the automation
+after those prerequisites have been deployed:
+
+```powershell
+.\infrastructure\deploy-database-rotation.ps1 -Region ap-southeast-1
+```
+
+Use `-StackPrefix` if different from `reasonstation`. The script refuses to enable
+automation unless the ECS stack exposes the same database secret ARN as the
+PostgreSQL stack. Running this script against the old ECS stack is not enough:
+first deploy the updated task definition with direct secret injection. The first
+full deployment also removes the copied database credentials from the current
+application-secret version; historical secret versions are not purged.
+
+Secrets Manager's native `Secret Label Updated` event for `AWSCURRENT`, restricted
+to this database secret, triggers an ECS force-new-deployment through EventBridge,
+a retry queue, and Lambda. This handles automatic rotation and manual changes of
+the active version without a CloudTrail-dependent event rule or an image rebuild.
+The automation never reads password values. New tasks resolve `AWSCURRENT` at
+startup; existing tasks cannot refresh their injected environment variables.
+
+Failed worker requests retry for approximately one day before moving to a
+fourteen-day dead-letter queue. Conditional DynamoDB leases suppress completed
+event retries while allowing later promotions of the same secret version. A
+worker crash after ECS accepts the deployment but before completion is recorded
+can still cause an extra deployment. No exactly-once guarantee is assumed.
+
+Automation alarms use the existing monitoring email destination: a fifteen-minute
+queue backlog, dead-letter messages, or exhausted EventBridge delivery attempts
+raise alerts. The rotation stack exposes `DeadLetterQueueUrl` and
+`WorkerFunctionName` for investigation; fix the underlying error before redriving
+failed events to the work queue. Queues, their customer-managed encryption key,
+and the deduplication table are retained on stack deletion and incur AWS charges.
+
+Rotation recovery is asynchronous, not zero-downtime credential refresh: existing
+tasks may fail new database connections until healthy replacements take over.
+Retries and failure alerts cover automation errors; the service-health alarms
+remain responsible for detecting an application that fails to recover. Confirm
+the monitoring SNS email subscription so failure notifications can arrive.

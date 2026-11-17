@@ -12,6 +12,7 @@ Metadata:
       - Public subnets require AssignPublicIp ENABLED because the VPC has no NAT gateway
       - Blue and green revisions may run together only during deployment and bake time
       - Image tags must be immutable and unique per deployment
+      - Database credentials must be injected from the current RDS-managed secret, never copied into application configuration
 
 Parameters:
   ImageUri:
@@ -40,6 +41,10 @@ Parameters:
     Type: String
     AllowedPattern: "^arn:[^:]+:secretsmanager:[^:]+:[0-9]{12}:secret:.+$"
     Description: Existing Secrets Manager secret imported by the production Spring profile.
+  DatabaseMasterSecretArn:
+    Type: String
+    AllowedPattern: "^arn:[^:]+:secretsmanager:[^:]+:[0-9]{12}:secret:.+$"
+    Description: RDS-managed secret; Fargate retrieves its current username and password at task startup.
   ApplicationConfigVersion:
     Type: String
     MinLength: 1
@@ -117,9 +122,10 @@ Resources:
     Type: AWS::IAM::Role
     Metadata:
       com.aws.cloudformation.Context:
-        why: lets the Fargate runtime pull the private image and publish container logs
+        why: lets the Fargate runtime pull the private image, publish logs, and inject current database credentials
         must:
           - Do not add application data-plane permissions; those belong on TaskRole
+          - Database secret access must remain scoped to DatabaseMasterSecretArn
         mutable: change-with-constraints
     Properties:
       AssumeRolePolicyDocument:
@@ -131,6 +137,14 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+      Policies:
+        - PolicyName: inject-database-credentials
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref DatabaseMasterSecretArn
       Tags:
         - Key: Application
           Value: reasonstation
@@ -233,6 +247,7 @@ Resources:
           - Stop timeout must stay aligned with target-group deregistration delay
           - Liveness must not include external dependencies
           - Image URI must use an immutable unique tag
+          - Database secret references must use AWSCURRENT implicitly rather than pinning a version
         mutable: change-with-constraints
     Properties:
       Family: reasonstation
@@ -260,6 +275,11 @@ Resources:
               Value: prod
             - Name: APPLICATION_CONFIG_VERSION
               Value: !Ref ApplicationConfigVersion
+          Secrets:
+            - Name: DATABASE_USERNAME
+              ValueFrom: !Sub "${DatabaseMasterSecretArn}:username::"
+            - Name: DATABASE_PASSWORD
+              ValueFrom: !Sub "${DatabaseMasterSecretArn}:password::"
           HealthCheck:
             Command:
               - CMD-SHELL
@@ -346,3 +366,6 @@ Outputs:
   TaskDefinitionArn:
     Description: Task definition revision created for the deployed image.
     Value: !Ref TaskDefinition
+  DatabaseMasterSecretArn:
+    Description: RDS-managed secret injected into tasks; rotation automation must use the same secret.
+    Value: !Ref DatabaseMasterSecretArn
