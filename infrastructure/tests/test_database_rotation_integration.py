@@ -115,6 +115,45 @@ class RotationIntegrationTests(unittest.TestCase):
             {"Fn::GetAtt": "DeadLetterQueue.Arn"},
         )
 
+    def test_sqs_policies_use_one_resource_per_statement(self):
+        resources = self.rotation["Resources"]
+        policies = {
+            name: resource["Properties"]
+            for name, resource in resources.items()
+            if resource["Type"] == "AWS::SQS::QueuePolicy"
+        }
+        self.assertEqual(set(policies), {"QueuePolicy", "DeadLetterQueuePolicy"})
+        for policy_name, queue_name in (
+            ("QueuePolicy", "WorkQueue"),
+            ("DeadLetterQueuePolicy", "DeadLetterQueue"),
+        ):
+            with self.subTest(queue=queue_name):
+                policy = policies[policy_name]
+                self.assertEqual(policy["Queues"], [{"Ref": queue_name}])
+                statements = {
+                    statement["Sid"]: statement
+                    for statement in policy["PolicyDocument"]["Statement"]
+                }
+                self.assertEqual(set(statements), {"AllowRotationRule", "DenyInsecureTransport"})
+                for statement in statements.values():
+                    self.assertEqual(statement["Resource"], {"Fn::GetAtt": queue_name + ".Arn"})
+                allow = statements["AllowRotationRule"]
+                self.assertEqual(allow["Effect"], "Allow")
+                self.assertEqual(allow["Principal"], {"Service": "events.amazonaws.com"})
+                self.assertEqual(allow["Action"], "sqs:SendMessage")
+                self.assertEqual(
+                    allow["Condition"],
+                    {
+                        "StringEquals": {"aws:SourceAccount": {"Ref": "AWS::AccountId"}},
+                        "ArnEquals": {"aws:SourceArn": {"Fn::GetAtt": "RotationRule.Arn"}},
+                    },
+                )
+                deny = statements["DenyInsecureTransport"]
+                self.assertEqual(deny["Effect"], "Deny")
+                self.assertEqual(deny["Principal"], "*")
+                self.assertEqual(deny["Action"], "sqs:*")
+                self.assertEqual(deny["Condition"], {"Bool": {"aws:SecureTransport": "false"}})
+
 
 if __name__ == "__main__":
     unittest.main()

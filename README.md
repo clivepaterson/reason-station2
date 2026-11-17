@@ -236,6 +236,15 @@ raise alerts. The rotation stack exposes `DeadLetterQueueUrl` and
 failed events to the work queue. Queues, their customer-managed encryption key,
 and the deduplication table are retained on stack deletion and incur AWS charges.
 
+If initial automation creation ends in `ROLLBACK_COMPLETE`, CloudFormation cannot
+update that failed stack. After correcting its failure, delete only the failed
+`<StackPrefix>-database-rotation` stack record in CloudFormation, wait for deletion
+to finish, and rerun `deploy-database-rotation.ps1`. Do not delete the PostgreSQL
+or ECS stacks. Retained queues, the encryption key, and the deduplication table
+from the failed creation remain separate resources; recreating the stack does
+not reclaim them, so account for their ongoing charges and review them separately
+before cleanup.
+
 Rotation recovery is asynchronous, not zero-downtime credential refresh: existing
 tasks may fail new database connections until healthy replacements take over.
 Retries and failure alerts cover automation errors; the service-health alarms

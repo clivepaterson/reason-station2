@@ -112,13 +112,13 @@ Resources:
     Type: AWS::SQS::QueuePolicy
     Metadata:
       com.aws.cloudformation.Context:
-        why: only the exact rule may publish rotations or delivery failures
+        why: only the exact rule may publish rotations to the work queue
         must:
           - Preserve source account and rule ARN restrictions and TLS enforcement
+          - SQS requires exactly one queue resource in each statement
     Properties:
       Queues:
         - !Ref WorkQueue
-        - !Ref DeadLetterQueue
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -127,9 +127,7 @@ Resources:
             Principal:
               Service: events.amazonaws.com
             Action: sqs:SendMessage
-            Resource:
-              - !GetAtt WorkQueue.Arn
-              - !GetAtt DeadLetterQueue.Arn
+            Resource: !GetAtt WorkQueue.Arn
             Condition:
               StringEquals:
                 aws:SourceAccount: !Ref AWS::AccountId
@@ -139,9 +137,41 @@ Resources:
             Effect: Deny
             Principal: "*"
             Action: sqs:*
-            Resource:
-              - !GetAtt WorkQueue.Arn
-              - !GetAtt DeadLetterQueue.Arn
+            Resource: !GetAtt WorkQueue.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  DeadLetterQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: only the exact rule may publish failed deliveries to the dead-letter queue
+        must:
+          - Preserve source account and rule ARN restrictions and TLS enforcement
+          - SQS requires exactly one queue resource in each statement
+    Properties:
+      Queues:
+        - !Ref DeadLetterQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowRotationRule
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt DeadLetterQueue.Arn
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnEquals:
+                aws:SourceArn: !GetAtt RotationRule.Arn
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: sqs:*
+            Resource: !GetAtt DeadLetterQueue.Arn
             Condition:
               Bool:
                 aws:SecureTransport: "false"
