@@ -104,7 +104,9 @@ class S3StorageServiceTest {
             URI imageUrl = storage.createImageUrl("s3://tracks/patch-images/image");
             assertEquals("/tracks/patch-images/image", imageUrl.getPath());
             assertTrue(imageUrl.getRawQuery().contains("response-content-disposition=inline"));
+            assertTrue(imageUrl.getQuery().contains("response-cache-control=private, max-age=86400"));
             assertTrue(imageUrl.getRawQuery().contains("X-Amz-Signature="));
+            assertTrue(!downloadUrl.getRawQuery().contains("response-cache-control="));
             assertTrue(!imageUrl.getRawQuery().contains("response-content-type="));
 
             String archiveKey = "songs/2007/vibrant energy #1%?.rps";

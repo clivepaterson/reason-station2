@@ -1,0 +1,19 @@
+{
+  "name": "reasonstation-load-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "install:browsers": "playwright install chromium",
+    "load": "node run.mjs",
+    "load:10": "node run.mjs --users 10",
+    "load:100": "node run.mjs --users 100",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "playwright": "1.65.1"
+  }
+}

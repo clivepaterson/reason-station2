@@ -192,9 +192,9 @@ public class CatalogRepository {
         String orderBy = sortColumn(ARCHIVE_SORT_COLUMNS, sort);
         String filterClause = """
                 WHERE :filter = ''
-                   OR COALESCE(name, '') ILIKE '%' || :filter || '%'
-                   OR COALESCE(creator, '') ILIKE '%' || :filter || '%'
-                   OR COALESCE(filename, '') ILIKE '%' || :filter || '%'
+                   OR name ILIKE '%' || :filter || '%'
+                   OR creator ILIKE '%' || :filter || '%'
+                   OR filename ILIKE '%' || :filter || '%'
                 """;
         long totalElements = queryCount(
                 "SELECT COUNT(*) FROM " + table + " " + filterClause, Map.of("filter", filter));

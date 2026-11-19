@@ -23,11 +23,21 @@ public interface PatchRepository extends CrudRepository<Patch, Long> {
     List<PatchWithRating> findWithRatingsByUserid(Long userid);
 
     @Query("""
+            WITH selected AS (
+                SELECT * FROM patches WHERE artist_alias = :artistAlias
+                ORDER BY date_uploaded DESC, patchid DESC
+                LIMIT :limit OFFSET :offset
+            )
             SELECT p.*, (SELECT AVG(r.rating) FROM patch_ratings r WHERE r.patchid = p.patchid)
                 AS average_patch_rating
-            FROM patches p WHERE p.artist_alias = :artistAlias ORDER BY p.date_uploaded DESC
+            FROM selected p
+            ORDER BY p.date_uploaded DESC, p.patchid DESC
             """)
-    List<PatchWithRating> findWithRatingsByArtistAlias(String artistAlias);
+    List<PatchWithRating> findWithRatingsByArtistAlias(
+            @Param("artistAlias") String artistAlias, @Param("limit") int limit, @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM patches WHERE artist_alias = :artistAlias")
+    long countByArtistAlias(@Param("artistAlias") String artistAlias);
 
     @Query("""
             SELECT p.*, (SELECT AVG(r.rating) FROM patch_ratings r WHERE r.patchid = p.patchid)

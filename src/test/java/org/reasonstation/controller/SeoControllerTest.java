@@ -8,11 +8,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.reasonstation.entity.Track;
 import org.reasonstation.entity.Patch;
 import org.reasonstation.repository.PatchRepository;
+import org.reasonstation.repository.SitemapEntry;
+import org.reasonstation.repository.SitemapRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
+import org.reasonstation.service.SitemapService;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
@@ -24,6 +26,8 @@ import tools.jackson.databind.ObjectMapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,12 +36,15 @@ class SeoControllerTest {
     private TrackRepository tracks;
     @Mock
     private PatchRepository patches;
+    @Mock
+    private SitemapRepository sitemapRepository;
 
     private SeoController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new SeoController(tracks, patches, new ObjectMapper(), "https://reasonstation.example/");
+        controller = new SeoController(tracks, patches, new ObjectMapper(),
+                new SitemapService(sitemapRepository, 300_000), "https://reasonstation.example/");
     }
 
     @Test
@@ -174,11 +181,10 @@ class SeoControllerTest {
 
     @Test
     void includesTracksInSitemapAndAdvertisesItToCrawlers() {
-        Track track = new Track();
-        track.setTrackid(42L);
-        track.setDateUploaded(Instant.parse("2026-11-03T10:15:30Z"));
-        when(tracks.findAll()).thenReturn(List.of(track));
-        when(patches.findAll()).thenReturn(List.of(patch()));
+        when(sitemapRepository.findTracks()).thenReturn(List.of(
+                new SitemapEntry(42L, Instant.parse("2026-11-03T10:15:30Z"))));
+        when(sitemapRepository.findPatches()).thenReturn(List.of(
+                new SitemapEntry(15L, null)));
 
         String sitemap = controller.sitemap();
 
@@ -188,6 +194,14 @@ class SeoControllerTest {
         assertTrue(sitemap.contains("<loc>https://reasonstation.example/patches/15</loc>"));
         assertTrue(controller.robots().contains(
                 "Sitemap: https://reasonstation.example/sitemap.xml"));
+        verifyNoInteractions(tracks, patches);
+    }
+
+    @Test
+    void surfacesSitemapRepositoryFailures() {
+        when(sitemapRepository.findTracks()).thenThrow(new IllegalStateException("database unavailable"));
+
+        assertThrows(IllegalStateException.class, controller::sitemap);
     }
 
     @Test

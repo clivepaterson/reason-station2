@@ -48,3 +48,7 @@ sql/test_user.sql
 
 ### Collected archive binaries and local inventory ###
 /archive-files/
+
+### Browser load tests ###
+/load-tests/node_modules/
+/load-tests/results/

@@ -1,10 +1,10 @@
 package org.reasonstation.controller;
 
-import org.reasonstation.entity.Track;
 import org.reasonstation.entity.Patch;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
+import org.reasonstation.service.SitemapService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -19,9 +19,7 @@ import org.springframework.web.util.UriUtils;
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.StreamSupport;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -35,12 +33,15 @@ public class SeoController {
     private final PatchRepository patches;
     private final ObjectMapper objectMapper;
     private final String baseUrl;
+    private final SitemapService sitemapService;
 
     public SeoController(TrackRepository tracks, PatchRepository patches, ObjectMapper objectMapper,
+                         SitemapService sitemapService,
                          @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
         this.tracks = tracks;
         this.patches = patches;
         this.objectMapper = objectMapper;
+        this.sitemapService = sitemapService;
         this.baseUrl = baseUrl.replaceAll("/+$", "");
     }
 
@@ -70,35 +71,7 @@ public class SeoController {
     @GetMapping(value = "/sitemap.xml", produces = MediaType.APPLICATION_XML_VALUE)
     @ResponseBody
     public String sitemap() {
-        StringBuilder xml = new StringBuilder("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-                """);
-        List.of(
-                "/index.html", "/index.html?view=artists", "/index.html?view=tracks",
-                "/index.html?view=patches", "/index.html?view=tutorials",
-                "/index.html?view=archived-songs", "/index.html?view=archived-refills",
-                "/index.html?view=links", "/index.html?view=about"
-        ).forEach(path -> appendSitemapUrl(xml, baseUrl + path, null));
-
-        StreamSupport.stream(tracks.findAll().spliterator(), false)
-                .forEach(track -> appendSitemapUrl(
-                        xml,
-                        baseUrl + "/tracks/" + track.getTrackid(),
-                        track.getDateUploaded() == null
-                                ? null
-                                : DateTimeFormatter.ISO_LOCAL_DATE
-                                        .withZone(java.time.ZoneOffset.UTC)
-                                        .format(track.getDateUploaded())));
-        StreamSupport.stream(patches.findAll().spliterator(), false)
-                .forEach(patch -> appendSitemapUrl(
-                        xml,
-                        baseUrl + "/patches/" + patch.getPatchid(),
-                        patch.getDateUploaded() == null ? null
-                                : DateTimeFormatter.ISO_LOCAL_DATE
-                                        .withZone(java.time.ZoneOffset.UTC)
-                                        .format(patch.getDateUploaded())));
-        return xml.append("</urlset>\n").toString();
+        return sitemapService.sitemap(baseUrl);
     }
 
     @GetMapping(value = "/robots.txt", produces = MediaType.TEXT_PLAIN_VALUE)
@@ -475,14 +448,6 @@ public class SeoController {
                 </body>
                 </html>
                 """.formatted(type, type, type.toLowerCase(java.util.Locale.ROOT), catalog, catalog);
-    }
-
-    private void appendSitemapUrl(StringBuilder xml, String location, String lastModified) {
-        xml.append("  <url><loc>").append(escape(location)).append("</loc>");
-        if (lastModified != null) {
-            xml.append("<lastmod>").append(lastModified).append("</lastmod>");
-        }
-        xml.append("</url>\n");
     }
 
     private String toJson(Object value) {

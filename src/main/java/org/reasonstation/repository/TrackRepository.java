@@ -40,41 +40,15 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
     Optional<TrackWithRating> findWithRatingById(@Param("trackid") Long trackid);
 
     @Query("""
-            SELECT t.trackid,
-                   t.userid,
-                   t.artist_alias,
-                   t.track_name,
-                   t.music_style,
-                   t.filename,
-                   t.filesize,
-                   t.track_uri,
-                   t.audio_link,
-                   t.program_version,
-                   t.image_uri,
-                   t.audio_uri,
-                   t.audio_filesize,
-                   t.date_uploaded,
-                   AVG(r.rating) AS average_track_rating,
-                   COUNT(d.ip_address) AS download_count
-            FROM tracks t
-            LEFT JOIN track_downloads d ON d.trackid = t.trackid
-            LEFT JOIN track_ratings r ON r.trackid = t.trackid
-            GROUP BY t.trackid,
-                     t.userid,
-                     t.artist_alias,
-                     t.track_name,
-                     t.music_style,
-                     t.filename,
-                     t.filesize,
-                     t.track_uri,
-                     t.audio_link,
-                     t.program_version,
-                     t.image_uri,
-                     t.audio_uri,
-                     t.audio_filesize,
-                     t.date_uploaded
-            ORDER BY RANDOM()
-            LIMIT :limit
+            WITH selected_tracks AS MATERIALIZED (
+                SELECT * FROM tracks ORDER BY RANDOM() LIMIT :limit
+            )
+            SELECT t.*,
+                   (SELECT AVG(r.rating) FROM track_ratings r
+                    WHERE r.trackid = t.trackid) AS average_track_rating,
+                   (SELECT COUNT(*) FROM track_downloads d
+                    WHERE d.trackid = t.trackid) AS download_count
+            FROM selected_tracks t
             """)
     List<TrackWithRating> findRandomTracks(@Param("limit") int limit);
 
@@ -220,43 +194,24 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
     List<Track> findByUseridAndArtistAlias(@Param("userid") Long userid, @Param("artistAlias") String artistAlias);
 
     @Query("""
-            SELECT t.trackid,
-                   t.userid,
-                   t.artist_alias,
-                   t.track_name,
-                   t.music_style,
-                   t.filename,
-                   t.filesize,
-                   t.track_uri,
-                   t.audio_link,
-                   t.program_version,
-                   t.image_uri,
-                   t.audio_uri,
-                   t.audio_filesize,
-                   t.date_uploaded,
-                   AVG(r.rating) AS average_track_rating,
-                   COUNT(d.ip_address) AS download_count
-            FROM tracks t
-            LEFT JOIN track_downloads d ON d.trackid = t.trackid
-            LEFT JOIN track_ratings r ON r.trackid = t.trackid
-            WHERE t.artist_alias = :artistAlias
-            GROUP BY t.trackid,
-                     t.userid,
-                     t.artist_alias,
-                     t.track_name,
-                     t.music_style,
-                     t.filename,
-                     t.filesize,
-                     t.track_uri,
-                     t.audio_link,
-                     t.program_version,
-                     t.image_uri,
-                     t.audio_uri,
-                     t.audio_filesize,
-                     t.date_uploaded
-            ORDER BY t.date_uploaded DESC
+            WITH selected_tracks AS MATERIALIZED (
+                SELECT * FROM tracks WHERE artist_alias = :artistAlias
+                ORDER BY date_uploaded DESC, trackid DESC
+                LIMIT :limit OFFSET :offset
+            )
+            SELECT t.*,
+                   (SELECT AVG(r.rating) FROM track_ratings r
+                    WHERE r.trackid = t.trackid) AS average_track_rating,
+                   (SELECT COUNT(*) FROM track_downloads d
+                    WHERE d.trackid = t.trackid) AS download_count
+            FROM selected_tracks t
+            ORDER BY t.date_uploaded DESC, t.trackid DESC
             """)
-    List<TrackWithRating> findByArtistAlias(@Param("artistAlias") String artistAlias);
+    List<TrackWithRating> findByArtistAlias(@Param("artistAlias") String artistAlias,
+                                          @Param("limit") int limit, @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM tracks WHERE artist_alias = :artistAlias")
+    long countByArtistAlias(@Param("artistAlias") String artistAlias);
     
     /**
      * Find tracks by track name
@@ -269,42 +224,20 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
     List<Track> findByTrackNameContains(@Param("trackName") String trackName);
 
     @Query("""
-            SELECT t.trackid,
-                   t.artist_alias,
-                   t.track_name,
-                   t.music_style,
-                   t.filename,
-                   t.filesize,
-                   t.audio_link,
-                   t.program_version,
-                   t.image_uri,
-                   t.audio_uri,
-                   t.audio_filesize,
-                   t.date_uploaded,
-                   AVG(r.rating) AS average_track_rating,
-                   COUNT(*) AS download_count
-            FROM tracks t
-            LEFT JOIN track_ratings r ON r.trackid = t.trackid
-            LEFT JOIN track_downloads d ON d.trackid = t.trackid
-            WHERE t.artist_alias ILIKE CONCAT('%', :searchTerm, '%')
-               OR t.track_name ILIKE CONCAT('%', :searchTerm, '%')
-            GROUP BY t.trackid,
-                     t.artist_alias,
-                     t.track_name,
-                     t.music_style,
-                     t.filename,
-                     t.filesize,
-                     t.audio_link,
-                     t.program_version,
-                     t.image_uri,
-                     t.audio_uri,
-                     t.audio_filesize,
-                     t.date_uploaded
-            ORDER BY t.artist_alias,
-                     t.track_name,
-                     t.trackid
-            LIMIT :limit
-            OFFSET :offset
+            WITH selected_tracks AS MATERIALIZED (
+                SELECT * FROM tracks
+                WHERE artist_alias ILIKE CONCAT('%', :searchTerm, '%')
+                   OR track_name ILIKE CONCAT('%', :searchTerm, '%')
+                ORDER BY artist_alias, track_name, trackid
+                LIMIT :limit OFFSET :offset
+            )
+            SELECT t.*,
+                   (SELECT AVG(r.rating) FROM track_ratings r
+                    WHERE r.trackid = t.trackid) AS average_track_rating,
+                   (SELECT COUNT(*) FROM track_downloads d
+                    WHERE d.trackid = t.trackid) AS download_count
+            FROM selected_tracks t
+            ORDER BY t.artist_alias, t.track_name, t.trackid
             """)
     List<TrackSearchResult> searchByArtistAliasOrTrackName(
             @Param("searchTerm") String searchTerm,

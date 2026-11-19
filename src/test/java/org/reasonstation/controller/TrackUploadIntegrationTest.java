@@ -190,9 +190,9 @@ class TrackUploadIntegrationTest {
     private HttpResponse<String> upload(Map<String, String> fields, byte[] content) throws Exception {
         // Send raw multipart bytes so Tomcat, not MockMvc, parses the form fields and file.
         var body = new StringBuilder();
-        fields.forEach((name, value) -> body.append("--").append(BOUNDARY)
+        fields.forEach((name, val) -> body.append("--").append(BOUNDARY)
                 .append("\r\nContent-Disposition: form-data; name=\"").append(name)
-                .append("\"\r\n\r\n").append(value).append("\r\n"));
+                .append("\"\r\n\r\n").append(val).append("\r\n"));
         body.append("--").append(BOUNDARY)
                 .append("\r\nContent-Disposition: form-data; name=\"file\"; filename=\"")
                 .append(FILENAME).append("\"\r\nContent-Type: application/octet-stream\r\n\r\n");

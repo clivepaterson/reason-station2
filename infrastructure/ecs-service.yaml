@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  Runs Reason Station on one low-cost Fargate Spot task - native ECS blue/green
+  Runs Reason Station on one on-demand Fargate task - native ECS blue/green
   deployments provide zero-downtime releases without CodeDeploy.
 
 Metadata:
   AWSToolsMetrics:
     AWSAgentToolkit: aws-cloudformation@3
   com.aws.cloudformation.Context:
-    arch: ECR ARM64 image -> Fargate Spot service -> two ALB target groups
+    arch: ECR ARM64 image -> on-demand Fargate service -> two ALB target groups
     must:
       - Public subnets require AssignPublicIp ENABLED because the VPC has no NAT gateway
       - Blue and green revisions may run together only during deployment and bake time
@@ -70,11 +70,11 @@ Parameters:
     Description: Steady-state task count; one is cheapest but is not highly available.
   CapacityProvider:
     Type: String
-    Default: FARGATE_SPOT
+    Default: FARGATE
     AllowedValues:
       - FARGATE_SPOT
       - FARGATE
-    Description: Fargate Spot is cheaper but tasks can be interrupted.
+    Description: On-demand Fargate avoids Spot interruptions; Fargate Spot remains an explicit cost-saving option.
   BakeTimeInMinutes:
     Type: Number
     Default: 1
@@ -89,7 +89,7 @@ Resources:
       com.aws.cloudformation.Context:
         why: serverless container control plane with both regular and discounted Spot capacity available
         must:
-          - Keep FARGATE available as an operator-selected fallback when Spot capacity is unsuitable
+          - Keep FARGATE available as the default to avoid Spot interruptions
         mutable: free-to-tune
     Properties:
       CapacityProviders:
@@ -242,8 +242,9 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Metadata:
       com.aws.cloudformation.Context:
-        why: smallest practical ARM64 task; Graviton pricing is lower than equivalent x86 Fargate
+        why: increased CPU capacity for the API with minimum compatible memory; ARM64 retains Graviton pricing
         must:
+          - One vCPU requires at least 2 GiB of task memory on Fargate
           - Stop timeout must stay aligned with target-group deregistration delay
           - Liveness must not include external dependencies
           - Image URI must use an immutable unique tag
@@ -254,8 +255,8 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      Cpu: "512"
-      Memory: "1024"
+      Cpu: "1024"
+      Memory: "2048"
       ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
       TaskRoleArn: !GetAtt TaskRole.Arn
       RuntimePlatform:
@@ -304,7 +305,7 @@ Resources:
       - LoadBalancerInfrastructureRole
     Metadata:
       com.aws.cloudformation.Context:
-        why: one Spot task minimizes steady-state cost; native blue/green adds a second task only for health validation and the short bake window
+        why: one on-demand task avoids Spot reclamation while limiting steady-state cost; native blue/green temporarily adds a second task for deployment
         must:
           - Deployment controller stays ECS when Strategy is BLUE_GREEN
           - AssignPublicIp stays enabled while no NAT gateway or VPC endpoints exist

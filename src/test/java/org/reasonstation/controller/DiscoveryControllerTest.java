@@ -13,12 +13,15 @@ import org.reasonstation.repository.PatchWithRating;
 import org.reasonstation.entity.Track;
 import org.reasonstation.repository.HighestRatedPatch;
 import org.reasonstation.repository.HighestRatedTrack;
+import org.reasonstation.repository.ArtistAliasTrackCount;
+import org.reasonstation.repository.PopularArtist;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.PopularTrack;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.repository.TrackWithRating;
 import org.reasonstation.repository.TrackSearchResult;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.service.DiscoveryFeedService;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -41,12 +44,14 @@ class DiscoveryControllerTest {
     private PatchRepository patches;
     @Mock
     private S3StorageService storage;
+    @Mock
+    private DiscoveryFeedService feeds;
 
     private DiscoveryController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new DiscoveryController(tracks, patches, storage);
+        controller = new DiscoveryController(tracks, patches, storage, feeds);
     }
 
     @Test
@@ -99,11 +104,11 @@ class DiscoveryControllerTest {
         newest.setDateUploaded(uploaded);
         newest.setAudioUri(audioUri);
         newest.setImageUri(imageUri);
-        when(tracks.findMostDownloadedTracksThisWeek(5)).thenReturn(List.of(
+        when(feeds.findMostDownloadedTracksThisWeek(5)).thenReturn(List.of(
                 new PopularTrack(42L, "Artist", "Track", "Rock", "song.reason", 2, audioUri, imageUri)));
-        when(tracks.findHighestRatedTracksThisWeek(3)).thenReturn(List.of(
+        when(feeds.findHighestRatedTracksThisWeek(3)).thenReturn(List.of(
                 new HighestRatedTrack(42L, "Artist", "Track", "Rock", "song.reason", 8.5, 3L, audioUri, imageUri)));
-        when(tracks.findNewestTracks(10)).thenReturn(List.of(newest));
+        when(feeds.findNewestTracks(10)).thenReturn(List.of(newest));
         var mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         for (String feed : List.of("popular-tracks", "highest-rated-tracks", "newest-tracks")) {
@@ -192,18 +197,23 @@ class DiscoveryControllerTest {
     }
 
     @Test
-    void listsPatchesForArtistAlias() {
+    void listsPatchesForArtistAlias() throws Exception {
         var patch = new PatchWithRating(7L, "Artist", "Warm Bass", "Bass patch",
                 "warm-bass.thor", ".thor", 1024L, null, java.time.Instant.now(), 8.5);
-        when(patches.findWithRatingsByArtistAlias("Artist"))
+        when(patches.findWithRatingsByArtistAlias("Artist", 20, 0))
                 .thenReturn(List.of(patch));
+        when(patches.countByArtistAlias("Artist")).thenReturn(1L);
 
-        var response = controller.artistPatches("Artist");
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(1, ((List<?>) response.getBody()).size());
-        assertEquals(8.5, ((PatchCardResponse) ((List<?>) response.getBody()).getFirst()).averagePatchRating());
-        verify(patches).findWithRatingsByArtistAlias("Artist");
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/artist-patches").param("artistAlias", "Artist"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results.length()").value(1))
+                .andExpect(jsonPath("$.results[0].averagePatchRating").value(8.5))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.pageSize").value(20))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1));
+        verify(patches).findWithRatingsByArtistAlias("Artist", 20, 0);
     }
 
     @ParameterizedTest
@@ -215,17 +225,17 @@ class DiscoveryControllerTest {
         if (hasImage) {
             when(storage.createImageUrl(imageUri)).thenReturn(java.net.URI.create(imageUrl));
         }
-        when(patches.findWithRatingsByArtistAlias("Artist")).thenReturn(List.of(
+        when(patches.findWithRatingsByArtistAlias("Artist", 20, 0)).thenReturn(List.of(
                 new PatchWithRating(7L, "Artist", "Warm Bass", "Bass patch",
                         "warm-bass.thor", ".thor", 1024L, imageUri, java.time.Instant.now(), 8.5)));
 
         MockMvcBuilders.standaloneSetup(controller).build()
                 .perform(get("/api/discovery/artist-patches").param("artistAlias", "Artist"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].patchImgUri").value(imageUri))
-                .andExpect(jsonPath("$[0].imageUrl").value(imageUrl))
-                .andExpect(jsonPath("$[0].averagePatchRating").value(8.5))
-                .andExpect(jsonPath("$[0].filesize").value(1024));
+                .andExpect(jsonPath("$.results[0].patchImgUri").value(imageUri))
+                .andExpect(jsonPath("$.results[0].imageUrl").value(imageUrl))
+                .andExpect(jsonPath("$.results[0].averagePatchRating").value(8.5))
+                .andExpect(jsonPath("$.results[0].filesize").value(1024));
 
         if (!hasImage) {
             verifyNoInteractions(storage);
@@ -235,7 +245,7 @@ class DiscoveryControllerTest {
     @Test
     void listsTopTenHighestRatedPatches() throws Exception {
         var patch = new HighestRatedPatch(7L, "Artist", "Warm Bass", 8.5, 12L);
-        when(patches.findHighestRatedPatches(10)).thenReturn(List.of(patch));
+        when(feeds.findHighestRatedPatches(10)).thenReturn(List.of(patch));
 
         MockMvcBuilders.standaloneSetup(controller).build()
                 .perform(get("/api/discovery/highest-rated-patches"))
@@ -247,13 +257,13 @@ class DiscoveryControllerTest {
                 .andExpect(jsonPath("$[0].averagePatchRating").value(8.5))
                 .andExpect(jsonPath("$[0].ratingCount").value(12));
 
-        verify(patches).findHighestRatedPatches(10);
+        verify(feeds).findHighestRatedPatches(10);
         verifyNoInteractions(tracks);
     }
 
     @Test
     void returnsEmptyChartWhenNoPatchesHaveRatings() throws Exception {
-        when(patches.findHighestRatedPatches(10)).thenReturn(List.of());
+        when(feeds.findHighestRatedPatches(10)).thenReturn(List.of());
 
         MockMvcBuilders.standaloneSetup(controller).build()
                 .perform(get("/api/discovery/highest-rated-patches"))
@@ -262,13 +272,47 @@ class DiscoveryControllerTest {
     }
 
     @Test
-    void trimsArtistAliasBeforeLookup() {
-        when(tracks.findByArtistAlias("Artist")).thenReturn(List.of());
+    void mapsCachedArtistFeedsWithoutQueryingRepositories() throws Exception {
+        var created = java.time.Instant.parse("2026-11-03T12:00:00Z");
+        when(feeds.findRandomArtistAliasesWithTrackCount(3)).thenReturn(List.of(
+                new ArtistAliasTrackCount("Artist", 42, created)));
+        when(feeds.findMostDownloadedArtistsThisMonth(3)).thenReturn(List.of(new PopularArtist("Artist", 17)));
+        var mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
-        var response = controller.artistTracks("  Artist  ");
+        mockMvc.perform(get("/api/discovery/artists-with-track-count"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].artistAlias").value("Artist"))
+                .andExpect(jsonPath("$[0].trackCount").value(42))
+                .andExpect(jsonPath("$[0].dateCreated").value(created.toString()));
+        mockMvc.perform(get("/api/discovery/popular-artists"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].artistAlias").value("Artist"))
+                .andExpect(jsonPath("$[0].downloadCount").value(17));
+
+        verifyNoInteractions(tracks, patches, storage);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"artists-with-track-count", "tracks", "popular-tracks",
+            "highest-rated-tracks", "popular-artists", "highest-rated-patches", "newest-tracks"})
+    void servesHomeFeedsThroughFeedServiceWithoutDirectQueries(String feed) throws Exception {
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/" + feed))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+
+        verifyNoInteractions(tracks, patches, storage);
+    }
+
+    @Test
+    void trimsArtistAliasBeforeLookup() {
+        when(tracks.findByArtistAlias("Artist", 20, 0)).thenReturn(List.of());
+
+        var response = controller.artistTracks("  Artist  ", 1);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(tracks).findByArtistAlias("Artist");
+        verify(tracks).findByArtistAlias("Artist", 20, 0);
+        verify(tracks).countByArtistAlias("Artist");
     }
 
     @ParameterizedTest
@@ -284,8 +328,8 @@ class DiscoveryControllerTest {
         var track = new TrackWithRating(42L, 7L, "Artist", "Track", "Rock",
                 "song.reason", 3L, "s3://tracks/song", java.time.Instant.now(), 8.0, 2, audioLink, programVersion,
                 imageUri, audioUri, audioFilesize);
-        when(tracks.findRandomTracks(10)).thenReturn(List.of(track));
-        when(tracks.findByArtistAlias("Artist")).thenReturn(List.of(track));
+        when(feeds.findRandomTracks(10)).thenReturn(List.of(track));
+        when(tracks.findByArtistAlias("Artist", 20, 0)).thenReturn(List.of(track));
         when(tracks.searchByArtistAliasOrTrackName("Track", 20, 0)).thenReturn(List.of(
                 new TrackSearchResult(track.trackid(), track.artistAlias(), track.trackName(),
                         track.musicStyle(), track.filename(), track.filesize(), track.dateUploaded(),
@@ -304,12 +348,12 @@ class DiscoveryControllerTest {
                 .andExpect(jsonPath("$[0].programVersion").value(programVersion));
         mockMvc.perform(get("/api/discovery/artist-tracks").param("artistAlias", "Artist"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].audioLink").value(audioLink))
-                .andExpect(jsonPath("$[0].imageUri").value(imageUri))
-                .andExpect(jsonPath("$[0].imageUrl").value(imageUrl))
-                .andExpect(jsonPath("$[0].audioUri").value(audioUri))
-                .andExpect(jsonPath("$[0].audioFilesize").value(audioFilesize))
-                .andExpect(jsonPath("$[0].programVersion").value(programVersion));
+                .andExpect(jsonPath("$.results[0].audioLink").value(audioLink))
+                .andExpect(jsonPath("$.results[0].imageUri").value(imageUri))
+                .andExpect(jsonPath("$.results[0].imageUrl").value(imageUrl))
+                .andExpect(jsonPath("$.results[0].audioUri").value(audioUri))
+                .andExpect(jsonPath("$.results[0].audioFilesize").value(audioFilesize))
+                .andExpect(jsonPath("$.results[0].programVersion").value(programVersion));
         mockMvc.perform(get("/api/discovery/search").param("query", "Track"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.results[0].audioLink").value(audioLink))
@@ -322,7 +366,7 @@ class DiscoveryControllerTest {
 
     @Test
     void rejectsBlankArtistAlias() {
-        var response = controller.artistTracks(" ");
+        var response = controller.artistTracks(" ", 1);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verifyNoInteractions(tracks);
@@ -332,7 +376,7 @@ class DiscoveryControllerTest {
     @NullAndEmptySource
     @ValueSource(strings = "   ")
     void listsArtistTracksWithoutSigningMissingImages(String imageUri) throws Exception {
-        when(tracks.findByArtistAlias("Artist")).thenReturn(List.of(
+        when(tracks.findByArtistAlias("Artist", 20, 0)).thenReturn(List.of(
                 new TrackWithRating(42L, 7L, "Artist", "Track", "Rock", "song.reason", 3L,
                         "s3://tracks/song", java.time.Instant.now(), null, 0, null, null,
                         imageUri, null, null)));
@@ -340,7 +384,7 @@ class DiscoveryControllerTest {
         MockMvcBuilders.standaloneSetup(controller).build()
                 .perform(get("/api/discovery/artist-tracks").param("artistAlias", "Artist"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].imageUrl").doesNotExist());
+                .andExpect(jsonPath("$.results[0].imageUrl").doesNotExist());
 
         verifyNoInteractions(storage);
     }
@@ -351,5 +395,87 @@ class DiscoveryControllerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verifyNoInteractions(tracks);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"artist-tracks", "artist-patches"})
+    void paginatesArtistFeedsWithTwentyResults(String feed) throws Exception {
+        if (feed.equals("artist-tracks")) {
+            when(tracks.countByArtistAlias("Artist")).thenReturn(41L);
+            when(tracks.findByArtistAlias("Artist", 20, 20L)).thenReturn(List.of());
+        } else {
+            when(patches.countByArtistAlias("Artist")).thenReturn(41L);
+            when(patches.findWithRatingsByArtistAlias("Artist", 20, 20L)).thenReturn(List.of());
+        }
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/" + feed).param("artistAlias", " Artist ").param("page", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results").isArray())
+                .andExpect(jsonPath("$.page").value(2))
+                .andExpect(jsonPath("$.pageSize").value(20))
+                .andExpect(jsonPath("$.totalElements").value(41))
+                .andExpect(jsonPath("$.totalPages").value(3));
+        if (feed.equals("artist-tracks")) {
+            verify(tracks).findByArtistAlias("Artist", 20, 20L);
+            verifyNoInteractions(patches);
+        } else {
+            verify(patches).findWithRatingsByArtistAlias("Artist", 20, 20L);
+            verifyNoInteractions(tracks);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"artist-tracks", "artist-patches"})
+    void returnsEmptyArtistPagesBeyondLastPageWithoutOffsetOverflow(String feed) throws Exception {
+        long offset = (Integer.MAX_VALUE - 1L) * 20;
+        if (feed.equals("artist-tracks")) {
+            when(tracks.countByArtistAlias("Artist")).thenReturn(20L);
+            when(tracks.findByArtistAlias("Artist", 20, offset)).thenReturn(List.of());
+        } else {
+            when(patches.countByArtistAlias("Artist")).thenReturn(20L);
+            when(patches.findWithRatingsByArtistAlias("Artist", 20, offset)).thenReturn(List.of());
+        }
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/" + feed).param("artistAlias", "Artist")
+                        .param("page", Integer.toString(Integer.MAX_VALUE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results").isEmpty())
+                .andExpect(jsonPath("$.page").value(Integer.MAX_VALUE))
+                .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"artist-tracks", "artist-patches"})
+    void defaultsEmptyArtistFeedsToFirstPage(String feed) throws Exception {
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(get("/api/discovery/" + feed).param("artistAlias", "Artist"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results").isEmpty())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.pageSize").value(20))
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.totalPages").value(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "no", "2147483648"})
+    void rejectsInvalidArtistPagesBeforeRepositoryLookup(String page) throws Exception {
+        var mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        for (String feed : List.of("artist-tracks", "artist-patches")) {
+            mockMvc.perform(get("/api/discovery/" + feed).param("artistAlias", "Artist").param("page", page))
+                    .andExpect(status().isBadRequest());
+        }
+        verifyNoInteractions(tracks, patches, storage);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "   ")
+    void rejectsInvalidArtistAliasesBeforeRepositoryLookup(String alias) {
+        assertEquals(HttpStatus.BAD_REQUEST, controller.artistTracks(alias, 1).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, controller.artistPatches(alias, 1).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, controller.artistTracks("a".repeat(256), 1).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, controller.artistPatches("a".repeat(256), 1).getStatusCode());
+        verifyNoInteractions(tracks, patches, storage);
     }
 }

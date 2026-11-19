@@ -12,6 +12,11 @@
         </div>
         <div id="artist-tracks" class="tracks-list" hidden>
         </div>
+        <nav id="artist-tracks-pagination" class="search-pagination" aria-label="Artist track pages" hidden>
+            <button id="artist-tracks-previous-page" type="button">Previous</button>
+            <span id="artist-tracks-page-status" aria-live="polite"></span>
+            <button id="artist-tracks-next-page" type="button">Next</button>
+        </nav>
         <div class="tracks-header artist-patches-header">
             <div>
                 <h2>Patches</h2>
@@ -26,5 +31,10 @@
             <p id="artist-patches-message" hidden></p>
             <div id="artist-patches-list" class="tracks-list"></div>
         </div>
+        <nav id="artist-patches-pagination" class="search-pagination" aria-label="Artist patch pages" hidden>
+            <button id="artist-patches-previous-page" type="button">Previous</button>
+            <span id="artist-patches-page-status" aria-live="polite"></span>
+            <button id="artist-patches-next-page" type="button">Next</button>
+        </nav>
     </div>
 </section>

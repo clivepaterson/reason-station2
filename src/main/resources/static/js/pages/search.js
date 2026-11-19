@@ -1,5 +1,7 @@
 window.loadSearchPage = function(url) {
     var searchTerm = (url.searchParams.get('search') || '').trim();
+    $('#track-search-input').val(searchTerm);
+    window.updateSearchButtonState();
     var requestedPage = Number.parseInt(url.searchParams.get('page') || '1', 10);
     var page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
     var searchResults = $('#search-results');
@@ -70,6 +72,12 @@ window.updateSearchButtonState = function() {
 };
 
 window.initializeSearchPage = function() {
+    $('#track-search-form').on('submit', function(event) {
+        event.preventDefault();
+        var url = new URL(this.action, window.location.origin);
+        url.searchParams.set('search', ($('#track-search-input').val() || '').trim());
+        window.showPage(url, true);
+    });
     $('#track-search-input').on('input', window.updateSearchButtonState);
     $('#search-previous-page, #search-next-page').on('click', function() {
         var url = new URL(window.location.href);

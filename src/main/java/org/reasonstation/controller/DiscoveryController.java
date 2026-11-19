@@ -1,9 +1,9 @@
 package org.reasonstation.controller;
 
-import org.reasonstation.entity.Track;
 import org.reasonstation.repository.PatchRepository;
 import org.reasonstation.repository.TrackRepository;
 import org.reasonstation.service.S3StorageService;
+import org.reasonstation.service.DiscoveryFeedService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,17 +17,21 @@ import java.util.Map;
 @RequestMapping("/api/discovery")
 public class DiscoveryController {
     private static final int SEARCH_PAGE_SIZE = 20;
+    private static final int ARTIST_PAGE_SIZE = 20;
     private static final int MAX_ARTIST_ALIAS_LENGTH = 255;
     private static final int MAX_SEARCH_TERM_LENGTH = 100;
 
     private final TrackRepository tracks;
     private final PatchRepository patches;
     private final S3StorageService storage;
+    private final DiscoveryFeedService feeds;
 
-    public DiscoveryController(TrackRepository tracks, PatchRepository patches, S3StorageService storage) {
+    public DiscoveryController(TrackRepository tracks, PatchRepository patches, S3StorageService storage,
+                               DiscoveryFeedService feeds) {
         this.tracks = tracks;
         this.patches = patches;
         this.storage = storage;
+        this.feeds = feeds;
     }
 
     @GetMapping("/artists")
@@ -39,7 +43,7 @@ public class DiscoveryController {
 
     @GetMapping("/artists-with-track-count")
     public Object randomArtistsWithTrackCount() {
-        return tracks.findRandomArtistAliasesWithTrackCount(3).stream()
+        return feeds.findRandomArtistAliasesWithTrackCount(3).stream()
                 .map(artist -> Map.of(
                         "artistAlias", artist.artistAlias(),
                         "trackCount", artist.trackCount(),
@@ -49,7 +53,7 @@ public class DiscoveryController {
 
     @GetMapping("/tracks")
     public Object randomTracks() {
-        return tracks.findRandomTracks(10).stream()
+        return feeds.findRandomTracks(10).stream()
                 .map(track -> new TrackDiscoveryResponse(
                         track.trackid(),
                         track.artistAlias(),
@@ -90,17 +94,17 @@ public class DiscoveryController {
 
     @GetMapping("/popular-tracks")
     public Object popularTracksThisWeek() {
-        return tracks.findMostDownloadedTracksThisWeek(5);
+        return feeds.findMostDownloadedTracksThisWeek(5);
     }
 
     @GetMapping("/highest-rated-tracks")
     public Object highestRatedTracksThisWeek() {
-        return tracks.findHighestRatedTracksThisWeek(3);
+        return feeds.findHighestRatedTracksThisWeek(3);
     }
 
     @GetMapping("/popular-artists")
     public Object popularArtistsThisMonth() {
-        return tracks.findMostDownloadedArtistsThisMonth(3).stream()
+        return feeds.findMostDownloadedArtistsThisMonth(3).stream()
                 .map(artist -> Map.of(
                         "artistAlias", artist.artistAlias(),
                         "downloadCount", artist.downloadCount()))
@@ -109,12 +113,12 @@ public class DiscoveryController {
 
     @GetMapping("/highest-rated-patches")
     public Object highestRatedPatches() {
-        return patches.findHighestRatedPatches(10);
+        return feeds.findHighestRatedPatches(10);
     }
 
     @GetMapping("/newest-tracks")
     public Object newestTracks() {
-        return tracks.findNewestTracks(10).stream()
+        return feeds.findNewestTracks(10).stream()
                 .map(track -> new NewestTrackResponse(
                         track.getTrackid(), track.getArtistAlias(), track.getTrackName(),
                         track.getMusicStyle(), track.getFilename(), track.getDateUploaded(),
@@ -128,12 +132,19 @@ public class DiscoveryController {
     }
 
     @GetMapping("/artist-tracks")
-    public ResponseEntity<?> artistTracks(@RequestParam("artistAlias") String artistAlias) {
+    public ResponseEntity<?> artistTracks(
+            @RequestParam("artistAlias") String artistAlias,
+            @RequestParam(value = "page", defaultValue = "1") int page) {
         String normalizedAlias = normalizeArtistAlias(artistAlias);
         if (normalizedAlias == null) {
             return invalidArtistAlias();
         }
-        return ResponseEntity.ok(tracks.findByArtistAlias(normalizedAlias).stream()
+        if (page < 1) {
+            return invalidPage();
+        }
+        long totalElements = tracks.countByArtistAlias(normalizedAlias);
+        long offset = (long) (page - 1) * ARTIST_PAGE_SIZE;
+        var results = tracks.findByArtistAlias(normalizedAlias, ARTIST_PAGE_SIZE, offset).stream()
                 .map(track -> new TrackDiscoveryResponse(
                         track.trackid(),
                         track.artistAlias(),
@@ -145,18 +156,31 @@ public class DiscoveryController {
                         track.averageTrackRating(),
                         track.dateUploaded(), track.audioLink(), track.programVersion(), track.imageUri(),
                         track.audioUri(), track.audioFilesize(), imageUrl(track.imageUri())))
-                .toList());
+                .toList();
+        return ResponseEntity.ok(new TrackSearchPageResponse(
+                results, page, ARTIST_PAGE_SIZE, totalElements,
+                (int) ((totalElements + ARTIST_PAGE_SIZE - 1) / ARTIST_PAGE_SIZE)));
     }
 
     @GetMapping("/artist-patches")
-    public ResponseEntity<?> artistPatches(@RequestParam("artistAlias") String artistAlias) {
+    public ResponseEntity<?> artistPatches(
+            @RequestParam("artistAlias") String artistAlias,
+            @RequestParam(value = "page", defaultValue = "1") int page) {
         String normalizedAlias = normalizeArtistAlias(artistAlias);
         if (normalizedAlias == null) {
             return invalidArtistAlias();
         }
-        return ResponseEntity.ok(patches.findWithRatingsByArtistAlias(normalizedAlias).stream()
+        if (page < 1) {
+            return invalidPage();
+        }
+        long totalElements = patches.countByArtistAlias(normalizedAlias);
+        long offset = (long) (page - 1) * ARTIST_PAGE_SIZE;
+        var results = patches.findWithRatingsByArtistAlias(normalizedAlias, ARTIST_PAGE_SIZE, offset).stream()
                 .map(patch -> PatchCardResponse.from(patch, imageUrl(patch.patchImgUri())))
-                .toList());
+                .toList();
+        return ResponseEntity.ok(new PatchPageResponse(
+                results, page, ARTIST_PAGE_SIZE, totalElements,
+                (int) ((totalElements + ARTIST_PAGE_SIZE - 1) / ARTIST_PAGE_SIZE)));
     }
 
     @GetMapping("/search")
@@ -227,6 +251,19 @@ public class DiscoveryController {
     private ResponseEntity<Map<String, String>> invalidArtistAlias() {
         return ResponseEntity.badRequest()
                 .body(Map.of("error", "Artist alias must be 1-255 characters."));
+    }
+
+    private ResponseEntity<Map<String, String>> invalidPage() {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", "Page numbers must be 1 or greater."));
+    }
+
+    private record PatchPageResponse(
+            java.util.List<PatchCardResponse> results,
+            int page,
+            int pageSize,
+            long totalElements,
+            int totalPages) {
     }
 
     private record TrackSearchPageResponse(

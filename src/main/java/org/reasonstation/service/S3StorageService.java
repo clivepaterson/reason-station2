@@ -92,6 +92,7 @@ public class S3StorageService {
                 .bucket(uri.getHost())
                 .key(uri.getPath().substring(1))
                 .responseContentDisposition("inline")
+                .responseCacheControl("private, max-age=86400")
                 .build();
         return URI.create(presigner.presignGetObject(GetObjectPresignRequest.builder()
                 .signatureDuration(downloadUrlTtl)

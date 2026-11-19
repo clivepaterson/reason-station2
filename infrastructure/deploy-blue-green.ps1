@@ -3,7 +3,7 @@ param(
     [string]$Region,
     [string]$StackPrefix = "reasonstation",
     [ValidateSet("FARGATE_SPOT", "FARGATE")]
-    [string]$CapacityProvider = "FARGATE_SPOT",
+    [string]$CapacityProvider = "FARGATE",
     [ValidateRange(1, 10)]
     [int]$DesiredCount = 1,
     [ValidateRange(0, 60)]

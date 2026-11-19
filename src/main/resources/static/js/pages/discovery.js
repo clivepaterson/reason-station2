@@ -1,3 +1,36 @@
+var discoveryFeedCache = new Map();
+var discoveryFeedCacheTtlMs = 30000;
+
+function fetchDiscoveryFeed(url) {
+    var entry = discoveryFeedCache.get(url);
+    if (entry && (entry.inFlight || Date.now() < entry.expiresAt)) {
+        return entry.promise;
+    }
+
+    entry = {inFlight: true, expiresAt: 0};
+    entry.promise = fetch(url)
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Unable to load discovery content.');
+            }
+            return response.json();
+        })
+        .then(function(items) {
+            if (!Array.isArray(items)) {
+                throw new Error('Invalid discovery content.');
+            }
+            entry.inFlight = false;
+            entry.expiresAt = Date.now() + discoveryFeedCacheTtlMs;
+            return items;
+        })
+        .catch(function(error) {
+            discoveryFeedCache.delete(url);
+            throw error;
+        });
+    discoveryFeedCache.set(url, entry);
+    return entry.promise;
+}
+
 function loadDiscoveryList(url, selector, renderItem, emptyMessage) {
     var list = document.querySelector(selector);
     var loading = document.querySelector(selector + '-loading');
@@ -6,13 +39,7 @@ function loadDiscoveryList(url, selector, renderItem, emptyMessage) {
     list.hidden = true;
     loading.hidden = false;
 
-    fetch(url)
-        .then(function(response) {
-            if (!response.ok) {
-                throw new Error('Unable to load discovery content.');
-            }
-            return response.json();
-        })
+    return fetchDiscoveryFeed(url)
         .then(function(items) {
             list.replaceChildren();
             if (items.length === 0) {

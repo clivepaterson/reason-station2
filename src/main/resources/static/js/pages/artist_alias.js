@@ -1,91 +1,127 @@
 window.initializeArtistPage = function() {
-    var params = new URLSearchParams(window.location.search);
-    var artistAlias = params.get('artistAlias');
-    var heading = document.getElementById('artist-alias-heading');
-    var tracksList = document.getElementById('artist-tracks');
-    var tracksLoading = document.getElementById('artist-tracks-loading');
-    var patchesList = document.getElementById('artist-patches');
-    var patchesLoading = document.getElementById('artist-patches-loading');
-    var patchesMessage = document.getElementById('artist-patches-message');
-    var patchCards = document.getElementById('artist-patches-list');
+    if (window.cancelArtistPageRequests) {
+        window.cancelArtistPageRequests();
+    }
+    var active = true;
+    var requests = [];
+    window.cancelArtistPageRequests = function() {
+        active = false;
+        requests.forEach(function(request) { request.abort(); });
+    };
 
-    if (!artistAlias) {
-        heading.textContent = 'Artist not found';
-        tracksList.replaceChildren();
-        tracksList.hidden = false;
-        tracksLoading.hidden = true;
-        patchCards.replaceChildren();
-        patchesList.hidden = true;
-        patchesLoading.hidden = true;
-        return;
+    var params = new URLSearchParams(window.location.search);
+    var artistAlias = (params.get('artistAlias') || '').trim();
+    var heading = document.getElementById('artist-alias-heading');
+    heading.textContent = artistAlias || 'Artist not found';
+    if (artistAlias) {
+        document.title = 'Reason Station - ' + artistAlias;
     }
 
-    heading.textContent = artistAlias;
-    document.title = 'Reason Station - ' + artistAlias;
-    tracksList.replaceChildren();
-    tracksList.hidden = true;
-    tracksList.setAttribute('aria-busy', 'true');
-    tracksLoading.hidden = false;
-    fetch('/api/discovery/artist-tracks?artistAlias=' + encodeURIComponent(artistAlias))
-        .then(function(response) {
-            if (!response.ok) {
-                throw new Error('Unable to load artist tracks.');
-            }
-            return response.json();
-        })
-        .then(function(tracks) {
-            tracksList.replaceChildren();
-            if (tracks.length === 0) {
-                tracksList.appendChild(document.createElement('p')).textContent = 'No tracks found.';
-            } else {
-                tracks.forEach(function(track) {
-                    tracksList.appendChild(window.createTrackCard(track));
-                });
-            }
-            tracksList.hidden = false;
-            tracksList.setAttribute('aria-busy', 'false');
-            tracksLoading.hidden = true;
-        })
-        .catch(function() {
-            tracksList.replaceChildren();
-            tracksList.appendChild(document.createElement('p')).textContent = 'Unable to load artist tracks.';
-            tracksList.hidden = false;
-            tracksList.setAttribute('aria-busy', 'false');
-            tracksLoading.hidden = true;
-        });
+    initializeFeed('tracks', window.createTrackCard);
+    initializeFeed('patches', window.createPatchCard);
 
-    patchesList.hidden = true;
-    patchesList.setAttribute('aria-busy', 'true');
-    patchesLoading.hidden = false;
-    fetch('/api/discovery/artist-patches?artistAlias=' + encodeURIComponent(artistAlias))
-        .then(function(response) {
-            if (!response.ok) {
-                throw new Error('Unable to load artist patches.');
+    function initializeFeed(kind, createCard) {
+        var prefix = 'artist-' + kind;
+        var container = document.getElementById(prefix);
+        var list = document.getElementById(prefix + '-list') || container;
+        var loading = document.getElementById(prefix + '-loading');
+        var message = document.getElementById(prefix + '-message');
+        var pagination = document.getElementById(prefix + '-pagination');
+        var previous = document.getElementById(prefix + '-previous-page');
+        var next = document.getElementById(prefix + '-next-page');
+        var status = document.getElementById(prefix + '-page-status');
+        var page = 1;
+        var currentRequest;
+
+        list.replaceChildren();
+        container.hidden = true;
+        container.setAttribute('aria-busy', 'false');
+        loading.hidden = true;
+        pagination.hidden = true;
+        previous.disabled = true;
+        next.disabled = true;
+        if (message) {
+            message.hidden = true;
+        }
+        previous.onclick = function() { loadPage(page - 1); };
+        next.onclick = function() { loadPage(page + 1); };
+        if (artistAlias) {
+            loadPage(1);
+        }
+
+        function loadPage(requestedPage) {
+            if (!active || requestedPage < 1) {
+                return;
             }
-            return response.json();
-        })
-        .then(function(patches) {
-            patchCards.replaceChildren();
-            patchesMessage.hidden = true;
-            patchCards.hidden = false;
-            if (patches.length === 0) {
-                patchCards.appendChild(document.createElement('p')).textContent = 'No patches found.';
-            } else {
-                patches.forEach(function(patch) {
-                    patchCards.appendChild(window.createPatchCard(patch));
+            if (currentRequest) {
+                currentRequest.abort();
+            }
+            var request = new AbortController();
+            currentRequest = request;
+            requests.push(request);
+            container.hidden = true;
+            container.setAttribute('aria-busy', 'true');
+            loading.hidden = false;
+            previous.disabled = true;
+            next.disabled = true;
+            fetch('/api/discovery/artist-' + kind + '?artistAlias='
+                + encodeURIComponent(artistAlias) + '&page=' + requestedPage, { signal: request.signal })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Unable to load artist ' + kind + '.');
+                    }
+                    return response.json();
+                })
+                .then(function(result) {
+                    if (!active || currentRequest !== request) {
+                        return;
+                    }
+                    page = result.page;
+                    list.replaceChildren();
+                    list.hidden = false;
+                    if (message) {
+                        message.hidden = true;
+                    }
+                    if (result.results.length === 0) {
+                        list.appendChild(document.createElement('p')).textContent = 'No ' + kind + ' found.';
+                    } else {
+                        result.results.forEach(function(item) {
+                            list.appendChild(createCard(item));
+                        });
+                    }
+                    pagination.hidden = result.totalPages <= 1;
+                    status.textContent = 'Page ' + page + ' of ' + result.totalPages;
+                    previous.disabled = page <= 1;
+                    next.disabled = page >= result.totalPages;
+                    finishLoading();
+                })
+                .catch(function(error) {
+                    if (!active || currentRequest !== request || error.name === 'AbortError') {
+                        return;
+                    }
+                    list.replaceChildren();
+                    pagination.hidden = true;
+                    if (message) {
+                        list.hidden = true;
+                        message.textContent = 'Unable to load artist ' + kind + '.';
+                        message.hidden = false;
+                    } else {
+                        list.appendChild(document.createElement('p')).textContent = 'Unable to load artist ' + kind + '.';
+                    }
+                    finishLoading();
+                })
+                .finally(function() {
+                    var index = requests.indexOf(request);
+                    if (index !== -1) {
+                        requests.splice(index, 1);
+                    }
                 });
-            }
-            patchesList.hidden = false;
-            patchesList.setAttribute('aria-busy', 'false');
-            patchesLoading.hidden = true;
-        })
-        .catch(function() {
-            patchCards.replaceChildren();
-            patchCards.hidden = true;
-            patchesMessage.textContent = 'Unable to load artist patches.';
-            patchesMessage.hidden = false;
-            patchesList.hidden = false;
-            patchesList.setAttribute('aria-busy', 'false');
-            patchesLoading.hidden = true;
-        });
+        }
+
+        function finishLoading() {
+            container.hidden = false;
+            container.setAttribute('aria-busy', 'false');
+            loading.hidden = true;
+        }
+    }
 };
