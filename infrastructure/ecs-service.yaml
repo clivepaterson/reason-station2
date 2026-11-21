@@ -242,9 +242,10 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Metadata:
       com.aws.cloudformation.Context:
-        why: increased CPU capacity for the API with minimum compatible memory; ARM64 retains Graviton pricing
+        why: GraalVM native API uses the smallest Fargate task; ARM64 retains Graviton pricing
         must:
-          - One vCPU requires at least 2 GiB of task memory on Fargate
+          - Deploy the GraalVM native image with a bounded heap, leaving memory for native allocations and FFmpeg
+          - A quarter vCPU requires at least 512 MiB of task memory on Fargate
           - Stop timeout must stay aligned with target-group deregistration delay
           - Liveness must not include external dependencies
           - Image URI must use an immutable unique tag
@@ -255,8 +256,8 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      Cpu: "1024"
-      Memory: "2048"
+      Cpu: "256"
+      Memory: "1024"
       ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
       TaskRoleArn: !GetAtt TaskRole.Arn
       RuntimePlatform:

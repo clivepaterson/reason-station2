@@ -9,7 +9,6 @@
     var waveformRequest = 0;
     var waveformController;
     var waveformTimer;
-    var waveformData;
     var embedded = false;
 
     function resetWaveform() {
@@ -18,7 +17,6 @@
         if (waveformController) {
             waveformController.abort();
         }
-        waveformData = null;
         player.querySelector('.mp3-player-waveform').hidden = true;
         player.querySelector('.mp3-player-waveform-status').textContent = '';
     }
@@ -67,7 +65,6 @@
                             })) {
                             throw new Error('Invalid waveform data.');
                         }
-                        waveformData = data;
                         var bucketWidth = 1200 / data.peaks.length;
                         var path = data.peaks.map(function(peak, index) {
                             var height = Math.max(1, peak * 64);
@@ -98,8 +95,8 @@
         return '/api/tracks/' + encodeURIComponent(track.trackid) + '/audio';
     }
 
-    function setStatus(message) {
-        player.querySelector('.mp3-player-status').textContent = message;
+    function setPlaybackError(message) {
+        player.querySelector('.mp3-player-error').textContent = message;
     }
 
     function formatTime(seconds) {
@@ -137,6 +134,8 @@
             pause: 'M6 5h4v14H6zM14 5h4v14h-4z',
             previous: 'M5 5h2v14H5zM19 5v14L8 12z',
             next: 'M17 5h2v14h-2zM5 5v14l11-7z',
+            expand: 'M7.4 15.4 12 10.8l4.6 4.6L18 14l-6-6-6 6z',
+            collapse: 'M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z',
             download: 'M11 3h2v10l4-4 1.4 1.4L12 16.8l-6.4-6.4L7 9l4 4zM4 17h2v3h12v-3h2v5H4z'
         };
         return '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"'
@@ -211,7 +210,7 @@
 
     function removeTrack(index) {
         var wasCurrent = index === currentIndex;
-        var removed = playlist.splice(index, 1)[0];
+        playlist.splice(index, 1);
         if (!playlist.length) {
             closePlayer();
             return;
@@ -224,14 +223,13 @@
             }
             renderPlaylist();
         }
-        setStatus('Removed from playlist: ' + removed.trackName);
         player.querySelectorAll('.mp3-player-remove-track')[Math.min(index, playlist.length - 1)].focus();
     }
 
     function play() {
         var request = ++playRequest;
         playbackRequested = true;
-        setStatus('');
+        setPlaybackError('');
         if (audio.error) {
             audio.load();
         }
@@ -241,7 +239,7 @@
                 return;
             }
             playbackRequested = false;
-            setStatus(error.name === 'NotAllowedError'
+            setPlaybackError(error.name === 'NotAllowedError'
                 ? 'Playback was blocked by your browser. Press Play to listen.'
                 : (embedded ? 'Unable to play this MP3. Try Play again.'
                     : 'Unable to play this MP3. Try Play again or skip to another track.'));
@@ -260,6 +258,7 @@
 
     function selectTrack(index, autoplay) {
         stop();
+        setPlaybackError('');
         currentIndex = index;
         var track = playlist[index];
         var art = window.createTrackArt(track);
@@ -290,6 +289,11 @@
         player.hidden = true;
         player.innerHTML = [
             '<div class="mp3-player-bar">',
+            '  <button type="button" class="mp3-player-toggle" data-player-action="toggle"',
+            '          aria-expanded="true" aria-controls="mp3-player-downloads mp3-player-queue"',
+            '          aria-label="Collapse MP3 player" title="Collapse MP3 player">',
+            '    ' + controlIcon('collapse'),
+            '  </button>',
             '  <img class="mp3-player-art" alt="">',
             '  <div class="mp3-player-info">',
             '    <strong class="mp3-player-title"></strong>',
@@ -319,32 +323,34 @@
             '  </div>',
             '  <button type="button" data-player-action="close" aria-label="Close MP3 player" title="Close player">&times;</button>',
             '</div>',
-            '<div class="mp3-player-waveform" title="Click to seek. Use the seek slider for keyboard control." hidden>',
-            '  <svg viewBox="0 0 1200 64" preserveAspectRatio="none" aria-hidden="true">',
-            '    <defs><clipPath id="mp3-player-waveform-clip">',
-            '      <rect class="mp3-player-waveform-progress" width="0" height="64"/>',
-            '    </clipPath></defs>',
-            '    <path class="mp3-player-waveform-base"/>',
-            '    <path class="mp3-player-waveform-played" clip-path="url(#mp3-player-waveform-clip)"/>',
-            '  </svg>',
-            '</div>',
-            '<p class="mp3-player-waveform-status" role="status" aria-live="polite"></p>',
             '<div class="mp3-player-timeline">',
             '  <span class="mp3-player-elapsed">0:00</span>',
-            '  <input class="mp3-player-seek" type="range" min="0" max="0" step="0.1" value="0"',
-            '         aria-label="Seek audio" aria-valuetext="0:00 of --:--" disabled>',
+            '  <div class="mp3-player-seek-control">',
+            '    <div class="mp3-player-waveform" hidden>',
+            '      <svg viewBox="0 0 1200 64" preserveAspectRatio="none" aria-hidden="true">',
+            '        <defs><clipPath id="mp3-player-waveform-clip">',
+            '          <rect class="mp3-player-waveform-progress" width="0" height="64"/>',
+            '        </clipPath></defs>',
+            '        <path class="mp3-player-waveform-base"/>',
+            '        <path class="mp3-player-waveform-played" clip-path="url(#mp3-player-waveform-clip)"/>',
+            '      </svg>',
+            '    </div>',
+            '    <input class="mp3-player-seek" type="range" min="0" max="0" step="0.1" value="0"',
+            '           aria-label="Seek audio" aria-valuetext="0:00 of --:--" disabled>',
+            '  </div>',
             '  <span class="mp3-player-duration">--:--</span>',
             '</div>',
+            '<p class="mp3-player-waveform-status" role="status" aria-live="polite"></p>',
             '<details class="mp3-player-queue" open>',
             '  <summary>Playlist</summary>',
             '  <ol class="mp3-player-playlist"></ol>',
             '</details>',
-            '<p class="mp3-player-status" role="status" aria-live="polite"></p>'
+            '<p class="mp3-player-error" role="alert"></p>'
         ].join('\n');
         if (embedded) {
             player.classList.add('mp3-player-embedded');
             player.querySelectorAll('[data-player-action="previous"], [data-player-action="next"],'
-                + ' [data-player-action="close"], .mp3-player-queue').forEach(function(element) {
+                + ' [data-player-action="close"], [data-player-action="toggle"], .mp3-player-queue').forEach(function(element) {
                 element.remove();
             });
         }
@@ -355,6 +361,38 @@
         document.body.appendChild(player);
 
         if (!embedded) {
+            var toggle = player.querySelector('[data-player-action="toggle"]');
+            var bar = player.querySelector('.mp3-player-bar');
+            var timeline = player.querySelector('.mp3-player-timeline');
+            var waveformStatus = player.querySelector('.mp3-player-waveform-status');
+            var desktop = window.matchMedia('(min-width: 769px)');
+            player.querySelector('.mp3-player-downloads').id = 'mp3-player-downloads';
+            player.querySelector('.mp3-player-queue').id = 'mp3-player-queue';
+
+            function updateLayout() {
+                var inline = player.classList.contains('mp3-player-collapsed') && desktop.matches;
+                var parent = inline ? bar : player;
+                if (timeline.parentElement !== parent) {
+                    var focused = timeline.contains(document.activeElement) ? document.activeElement : null;
+                    parent.insertBefore(timeline, inline
+                        ? bar.querySelector('.mp3-player-controls') : waveformStatus);
+                    if (focused) {
+                        focused.focus();
+                    }
+                }
+            }
+
+            toggle.addEventListener('click', function() {
+                var collapsed = player.classList.toggle('mp3-player-collapsed');
+                var label = collapsed ? 'Expand MP3 player' : 'Collapse MP3 player';
+                toggle.setAttribute('aria-expanded', String(!collapsed));
+                toggle.setAttribute('aria-label', label);
+                toggle.title = label;
+                toggle.innerHTML = controlIcon(collapsed ? 'expand' : 'collapse');
+                updateLayout();
+            });
+            desktop.addEventListener('change', updateLayout);
+
             var spacer = document.createElement('div');
             spacer.className = 'mp3-player-spacer';
             spacer.setAttribute('aria-hidden', 'true');
@@ -398,17 +436,6 @@
                 updateTimeline();
             }
         });
-        player.querySelector('.mp3-player-waveform').addEventListener('click', function(event) {
-            if (!waveformData || player.querySelector('.mp3-player-seek').disabled) {
-                return;
-            }
-            var bounds = event.currentTarget.getBoundingClientRect();
-            if (bounds.width > 0) {
-                var fraction = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
-                audio.currentTime = fraction * audio.duration;
-                updateTimeline();
-            }
-        });
         ['loadedmetadata', 'durationchange', 'timeupdate', 'seeking', 'seeked', 'emptied'].forEach(function(eventName) {
             audio.addEventListener(eventName, updateTimeline);
         });
@@ -419,7 +446,6 @@
                 selectTrack(currentIndex + 1);
             } else {
                 playbackRequested = false;
-                setStatus(embedded ? 'Track finished.' : 'Playlist finished.');
                 updateControls();
             }
         });
@@ -429,7 +455,7 @@
             }
             ++playRequest;
             playbackRequested = false;
-            setStatus(embedded ? 'Unable to load this MP3. Try Play again.'
+            setPlaybackError(embedded ? 'Unable to load this MP3. Try Play again.'
                 : 'Unable to load this MP3. Try Play again or skip to another track.');
             renderTimeline(0, NaN);
             updateControls();
@@ -461,7 +487,6 @@
             playlist.push(track);
             if (playbackRequested) {
                 renderPlaylist();
-                setStatus('Added to playlist: ' + track.trackName);
             } else {
                 selectTrack(playlist.length - 1);
             }

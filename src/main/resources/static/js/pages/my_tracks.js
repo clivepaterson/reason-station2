@@ -168,7 +168,7 @@ window.initializeMyTracks = function() {
                     return;
                 }
                 patches.forEach(function(patch) {
-                    var item = $(window.createPatchCard(patch));
+                    var item = $(window.createPatchCard(patch, {deletable: true}));
                     addEditButton(item, 'patch', patch);
                     patchesList.append(item);
                 });
@@ -194,7 +194,7 @@ window.initializeMyTracks = function() {
         });
     }
 
-    fetch('/api/me')
+    window.fetchCurrentUser()
         .then(function(response) {
             if (!response.ok) {
                 throw new Error('Sign in to view and upload your tracks.');
@@ -347,42 +347,48 @@ window.initializeMyTracks = function() {
         $('#patch-description-count').text(input.value.length + ' / 200');
     });
 
-    tracksList.off('click.siteTracks', '.delete-track-button').on('click.siteTracks', '.delete-track-button', function() {
-        var button = $(this);
+    function deleteCard(button, kind, list, resource) {
         var item = button.closest('.track-card');
-        var trackName = item.find('h3').text();
-        var trackId = button.attr('data-track-id');
+        var name = item.find('h3').text();
+        var id = button.attr('data-' + kind + '-id');
 
-        if (!window.confirm('Delete "' + trackName + '"? This cannot be undone.')) {
+        if (!window.confirm('Delete "' + name + '"? This cannot be undone.')) {
             return;
         }
 
         button.prop('disabled', true)
             .attr({
-                'aria-label': 'Deleting track',
-                title: 'Deleting track'
+                'aria-label': 'Deleting ' + kind,
+                title: 'Deleting ' + kind
             });
-        fetch('/api/tracks/' + encodeURIComponent(trackId), {
+        fetch('/api/' + resource + '/' + encodeURIComponent(id), {
             method: 'DELETE'
         })
             .then(function(response) {
                 if (!response.ok) {
-                    throw new Error('Unable to delete this track.');
+                    throw new Error('Unable to delete this ' + kind + '.');
                 }
                 item.remove();
-                if (!tracksList.find('.track-card').length) {
-                    tracksList.append($('<p>').text('You have not uploaded any tracks yet.'));
+                if (!list.find('.track-card').length) {
+                    list.append($('<p>').text('You have not uploaded any ' + resource + ' yet.'));
                 }
             })
             .catch(function(error) {
                 button.prop('disabled', false)
                     .attr({
-                        'aria-label': 'Delete track',
-                        title: 'Delete track'
+                        'aria-label': 'Delete ' + kind,
+                        title: 'Delete ' + kind
                     });
                 item.find('.delete-error').remove();
                 item.append($('<p>').addClass('delete-error form-message error').text(error.message));
             });
+    }
+
+    tracksList.off('click.siteTracks', '.delete-track-button').on('click.siteTracks', '.delete-track-button', function() {
+        deleteCard($(this), 'track', tracksList, 'tracks');
+    });
+    patchesList.off('click.siteTracks', '.delete-patch-button').on('click.siteTracks', '.delete-patch-button', function() {
+        deleteCard($(this), 'patch', patchesList, 'patches');
     });
 
     $(document).off('mousedown.siteTracks').on('mousedown.siteTracks', function(event) {
@@ -670,9 +676,9 @@ window.initializeMyTracks = function() {
             return;
         }
         if (audio && (!/\.mp3$/i.test(audio.name)
-                || audio.size === 0 || audio.size > 80 * 1024 * 1024)) {
+                || audio.size === 0 || audio.size > 25 * 1024 * 1024)) {
             $('#upload-status').removeClass('success').addClass('error')
-                .text('Choose a non-empty .mp3 audio file no larger than 80 MB.');
+                .text('Choose a non-empty .mp3 audio file no larger than 25 MB.');
             return;
         }
 

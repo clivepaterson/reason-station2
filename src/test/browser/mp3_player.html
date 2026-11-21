@@ -8,6 +8,7 @@
 </head>
 <body class="site-page">
 <pre id="results">Running...</pre>
+<div id="site-footer"><footer class="footer">Site footer</footer></div>
 <script>
     var mediaStates = new WeakMap();
     var nextPlayError;
@@ -199,7 +200,10 @@
             function action(name) { return player.querySelector('[data-player-action="' + name + '"]'); }
             function entries() { return player.querySelectorAll('.mp3-player-track'); }
             function removeButtons() { return player.querySelectorAll('.mp3-player-remove-track'); }
-            function status() { return player.querySelector('.mp3-player-status').textContent; }
+            function playbackError() { return player.querySelector('.mp3-player-error').textContent; }
+            assert(!player.querySelector('.mp3-player-status'), 'Player has no routine status element');
+            assert(player.querySelector('.mp3-player-error').getAttribute('role') === 'alert'
+                && !playbackError(), 'Playback error alert starts empty');
             var seek = player.querySelector('.mp3-player-seek');
             var elapsed = player.querySelector('.mp3-player-elapsed');
             var duration = player.querySelector('.mp3-player-duration');
@@ -236,6 +240,175 @@
             audio.currentTime = 0;
             audio.dispatchEvent(new Event('loadedmetadata'));
             assert(!player.hidden && !audio.paused, 'Click shows player and plays');
+            await frame();
+            var footer = document.getElementById('site-footer');
+            var footerBounds = footer.getBoundingClientRect();
+            var playerBounds = player.getBoundingClientRect();
+            assert(Math.abs(footerBounds.bottom - window.innerHeight) < 1,
+                'Footer stays at the viewport bottom while the player is open');
+            assert(playerBounds.top < footerBounds.bottom && playerBounds.bottom > footerBounds.top,
+                'Player overlaps the footer instead of pushing it upward');
+            assert(player.contains(document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 10)),
+                'Player is painted over the footer');
+            var toggle = action('toggle');
+            var timeline = player.querySelector('.mp3-player-timeline');
+            var bar = player.querySelector('.mp3-player-bar');
+            var queue = player.querySelector('.mp3-player-queue');
+            var downloads = player.querySelector('.mp3-player-downloads');
+            assert(toggle && toggle.getAttribute('aria-expanded') === 'true',
+                'Player starts expanded with an accessible collapse toggle');
+            function assertToggleBesideArt() {
+                var toggleBounds = toggle.getBoundingClientRect();
+                var art = player.querySelector('.mp3-player-art');
+                var artBounds = art.getBoundingClientRect();
+                assert(toggle.nextElementSibling === art && toggleBounds.right <= artBounds.left
+                    && Math.abs(toggleBounds.top + toggleBounds.height / 2
+                        - artBounds.top - artBounds.height / 2) < 1,
+                    'Expand/collapse toggle appears immediately left of the artwork on the same row');
+            }
+            assertToggleBesideArt();
+            function assertMobileControlsBesideInfo() {
+                if (matchMedia('(max-width: 768px)').matches) {
+                    var infoBounds = player.querySelector('.mp3-player-info').getBoundingClientRect();
+                    var controls = player.querySelector('.mp3-player-controls');
+                    var controlsBounds = controls.getBoundingClientRect();
+                    assert(infoBounds.right <= controlsBounds.left
+                        && Math.abs(infoBounds.top + infoBounds.height / 2
+                            - controlsBounds.top - controlsBounds.height / 2) < 1,
+                        'Mobile playback controls share the track information row without overlapping');
+                    assert(player.scrollWidth <= player.clientWidth,
+                        'Mobile playback controls fit without horizontal scrolling');
+                    assert(Array.from(controls.querySelectorAll('button')).every(function(button) {
+                        return button.offsetWidth >= 32 && button.offsetHeight >= 32;
+                    }), 'Compact mobile playback buttons retain at least 32px targets');
+                    var items = Array.from(bar.children).filter(function(item) {
+                        return getComputedStyle(item).display !== 'none';
+                    });
+                    assert(items.every(function(item, index) {
+                        var bounds = item.getBoundingClientRect();
+                        var previous = index ? items[index - 1].getBoundingClientRect() : null;
+                        return Math.abs(bounds.top + bounds.height / 2
+                            - controlsBounds.top - controlsBounds.height / 2) < 1
+                            && (!previous || previous.right <= bounds.left);
+                    }), 'All visible mobile player bar items fit on one row without overlapping');
+                }
+            }
+            assertMobileControlsBesideInfo();
+            function assertCompactTrackInfo() {
+                var info = player.querySelector('.mp3-player-info');
+                var maxWidth = matchMedia('(max-width: 768px)').matches ? 140 : 180;
+                var fields = Array.from(info.children);
+                var originalText = fields.map(function(field) { return field.textContent; });
+                fields.forEach(function(field) {
+                    field.textContent = 'Long track information '.repeat(30);
+                });
+                assert(info.getBoundingClientRect().width <= maxWidth,
+                    'Track information has a compact responsive maximum width');
+                assert(fields.every(function(field) {
+                    var style = getComputedStyle(field);
+                    return field.scrollWidth > field.clientWidth && style.textOverflow === 'ellipsis'
+                        && style.whiteSpace === 'nowrap' && style.overflow === 'hidden';
+                }), 'Long track metadata is visually truncated with ellipses');
+                fields.forEach(function(field, index) {
+                    field.textContent = originalText[index];
+                });
+            }
+            assertCompactTrackInfo();
+            function assertDesktopControlsRight() {
+                if (matchMedia('(min-width: 769px)').matches) {
+                    var actions = Array.from(bar.querySelectorAll(
+                        '.mp3-player-controls, .mp3-player-volume, .mp3-player-downloads, [data-player-action="close"]'
+                    )).filter(function(element) {
+                        return getComputedStyle(element).display !== 'none';
+                    });
+                    var gap = parseFloat(getComputedStyle(bar).columnGap);
+                    assert(Math.abs(actions[actions.length - 1].getBoundingClientRect().right
+                        - bar.getBoundingClientRect().right) < 1,
+                        'Desktop close button aligns with the right edge of the player bar');
+                    assert(actions.every(function(element, index) {
+                        return !index || Math.abs(element.getBoundingClientRect().left
+                            - actions[index - 1].getBoundingClientRect().right - gap) < 1;
+                    }), 'Desktop playback, volume, downloads and close form one right-aligned group');
+                }
+            }
+            assertDesktopControlsRight();
+            async function assertPlayerFitsViewport() {
+                var wideContent = document.createElement('div');
+                wideContent.style.width = 'calc(100vw + 400px)';
+                wideContent.style.height = '1px';
+                document.body.appendChild(wideContent);
+                await frame();
+                try {
+                    var playerBounds = player.getBoundingClientRect();
+                    var timelineBounds = timeline.getBoundingClientRect();
+                    assert(playerBounds.left >= 0
+                        && playerBounds.right <= document.documentElement.clientWidth + 1,
+                        'Player stays within viewport even when page content overflows horizontally');
+                    assert(timelineBounds.left >= playerBounds.left && timelineBounds.right <= playerBounds.right
+                        && Array.from(timeline.children).every(function(child) {
+                            var bounds = child.getBoundingClientRect();
+                            return bounds.left >= timelineBounds.left - 1 && bounds.right <= timelineBounds.right + 1;
+                        }) && seek.getBoundingClientRect().width > 0,
+                        'Timeline, time labels and seek control fit inside the viewport-constrained player');
+                    assert(player.scrollWidth <= player.clientWidth,
+                        'Viewport-constrained player has no internal horizontal overflow');
+                } finally {
+                    wideContent.remove();
+                }
+                await frame();
+            }
+            await assertPlayerFitsViewport();
+            assert(toggle.getAttribute('aria-controls').split(' ').every(function(id) {
+                return !!document.getElementById(id);
+            }), 'Toggle references the sections it hides');
+            var expandedHeight = player.offsetHeight;
+            var layoutPlays = mediaState(audio).plays;
+            var layoutLoads = mediaState(audio).loads;
+            var layoutTime = audio.currentTime;
+            toggle.click();
+            await frame();
+            assert(toggle.getAttribute('aria-expanded') === 'false'
+                && toggle.getAttribute('aria-label') === 'Expand MP3 player',
+                'Collapsed toggle announces the expand action');
+            assert(getComputedStyle(queue).display === 'none' && getComputedStyle(downloads).display === 'none',
+                'Collapsed player hides playlist and download buttons');
+            assert(player.offsetHeight < expandedHeight, 'Collapsed player is shorter');
+            assertToggleBesideArt();
+            assertMobileControlsBesideInfo();
+            assertCompactTrackInfo();
+            assertDesktopControlsRight();
+            await assertPlayerFitsViewport();
+            if (matchMedia('(min-width: 769px)').matches) {
+                assert(timeline.parentElement === bar
+                    && timeline.previousElementSibling.classList.contains('mp3-player-info')
+                    && timeline.nextElementSibling.classList.contains('mp3-player-controls'),
+                    'Collapsed desktop timeline sits between track information and playback controls');
+                assert(timeline.getBoundingClientRect().right <= timeline.nextElementSibling.getBoundingClientRect().left,
+                    'Collapsed desktop timeline does not overlap playback controls');
+            } else {
+                assert(timeline.parentElement === player && timeline.getBoundingClientRect().top >= bar.getBoundingClientRect().bottom,
+                    'Collapsed mobile timeline stays below the playback bar');
+            }
+            assert(player.querySelector('.mp3-player-seek') === seek && !audio.paused
+                && audio.currentTime === layoutTime && mediaState(audio).plays === layoutPlays
+                && mediaState(audio).loads === layoutLoads,
+                'Collapsing retains the same seek control, playback position and audio session');
+            assert(document.querySelector('.mp3-player-spacer').offsetHeight === player.offsetHeight,
+                'Collapsed player updates reserved page space');
+            seek.value = '30';
+            seek.dispatchEvent(new Event('input'));
+            assert(audio.currentTime === 30 && !audio.paused,
+                'Collapsed player keeps waveform seeking usable without interrupting playback');
+            seek.value = String(layoutTime);
+            seek.dispatchEvent(new Event('input'));
+            toggle.click();
+            await frame();
+            assert(toggle.getAttribute('aria-expanded') === 'true' && timeline.parentElement === player,
+                'Expanding restores the timeline below the playback bar');
+            assert(getComputedStyle(queue).display !== 'none' && queue.open,
+                'Expanding restores the open playlist');
+            assert((getComputedStyle(downloads).display === 'none') === matchMedia('(max-width: 768px)').matches,
+                'Expanded player hides downloads on mobile and shows them on desktop');
             assert(audio.getAttribute('src') === '/api/tracks/1/audio', 'Uses stable audio endpoint');
             assert(player.querySelector('.mp3-player-title').textContent === 'Track <1>', 'Title uses safe text');
             assert(player.querySelector('.mp3-player-artist').textContent === 'Artist & 1', 'Artist displayed');
@@ -267,7 +440,7 @@
             var queuedPlays = mediaState(audio).plays;
             second.click();
             assert(entries().length === 2 && mediaState(audio).plays === queuedPlays, 'Further click queues without restarting playback');
-            assert(status().includes('Added to playlist'), 'Enqueue announced');
+            assert(!playbackError(), 'Enqueue does not display a status message');
             assert(!action('next').disabled, 'Queuing a track enables Next');
             action('next').click();
             assert(audio.getAttribute('src') === '/api/tracks/2/audio', 'Skip plays next track');
@@ -315,7 +488,7 @@
             audio.dispatchEvent(new Event('ended'));
             assert(audio.getAttribute('src') === '/api/tracks/2/audio', 'Ending advances to next track');
             audio.dispatchEvent(new Event('ended'));
-            assert(status() === 'Playlist finished.' && action('play').getAttribute('aria-label') === 'Play track',
+            assert(!playbackError() && action('play').getAttribute('aria-label') === 'Play track',
                 'Final track finishes without looping');
             first.click();
             assert(audio.getAttribute('src') === '/api/tracks/1/audio', 'Idle card click starts selected track');
@@ -330,12 +503,12 @@
             second.click();
             await Promise.resolve();
             assert(entries().length === 1, 'Reopen starts with cleared playlist');
-            assert(status().includes('blocked by your browser'), 'Autoplay rejection surfaced');
+            assert(playbackError().includes('blocked by your browser'), 'Autoplay rejection surfaced');
             assert(action('play').getAttribute('aria-label') === 'Play track', 'Blocked playback can be retried');
             action('play').click();
-            assert(!audio.paused && !status(), 'Retry starts playback and clears error');
+            assert(!audio.paused && !playbackError(), 'Retry starts playback and clears error');
             audio.dispatchEvent(new Event('error'));
-            assert(status().includes('Unable to load'), 'Media errors surfaced');
+            assert(playbackError().includes('Unable to load'), 'Media errors surfaced');
             assert(seek.disabled, 'Media errors disable seeking');
             action('close').click();
 
@@ -344,11 +517,11 @@
             var plays = mediaState(audio).plays;
             second.click();
             assert(entries().length === 2 && mediaState(audio).plays === plays, 'Clicks during pending playback enqueue');
-            var pendingStatus = status();
+            var pendingError = playbackError();
             action('play').click();
             rejectPendingPlay(new DOMException('Interrupted', 'AbortError'));
             await Promise.resolve();
-            assert(audio.paused && status() === pendingStatus && action('play').getAttribute('aria-label') === 'Play track',
+            assert(audio.paused && playbackError() === pendingError && action('play').getAttribute('aria-label') === 'Play track',
                 'Stale play rejection does not replace paused state');
             action('play').click();
             await frame();
@@ -373,8 +546,8 @@
             assert(entries().length === 2 && audio.getAttribute('src') === '/api/tracks/1/audio'
                 && audio.currentTime === 25 && mediaState(audio).plays === removalPlays,
                 'Removing queued track does not interrupt playback');
-            assert(player.querySelector('summary').textContent === 'Playlist (2)' && status().includes('Track <2>'),
-                'Removal updates count and announces removed track');
+            assert(player.querySelector('summary').textContent === 'Playlist (2)' && !playbackError(),
+                'Removal updates count without a status message');
             assert(document.activeElement === removeButtons()[1], 'Removal preserves focus on adjacent remove button');
             action('next').click();
             assert(audio.getAttribute('src') === '/api/tracks/3/audio', 'Next skips removed entry');
@@ -448,7 +621,7 @@
             }
 
             first.click();
-            assert(waveStatus() === 'Loading waveform...' && !audio.paused && !status(),
+            assert(waveStatus() === 'Loading waveform...' && !audio.paused && !playbackError(),
                 'Waveform loading is independent from audio playback status');
             await settleWaveform();
             assert(!waveform.hidden && !waveStatus(), 'Successful response displays waveform');
@@ -465,20 +638,28 @@
             assert(Number(progress.getAttribute('width')) === 600, 'Waveform progress follows time updates');
             var bounds = waveform.getBoundingClientRect();
             assert(bounds.width > 0 && bounds.width <= player.clientWidth, 'Waveform fits viewport responsively');
+            var seekBounds = seek.getBoundingClientRect();
+            assert(waveform.closest('.mp3-player-timeline') === seek.closest('.mp3-player-timeline')
+                && bounds.top === seekBounds.top && bounds.bottom === seekBounds.bottom,
+                'Waveform and seek slider share one timeline row and hit area');
+            assert(document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2) === seek,
+                'Waveform pointer interaction uses the native accessible seek slider');
             var waveformPlays = mediaState(audio).plays;
-            waveform.dispatchEvent(new MouseEvent('click', {clientX: bounds.left + bounds.width * 0.75}));
+            seek.value = '150';
+            seek.dispatchEvent(new Event('input'));
             assert(Math.abs(audio.currentTime - 150) < 1 && /^2:(29|30)$/.test(elapsed.textContent),
-                'Waveform click seeks audio and updates existing timeline');
+                'Combined waveform slider seeks audio and updates elapsed time');
             assert(mediaState(audio).plays === waveformPlays && !audio.paused, 'Waveform seek does not restart playback');
             action('play').click();
-            waveform.dispatchEvent(new MouseEvent('click', {clientX: bounds.left + bounds.width / 2}));
+            seek.value = '100';
+            seek.dispatchEvent(new Event('input'));
             assert(Math.abs(audio.currentTime - 100) < 1 && audio.paused, 'Waveform seeking preserves pause');
             seek.value = '20';
             seek.dispatchEvent(new Event('input'));
-            assert(Number(progress.getAttribute('width')) === 120, 'Existing range seek updates waveform progress');
+            assert(Number(progress.getAttribute('width')) === 120, 'Combined range seek updates waveform progress');
             mediaState(audio).duration = NaN;
             audio.dispatchEvent(new Event('durationchange'));
-            waveform.dispatchEvent(new MouseEvent('click', {clientX: bounds.right}));
+            seek.dispatchEvent(new Event('input'));
             assert(audio.currentTime === 20 && Number(progress.getAttribute('width')) === 0,
                 'Unknown media duration disables waveform seeking and clears progress');
             action('close').click();
@@ -524,7 +705,7 @@
             };
             first.click();
             await settleWaveform();
-            assert(waveform.hidden && waveStatus().includes('Loading') && !audio.paused && !status(),
+            assert(waveform.hidden && waveStatus().includes('Loading') && !audio.paused && !playbackError(),
                 'Pending generation leaves playback normal and displays loading');
             runPoll();
             await settleWaveform();
@@ -556,7 +737,7 @@
             }
             assert(waveformRequests.length - beforePolling === 40 && waveformTimers.size === 0,
                 'Pending generation polls for 117 seconds at Retry-After 3 before stopping after forty requests');
-            assert(waveStatus() === 'Waveform unavailable.' && !audio.paused && !status(),
+            assert(waveStatus() === 'Waveform unavailable.' && !audio.paused && !playbackError(),
                 'Polling exhaustion is visible without affecting audio');
             action('close').click();
             captureWaveformTimers = false;
@@ -590,7 +771,7 @@
                 errorCount = waveformErrors.length;
                 first.click();
                 await settleWaveform();
-                assert(waveform.hidden && waveStatus() === 'Waveform unavailable.' && !audio.paused && !status(),
+                assert(waveform.hidden && waveStatus() === 'Waveform unavailable.' && !audio.paused && !playbackError(),
                     'HTTP, network, JSON and validation failures remain isolated from audio: ' + String(failure));
                 assert(waveformErrors.length === errorCount + 1
                     && waveformErrors[errorCount].message.includes('track 1'), 'Waveform failure logs track context');
@@ -659,7 +840,7 @@
             queuedSidebar.querySelector('.sidebar-audio-button').click();
             assert(entries().length === 2 && mediaState(audio).plays === sidebarPlays
                 && audio.getAttribute('src') === '/api/tracks/8/audio'
-                && status() === 'Added to playlist: Track <9>',
+                && !playbackError(),
                 'Sidebar button enqueues without interrupting current playback');
             action('next').click();
             assert(audio.getAttribute('src') === '/api/tracks/9/audio', 'Queued sidebar MP3 plays next');
@@ -728,8 +909,8 @@
                 && player.querySelector('.mp3-player-title').textContent === 'Track <2>',
                 'Embedded player uses the selected track');
             assert(!action('previous') && !action('next') && !action('close')
-                && !player.querySelector('.mp3-player-queue') && !player.querySelector('.mp3-player-playlist'),
-                'Embedded player has no skip, close, or playlist elements');
+                && !action('toggle') && !player.querySelector('.mp3-player-queue') && !player.querySelector('.mp3-player-playlist'),
+                'Embedded player has no skip, close, expand/collapse, or playlist elements');
             assert(document.querySelectorAll('.mp3-player-spacer').length === spacerCount
                 && getComputedStyle(player).position === 'static',
                 'Embed uses normal page flow without a fixed-player spacer');
@@ -738,9 +919,10 @@
             action('play').click();
             assert(audio.paused, 'Embedded pause stops playback');
             audio.dispatchEvent(new Event('ended'));
-            assert(status() === 'Track finished.', 'Embedded completion has no playlist message');
+            assert(!playbackError(), 'Embedded completion has no status message');
             audio.dispatchEvent(new Event('error'));
-            assert(!status().includes('skip'), 'Embedded error does not suggest missing skip controls');
+            assert(playbackError().includes('Unable to load') && !playbackError().includes('skip'),
+                'Embedded error does not suggest missing skip controls');
 
             player.remove();
             var embedHtml = await nativeFetch('../../main/resources/static/embed.html').then(function(response) {

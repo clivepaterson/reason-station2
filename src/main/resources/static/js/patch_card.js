@@ -7,7 +7,8 @@
         return element;
     }
 
-    window.createPatchCard = function(patch) {
+    window.createPatchCard = function(patch, options) {
+        options = options || {};
         var id = encodeURIComponent(patch.patchid);
         var item = document.createElement('article');
         item.className = 'track-card patch-card';
@@ -57,6 +58,9 @@
         download.setAttribute('aria-label', 'Download ' + patch.patchName + ' by ' + patch.artistAlias);
         actions.appendChild(window.createRatePatchButton(patch));
         actions.appendChild(window.createCopyLinkButton(link.href, patch.patchName));
+        if (options.deletable) {
+            item.appendChild(window.createDeleteCardButton('patch', patch.patchid));
+        }
         return item;
     };
 }());

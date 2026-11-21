@@ -362,7 +362,7 @@ $(document).ready(async function() {
     addWebsiteStructuredData();
     window.showPage(currentUrl, false);
 
-    fetch('/api/me')
+    window.fetchCurrentUser()
         .then(function(response) {
             if (!response.ok) {
                 throw new Error('not authenticated');

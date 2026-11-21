@@ -178,4 +178,37 @@
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <configuration>
+                            <imageName>reasonstation</imageName>
+                            <buildArgs>
+                                <buildArg>-march=compatibility</buildArg>
+                                <buildArg>-Djava.awt.headless=true</buildArg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <profiles>
+                                <profile>prod</profile>
+                            </profiles>
+                            <arguments>
+                                <!-- Prepare production beans without reading live AWS secrets during AOT. -->
+                                <argument>--APPLICATION_CONFIG_IMPORT=</argument>
+                            </arguments>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

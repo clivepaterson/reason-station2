@@ -46,6 +46,7 @@ public class TrackController {
     private static final int MAX_FILENAME_LENGTH = 255;
     private static final long MAX_FILE_SIZE = 80L * 1024 * 1024;
     private static final long MAX_IMAGE_SIZE = 30L * 1024 * 1024;
+    private static final long MAX_AUDIO_SIZE = 25L * 1024 * 1024;
     private static final Map<String, String> IMAGE_TYPES = Map.of(
             ".jpg", "jpeg", ".jpeg", "jpeg", ".png", "png", ".bmp", "bmp", ".gif", "gif");
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".rps", ".rns", ".reason");
@@ -378,10 +379,10 @@ public class TrackController {
         }
         byte[] audioBytes = null;
         if (hasSelectedFile(audio)) {
-            if (!validMediaFilename(audio, MAX_FILE_SIZE)
+            if (!validMediaFilename(audio, MAX_AUDIO_SIZE)
                     || !".mp3".equals(extension(audio.getOriginalFilename()))) {
                 return ResponseEntity.badRequest().body(Map.of("error",
-                        "Choose an .mp3 audio file no larger than 80 MB."));
+                        "Choose an .mp3 audio file no larger than 25 MB."));
             }
             audioBytes = audio.getBytes();
             if (!Mp3FileFormat.matches(audioBytes)) {

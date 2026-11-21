@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Authentication navigation regression tests</title>
+</head>
+<body>
+<pre id="results">Running...</pre>
+<a id="auth-link" href="/logout">Logout</a>
+<a id="login-link" href="#login-dialog" style="display: none">Log in</a>
+<a id="my-tracks-link" href="?view=my-tracks">My tracks</a>
+<p id="auth-status">Signed in as listener</p>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="../../main/resources/static/js/auth.js"></script>
+<script>
+    (async function() {
+        var assertions = 0;
+        var originalFetch = window.fetch;
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message);
+            }
+            assertions++;
+        }
+        try {
+            var response = {ok: true, status: 200};
+            window.fetch = function(url) {
+                assert(url === '/api/me', 'Requests the current user endpoint');
+                return Promise.resolve(response);
+            };
+            assert(await window.fetchCurrentUser() === response, 'Preserves successful response');
+            assert($('#auth-link').text() === 'Logout', 'Success preserves signed-in navigation');
+            response = {ok: false, status: 503};
+            assert(await window.fetchCurrentUser() === response, 'Preserves server errors');
+            assert($('#auth-link').text() === 'Logout', 'Server errors do not imply logout');
+            window.fetch = function() { return Promise.reject(new Error('Network unavailable')); };
+            var networkError;
+            try {
+                await window.fetchCurrentUser();
+            } catch (error) {
+                networkError = error;
+            }
+            assert(networkError && networkError.message === 'Network unavailable', 'Propagates network failures');
+            assert($('#auth-link').text() === 'Logout', 'Network failures do not imply logout');
+            response = {ok: false, status: 401};
+            window.fetch = function() { return Promise.resolve(response); };
+            assert(await window.fetchCurrentUser() === response, 'Preserves unauthorized response for callers');
+            assert($('#auth-link').text() === 'Login', 'Expired sessions replace Logout with Login');
+            assert($('#auth-link').attr('href') === '#login-dialog'
+                && $('#auth-link').attr('data-auth-dialog') === 'login-dialog',
+                'Login opens the existing login dialog rather than logging out');
+            assert($('#login-link').css('display') === 'none', 'Does not show duplicate login links');
+            assert($('#my-tracks-link').is('[hidden]'), 'Hides authenticated navigation');
+            assert($('#auth-status').text() === 'Sign in to use the protected API.', 'Clears stale signed-in status');
+            document.getElementById('results').textContent = 'PASS: ' + assertions + ' assertions';
+        } catch (error) {
+            document.getElementById('results').textContent = 'FAIL: ' + error.message;
+            throw error;
+        } finally {
+            window.fetch = originalFetch;
+        }
+    })();
+</script>
+</body>
+</html>

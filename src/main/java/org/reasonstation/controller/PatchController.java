@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -74,6 +75,32 @@ public class PatchController {
                                                 ? null : storage.createImageUrl(patch.patchImgUri())))
                                 .toList()))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{patchid}")
+    public ResponseEntity<?> deletePatch(Authentication authentication, @PathVariable Long patchid) {
+        if (patchid == null || patchid < 1) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Patch ID must be a positive integer."));
+        }
+        var user = users.findByAlias(authentication.getName());
+        if (user.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "The authenticated user was not found."));
+        }
+        var existing = patches.findById(patchid)
+                .filter(patch -> user.get().getUserid().equals(patch.getUserid()));
+        if (existing.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Patch not found."));
+        }
+        Patch patch = existing.get();
+        storage.delete(patch.getPatchUri());
+        if (patch.getPatchImgUri() != null && !patch.getPatchImgUri().isBlank()) {
+            storage.delete(patch.getPatchImgUri());
+        }
+        patches.deleteByPatchidAndUserid(patchid, user.get().getUserid());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{patchid}/download")

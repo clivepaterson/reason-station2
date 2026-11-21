@@ -54,9 +54,41 @@ before the bucket exists, while liveness confirms the API is running.
 ## Production compute
 
 `infrastructure\deploy-blue-green.ps1` defaults to one on-demand `FARGATE` task
-with 1 vCPU and 2 GiB RAM (the minimum memory for 1 vCPU on Fargate), using ARM64.
+with 0.25 vCPU and 512 MiB RAM, using ARM64 and a GraalVM native executable.
 This avoids Spot capacity reclamation, but one task is still not highly available.
 Blue/green deployments temporarily run both revisions.
+
+Production builds use `Dockerfile.native` and GraalVM Community for Java 25.
+The Maven `native` profile performs Spring AOT processing with the production
+profile, omitting the Secrets Manager import only during the build. At runtime,
+the production profile still imports live application configuration and uses
+the ECS task role. Leave `APPLICATION_CONFIG_IMPORT` unset in production; the
+native build supplies an empty value only to its AOT process.
+An explicit PostgreSQL dialect lets AOT generate repositories without a database.
+Production bean conditions are fixed at build time; rebuild
+the native image when changing conditional features such as API documentation.
+Local Docker Compose continues to use the JVM-based `Dockerfile`.
+
+With Docker Desktop running in Linux containers mode, build the production image:
+
+```powershell
+docker buildx build --platform linux/arm64 --file Dockerfile.native --tag reasonstation:native --load .
+```
+
+Native compilation needs substantially more than 512 MiB of build memory; that
+limit applies only to the deployed task. ARM64 builds on an x86 host use emulation
+and can be slow; an ARM64 builder is preferable.
+The executable has a 256 MiB maximum Java heap, reserving the rest of the task
+memory for native allocations, thread stacks, and the included FFmpeg worker.
+This is not a total-process memory cap. Trial the image under the actual task
+limits before deploying: large uploads, concurrent requests, and waveform
+generation can still exhaust 512 MiB or saturate 0.25 vCPU.
+
+Deploy using the existing prerequisite AWS configuration and credentials:
+
+```powershell
+.\infrastructure\deploy-blue-green.ps1 -Region <aws-region>
+```
 
 The deployment script explicitly passes its capacity-provider selection to
 CloudFormation, including when updating an existing Spot-based stack. Spot
@@ -124,7 +156,7 @@ separate browser cache entries. Download and other API caching policies are unch
 ## Track media uploads
 
 The track upload form accepts an optional image (`.jpg`, `.jpeg`, `.png`, `.bmp`,
-or `.gif`, up to 30 MB) and optional MP3 audio (up to 80 MB), alongside the required
+or `.gif`, up to 30 MB) and optional MP3 audio (up to 25 MB), alongside the required
 Reason file (up to 80 MB). If multiple Reason files are selected, the same image
 and MP3 are uploaded separately for each track. The existing SoundCloud/Audiomack
 link remains independent and optional.

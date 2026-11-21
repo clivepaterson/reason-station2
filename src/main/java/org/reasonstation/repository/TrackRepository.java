@@ -289,6 +289,7 @@ public interface TrackRepository extends CrudRepository<Track, Long> {
     /**
      * Delete all tracks for a user
      */
+    @Modifying
     @Query("""
             DELETE FROM tracks
             WHERE userid = :userid

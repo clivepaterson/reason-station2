@@ -99,9 +99,22 @@ class AdminSecurityTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"text/html", "application/json"})
+    void returnsUnauthorizedForAnonymousCurrentUserRequests(String accept) throws Exception {
+        var response = request("/api/me", null, false, accept);
+        assertEquals(401, response.getStatus());
+        assertNull(response.getHeader("Location"));
+    }
+
+    @Test
+    void allowsAuthenticatedCurrentUserRequests() throws Exception {
+        assertEquals(200, request("/api/me", "listener", true).getStatus());
+    }
+
     @Test
     void preservesLoginRedirectForOtherProtectedPages() throws Exception {
-        assertEquals(302, request("/api/me", null, false).getStatus());
+        assertEquals(302, request("/api/hello", null, false).getStatus());
     }
 
     @ParameterizedTest

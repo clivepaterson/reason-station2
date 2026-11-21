@@ -125,7 +125,7 @@ class TrackMediaUploadTest {
         verifiedUser();
         MultipartFile oversized = mock(MultipartFile.class);
         when(oversized.getOriginalFilename()).thenReturn(part.equals("image") ? "cover.png" : "preview.mp3");
-        when(oversized.getSize()).thenReturn((part.equals("image") ? 30L : 80L) * 1024 * 1024 + 1);
+        when(oversized.getSize()).thenReturn((part.equals("image") ? 30L : 25L) * 1024 * 1024 + 1);
 
         var response = upload(part.equals("image") ? oversized : null, part.equals("audio") ? oversized : null);
 
@@ -141,7 +141,7 @@ class TrackMediaUploadTest {
         stubUploads();
         MultipartFile media = mock(MultipartFile.class);
         when(media.getOriginalFilename()).thenReturn(part.equals("image") ? "cover.png" : "preview.mp3");
-        when(media.getSize()).thenReturn((part.equals("image") ? 30L : 80L) * 1024 * 1024);
+        when(media.getSize()).thenReturn((part.equals("image") ? 30L : 25L) * 1024 * 1024);
         when(media.getBytes()).thenReturn(part.equals("image") ? imageBytes() : audioBytes());
 
         var response = upload(part.equals("image") ? media : null, part.equals("audio") ? media : null);

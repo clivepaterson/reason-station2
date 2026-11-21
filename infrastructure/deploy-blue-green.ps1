@@ -167,6 +167,7 @@ try {
     Invoke-NativeCommand docker @(
         "buildx", "build",
         "--platform", "linux/arm64",
+        "--file", "Dockerfile.native",
         "--tag", $imageUri,
         "--push",
         "."

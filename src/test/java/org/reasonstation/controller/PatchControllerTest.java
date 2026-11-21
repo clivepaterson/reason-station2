@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,6 +49,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -137,6 +139,90 @@ class PatchControllerTest {
 
         assertEquals(HttpStatus.NOT_FOUND, controller.myPatches(authentication).getStatusCode());
         verify(patches, never()).findWithRatingsByUserid(any());
+    }
+
+    @Test
+    void deletesOwnedPatchAndItsFiles() throws Exception {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(false)));
+        Patch patch = new Patch(7L, "Artist", "Bass", null,
+                "bass.thor", ".thor", 3L, "s3://tracks/patches/bass");
+        patch.setPatchImgUri("s3://tracks/patch-images/bass");
+        when(patches.findById(4L)).thenReturn(Optional.of(patch));
+
+        standaloneSetup(controller).build()
+                .perform(delete("/api/patches/4").principal(authentication))
+                .andExpect(status().isNoContent());
+
+        verify(storage).delete(patch.getPatchUri());
+        verify(storage).delete(patch.getPatchImgUri());
+        verify(patches).deleteByPatchidAndUserid(4L, 7L);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "   ")
+    void deletesOwnedPatchWithoutImage(String imageUri) {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        Patch patch = new Patch(7L, "Artist", "Bass", null,
+                "bass.thor", ".thor", 3L, "s3://tracks/patches/bass");
+        patch.setPatchImgUri(imageUri);
+        when(patches.findById(4L)).thenReturn(Optional.of(patch));
+
+        assertEquals(HttpStatus.NO_CONTENT, controller.deletePatch(authentication, 4L).getStatusCode());
+
+        verify(storage).delete(patch.getPatchUri());
+        verify(storage, never()).delete(imageUri);
+        verify(patches).deleteByPatchidAndUserid(4L, 7L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0L, -1L})
+    void rejectsInvalidPatchDeletionId(Long id) {
+        assertEquals(HttpStatus.BAD_REQUEST, controller.deletePatch(authentication, id).getStatusCode());
+        verifyNoInteractions(users, patches, storage);
+    }
+
+    @Test
+    void cannotDeletePatchWhenCurrentUserIsMissing() {
+        when(users.findByAlias("listener")).thenReturn(Optional.empty());
+
+        assertEquals(HttpStatus.NOT_FOUND, controller.deletePatch(authentication, 4L).getStatusCode());
+        verifyNoInteractions(patches, storage);
+    }
+
+    @Test
+    void cannotDeleteMissingPatch() {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(patches.findById(4L)).thenReturn(Optional.empty());
+
+        assertEquals(HttpStatus.NOT_FOUND, controller.deletePatch(authentication, 4L).getStatusCode());
+        verifyNoInteractions(storage);
+        verify(patches, never()).deleteByPatchidAndUserid(any(), any());
+    }
+
+    @Test
+    void cannotDeleteAnotherUsersPatch() {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        when(patches.findById(4L)).thenReturn(Optional.of(new Patch(
+                8L, "Artist", "Bass", null, "bass.thor", ".thor", 3L, "s3://tracks/patches/bass")));
+
+        assertEquals(HttpStatus.NOT_FOUND, controller.deletePatch(authentication, 4L).getStatusCode());
+        verifyNoInteractions(storage);
+        verify(patches, never()).deleteByPatchidAndUserid(any(), any());
+    }
+
+    @Test
+    void surfacesStorageFailureWithoutDeletingPatchRecord() {
+        when(users.findByAlias("listener")).thenReturn(Optional.of(user(true)));
+        Patch patch = new Patch(7L, "Artist", "Bass", null,
+                "bass.thor", ".thor", 3L, "s3://tracks/patches/bass");
+        when(patches.findById(4L)).thenReturn(Optional.of(patch));
+        var failure = new IllegalStateException("Storage unavailable");
+        doThrow(failure).when(storage).delete(patch.getPatchUri());
+
+        assertEquals(failure, assertThrows(IllegalStateException.class,
+                () -> controller.deletePatch(authentication, 4L)));
+        verify(patches, never()).deleteByPatchidAndUserid(any(), any());
     }
 
     @Test

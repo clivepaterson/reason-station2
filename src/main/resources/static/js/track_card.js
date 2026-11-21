@@ -124,6 +124,21 @@
         return filename + (track.programVersion ? ' (Reason ' + track.programVersion + ')' : '');
     };
 
+    window.createDeleteCardButton = function(kind, id) {
+        var button = document.createElement('button');
+        button.className = 'delete-' + kind + '-button';
+        button.type = 'button';
+        button.dataset[kind + 'Id'] = id;
+        button.setAttribute('aria-label', 'Delete ' + kind);
+        button.title = 'Delete ' + kind;
+
+        var icon = document.createElement('img');
+        icon.src = '/images/trash-can.svg';
+        icon.alt = '';
+        button.appendChild(icon);
+        return button;
+    };
+
     window.createTrackCard = function(track, options) {
         options = options || {};
 
@@ -217,18 +232,7 @@
         item.appendChild(actions);
 
         if (options.deletable) {
-            var deleteButton = document.createElement('button');
-            deleteButton.className = 'delete-track-button';
-            deleteButton.type = 'button';
-            deleteButton.dataset.trackId = track.trackid;
-            deleteButton.setAttribute('aria-label', 'Delete track');
-            deleteButton.title = 'Delete track';
-
-            var deleteIcon = document.createElement('img');
-            deleteIcon.src = '/images/trash-can.svg';
-            deleteIcon.alt = '';
-            deleteButton.appendChild(deleteIcon);
-            item.appendChild(deleteButton);
+            item.appendChild(window.createDeleteCardButton('track', track.trackid));
         }
 
         return item;

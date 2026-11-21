@@ -119,6 +119,9 @@ public class SecurityConfig {
                                 new XFrameOptionsHeaderWriter(XFrameOptionsHeaderWriter.XFrameOptionsMode.DENY))))
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
+                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                                PathPatternRequestMatcher.withDefaults().matcher("/api/me"))
+                        .defaultAuthenticationEntryPointFor(
                                 new HttpStatusEntryPoint(HttpStatus.NOT_FOUND), ADMIN_REQUESTS)
                         .defaultAccessDeniedHandlerFor((request, response, exception) ->
                                 response.sendError(HttpServletResponse.SC_NOT_FOUND), ADMIN_REQUESTS))

@@ -2,15 +2,22 @@ package org.reasonstation.repository;
 
 import org.reasonstation.entity.Patch;
 import org.springframework.data.jdbc.repository.query.Query;
+import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface PatchRepository extends CrudRepository<Patch, Long> {
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM patches WHERE patchid = :patchid AND userid = :userid")
+    void deleteByPatchidAndUserid(@Param("patchid") Long patchid, @Param("userid") Long userid);
+
     List<Patch> findByUseridOrderByDateUploadedDesc(Long userid);
 
     List<Patch> findByArtistAliasOrderByDateUploadedDesc(String artistAlias);

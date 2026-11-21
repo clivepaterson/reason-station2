@@ -19,11 +19,13 @@
 <script src="../../main/resources/static/js/style_icons.js"></script>
 <script src="../../main/resources/static/js/track_card.js"></script>
 <script src="../../main/resources/static/js/patch_card.js"></script>
+<script src="../../main/resources/static/js/auth.js"></script>
 <script src="../../main/resources/static/js/pages/my_tracks.js"></script>
 <script>
     (async function() {
         var assertions = 0;
         var originalFetch = window.fetch;
+        var originalConfirm = window.confirm;
         var requests = [];
         var rejectSave = false;
         var finishSave;
@@ -58,6 +60,15 @@
             document.getElementById(id).files = files.files;
         }
         try {
+            assert(!window.createPatchCard(patch).querySelector('.delete-patch-button'),
+                'Public patch cards do not offer deletion');
+            var deletePatch = window.createPatchCard(patch, {deletable: true})
+                .querySelector('.delete-patch-button');
+            assert(deletePatch.type === 'button' && deletePatch.dataset.patchId === '2'
+                && deletePatch.getAttribute('aria-label') === 'Delete patch'
+                && deletePatch.title === 'Delete patch'
+                && deletePatch.querySelector('img').getAttribute('src') === '/images/trash-can.svg',
+                'Deletable patch cards have an accessible trash button matching tracks');
             assert(window.createTrackArt({
                 trackid: 1, trackName: 'Legacy', imageUri: 's3://tracks/cover'
             }).getAttribute('src') === '/api/tracks/1/image',
@@ -139,6 +150,8 @@
                 'My Tracks uses patch artwork URLs from its feed without a patch image redirect');
             assert($('.edit-track-button').length === 1 && $('.edit-patch-button').length === 1,
                 'Owner lists have edit buttons');
+            assert($('#my-patches-list .delete-patch-button').length === 1,
+                'Owner patch lists offer deletion');
             $('.edit-track-button')[0].click();
             assert(!$('#upload-track-form').is('[hidden]'), 'Track edit opens dialog');
             assert($('#artist-alias').val() === track.artistAlias
@@ -284,9 +297,68 @@
                 'Network failures are shown in the upload list');
             $('#uploading-items .error .upload-cancel-button')[0].click();
             assert($('#uploading-list').is('[hidden]'), 'Failed upload messages can be dismissed');
+            var deleteRequests = [];
+            var finishDelete;
+            window.fetch = function(url, options) {
+                assert(options.method === 'DELETE', 'Deletion uses DELETE');
+                deleteRequests.push(url);
+                return new Promise(function(resolve, reject) {
+                    finishDelete = function(ok, networkError) {
+                        if (networkError) {
+                            reject(new Error('Network unavailable'));
+                        } else {
+                            resolve(response(null, ok));
+                        }
+                    };
+                });
+            };
+            window.confirm = function(message) {
+                assert(message === 'Delete "Updated patch"? This cannot be undone.',
+                    'Patch deletion confirms the patch name and irreversible action');
+                return false;
+            };
+            $('#my-patches-list .delete-patch-button')[0].click();
+            assert(deleteRequests.length === 0 && $('#my-patches-list .patch-card').length === 1,
+                'Cancelling patch deletion leaves the card untouched');
+            window.confirm = function() { return true; };
+            $('#my-patches-list .delete-patch-button')[0].click();
+            assert(deleteRequests[0] === '/api/patches/2'
+                && $('#my-patches-list .delete-patch-button').prop('disabled')
+                && $('#my-patches-list .delete-patch-button').attr('aria-label') === 'Deleting patch',
+                'Patch deletion targets its endpoint and disables the button while pending');
+            finishDelete(false);
+            await tick();
+            assert($('#my-patches-list .patch-card').length === 1
+                && !$('#my-patches-list .delete-patch-button').prop('disabled')
+                && $('#my-patches-list .delete-patch-button').attr('aria-label') === 'Delete patch'
+                && $('#my-patches-list .delete-error').text() === 'Unable to delete this patch.',
+                'Failed deletion preserves the patch and offers retry with an error');
+            $('#my-patches-list .delete-patch-button')[0].click();
+            finishDelete(false, true);
+            await tick();
+            assert($('#my-patches-list .delete-error').length === 1
+                && $('#my-patches-list .delete-error').text() === 'Network unavailable'
+                && !$('#my-patches-list .delete-patch-button').prop('disabled'),
+                'Network errors restore deletion and replace the previous error');
+            $('#my-patches-list .delete-patch-button')[0].click();
+            finishDelete(true);
+            await tick();
+            assert(!$('#my-patches-list .patch-card').length
+                && $('#my-patches-list').text() === 'You have not uploaded any patches yet.',
+                'Successful deletion removes the patch and displays the empty state');
+            $('#tracks-list .delete-track-button')[0].click();
+            assert(deleteRequests[3] === '/api/tracks/1', 'Track deletion retains its endpoint');
+            finishDelete(true);
+            await tick();
+            assert(!$('#tracks-list .track-card').length
+                && $('#tracks-list').text() === 'You have not uploaded any tracks yet.',
+                'Track deletion retains its card removal and empty state');
             document.getElementById('results').textContent = 'PASS: ' + assertions + ' assertions';
         } catch (error) {
             document.getElementById('results').textContent = 'FAIL: ' + error.stack;
+        } finally {
+            window.fetch = originalFetch;
+            window.confirm = originalConfirm;
         }
     }());
 </script>
